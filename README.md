@@ -39,6 +39,10 @@ This public repository is used for public-facing project information. The main d
 
 ## Project Updates
 
+### 2026-07-10 - Version 0.1.8: VieNeu-TTS v3 Upstream Update
+
+LA Studio version 0.1.8 updates [VieNeu-TTS-v3-Turbo](https://huggingface.co/pnnbao-ump/VieNeu-TTS-v3-Turbo) support to follow the latest changes from the original author, including updated reference/denoise options and improved native runtime integration. This release also improves TTS cancellation, audio playback controls, model setup guidance, and backend thread management.
+
 ### 2026-07-03 - Version 0.1.7: Kokoro Vietnamese Support
 
 LA Studio version 0.1.7 supports Vietnamese text-to-speech using the fine-tuned Kokoro-82M model. Special thanks to **iamdinhthuan** for the original [Kokoro-Vietnamese](https://github.com/iamdinhthuan/Kokoro-Vietnamese) repository and model training.
