@@ -21,7 +21,7 @@ Run private AI audio workflows locally: speech recognition, voice generation, vo
 
 <br>
 
-[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0.html)
+[![License: AGPL-3.0-only](https://img.shields.io/badge/License-AGPL--3.0--only-blue.svg)](https://www.gnu.org/licenses/agpl-3.0.html)
 [![Facebook Group](https://img.shields.io/badge/Facebook-Group-1877F2?style=flat&logo=facebook&logoColor=white)](https://www.facebook.com/groups/lastudio.community.vn)
 [![Facebook Chat](https://img.shields.io/badge/Facebook-Chat-1877F2?style=flat&logo=messenger&logoColor=white)](https://m.me/ch/AbZaLPyeBxvQ_kLb/)
 <!--
@@ -309,7 +309,7 @@ Runtime packages and model files may have their own licenses, terms, and attribu
 
 ## License
 
-LA Studio is free and open-source software under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
+LA Studio is free and open-source software under the **GNU Affero General Public License v3.0 only (AGPL-3.0-only)**.
 
 You may use LA Studio for personal, educational, research, internal business, and commercial creative work, including selling audio, voiceovers, dubbing, audiobooks, or other media produced with the app.
 
