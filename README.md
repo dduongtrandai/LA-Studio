@@ -39,6 +39,10 @@ This public repository is used for public-facing project information. The main d
 
 ## Project Updates
 
+### 2026-07-14 - Version 0.1.9: Voice Isolator Support
+
+LA Studio version 0.1.9 begins support for **Voice Isolator**, a local source-separation workflow for extracting vocal and background stems from audio or video files. The new studio supports sherpa-onnx separation models, including UVR-MDX-NET Vocals and Spleeter two-stem models, with progress reporting, waveform previews, playback, and stem export. Processing remains fully offline on the user's machine.
+
 ### 2026-07-10 - Version 0.1.8: VieNeu-TTS v3 Upstream Update
 
 LA Studio version 0.1.8 updates [VieNeu-TTS-v3-Turbo](https://huggingface.co/pnnbao-ump/VieNeu-TTS-v3-Turbo) support to follow the latest changes from the original author, including updated reference/denoise options and improved native runtime integration. This release also improves TTS cancellation, audio playback controls, model setup guidance, and backend thread management.
@@ -63,6 +67,7 @@ LA Studio supports NVIDIA Nemotron-3.5 ASR Streaming 0.6B for local multilingual
 | Text-to-Speech Studio | Generate natural speech from text with configurable model parameters and audio preview. |
 | Voice Cloning | Create speech from a reference voice sample for local zero-shot voice cloning workflows. |
 | Voice Design | Generate or shape voices from descriptive text prompts when supported by the selected model. |
+| Voice Isolator | Separate vocals and background audio into two stems from local audio or video files. |
 | Models Gallery | Browse curated model families, inspect required files, download assets, and manage local model availability. |
 | Runtime Management | Install, validate, and select compatible CPU, CUDA, Vulkan, or other runtime packages. |
 | Offline Privacy | Keep audio, prompts, generated speech, and model inference on the user's machine. |
