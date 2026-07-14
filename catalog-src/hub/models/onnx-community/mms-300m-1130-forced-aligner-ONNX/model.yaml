@@ -1,0 +1,234 @@
+model: onnx-community/mms-300m-1130-forced-aligner-ONNX
+base:
+  - key: alignment-graph
+    role: model
+    name: Alignment Graph
+    purpose: ONNX acoustic model that emits CTC logits for forced alignment.
+    defaultFile: onnx/model_int8.onnx
+    sources:
+      - type: huggingface
+        user: onnx-community
+        repo: mms-300m-1130-forced-aligner-ONNX
+        files:
+          - name: onnx/model_int8.onnx
+            size: 317 MB
+            quant: int8
+            tags: [int8, cpu]
+          - name: onnx/model_fp16.onnx
+            size: 632 MB
+            quant: fp16
+            tags: [fp16, cuda]
+          - name: onnx/model.onnx
+            size: 1.26 GB
+            quant: fp32
+            tags: [fp32, reference]
+  - key: config
+    role: config
+    name: Model Config
+    purpose: Model architecture and label configuration.
+    defaultFile: config.json
+    sources:
+      - type: huggingface
+        user: onnx-community
+        repo: mms-300m-1130-forced-aligner-ONNX
+        files:
+          - name: config.json
+  - key: preprocessor
+    role: preprocessor
+    name: Preprocessor Config
+    purpose: Audio feature extraction configuration.
+    defaultFile: preprocessor_config.json
+    sources:
+      - type: huggingface
+        user: onnx-community
+        repo: mms-300m-1130-forced-aligner-ONNX
+        files:
+          - name: preprocessor_config.json
+  - key: tokenizer
+    role: tokenizer
+    name: Tokenizer Config
+    purpose: Tokenizer behavior used to map transcript symbols to model labels.
+    defaultFile: tokenizer_config.json
+    sources:
+      - type: huggingface
+        user: onnx-community
+        repo: mms-300m-1130-forced-aligner-ONNX
+        files:
+          - name: tokenizer_config.json
+  - key: special-tokens
+    role: special_tokens
+    name: Special Tokens
+    purpose: Special token mapping for tokenizer setup.
+    defaultFile: special_tokens_map.json
+    sources:
+      - type: huggingface
+        user: onnx-community
+        repo: mms-300m-1130-forced-aligner-ONNX
+        files:
+          - name: special_tokens_map.json
+  - key: vocab
+    role: vocab
+    name: Vocabulary
+    purpose: Character vocabulary for CTC alignment.
+    defaultFile: vocab.json
+    sources:
+      - type: huggingface
+        user: onnx-community
+        repo: mms-300m-1130-forced-aligner-ONNX
+        files:
+          - name: vocab.json
+  - key: ggml-org/silero-vad
+    role: vad
+    name: Voice Activity Detection
+    purpose: Detects speech regions before automatic transcription and alignment.
+    defaultFile: ggml-silero-v6.2.0.bin
+    sources:
+      - type: huggingface
+        user: ggml-org
+        repo: whisper-vad
+        files:
+          - name: ggml-silero-v6.2.0.bin
+            size: 1 MB
+metadataOverrides:
+  domain: stt
+  architectures:
+    - mms
+    - wav2vec2
+    - ctc
+  compatibilityTypes:
+    - onnx
+  paramsStrings:
+    - 300M
+  capabilities:
+    - forced-alignment
+  vision: false
+laStudio:
+  id: mms-forced-aligner-onnx
+  type: stt
+  localDir: mms-forced-aligner-onnx
+  shortName: MMS
+  title: MMS Forced Aligner ONNX
+  subtitle: Transcript-to-audio alignment with ONNX MMS 300M
+  description: ONNX export of the MMS 300M forced aligner for matching an existing transcript to audio and producing word or character timestamps. The upstream license is CC BY-NC 4.0, so this catalog entry is for non-commercial local use unless a separate commercial license is obtained.
+  accent: "#27a99a"
+  capabilities:
+    - forced-alignment
+  tags:
+    - ONNX
+    - Forced Alignment
+    - CTC
+    - Timestamps
+    - Non-commercial
+  strengths:
+    - Supports forced alignment across the MMS language set.
+    - Separates alignment from transcription, which fits dubbing and subtitle workflows.
+    - ONNX format allows a dedicated CPU or CUDA runtime package later.
+  weaknesses:
+    - Requires a dedicated alignment runtime; generic ONNX Runtime is not enough for end-to-end export.
+    - Non-commercial upstream license limits paid distribution and commercial plugin packaging.
+    - Quantized variants must be validated before enabling them as production defaults.
+  supportedLanguageCount: 158
+  featuredLanguages:
+    - text: English
+      value: eng
+    - text: Vietnamese
+      value: vie
+    - text: Chinese
+      value: cmn
+    - text: Japanese
+      value: jpn
+    - text: Korean
+      value: kor
+    - text: French
+      value: fra
+    - text: Spanish
+      value: spa
+    - text: German
+      value: deu
+    - text: Portuguese
+      value: por
+    - text: Russian
+      value: rus
+  parameterDefinitions:
+    language:
+      name: Language
+      type: string
+      default: vie
+      description: ISO 639-3 language code used by the MMS aligner.
+    timestamp_unit:
+      name: Timestamp Unit
+      type: choice
+      default: word
+      description: Unit used for exported alignment spans.
+      options:
+        - text: Word
+          value: word
+        - text: Character
+          value: character
+    output_format:
+      name: Output Format
+      type: choice
+      default: json
+      description: Export format for alignment results.
+      options:
+        - text: JSON
+          value: json
+        - text: SRT
+          value: srt
+        - text: WebVTT
+          value: webvtt
+    normalize_transcript:
+      name: Normalize Transcript
+      type: bool
+      default: true
+      description: Normalize transcript text before alignment.
+  runtimes:
+    - id: mms-aligner-win-x86_64-cpu
+      engineFamily: mms-aligner
+      label: CPU
+      name: CPU MMS Aligner (x64)
+      asset: mms-aligner-win-x86_64-cpu.zip
+      kind: process
+      entrypoint: mms-aligner.exe
+      protocolVersion: "1"
+      capabilities: [forced-alignment]
+      modelFormats: [onnx]
+      version: v0.1.0
+      source: https://github.com/dduongtrandai/mms-aligner-runtime/releases/download/
+      sha256: ca5a992b08671d835c802a01c0e701fd278797f0ba78bd683a350450b209ab63
+      size: 36793485
+      type: alignment
+      backend: mms-aligner
+      pipelineProfile: mms-ctc-onnx
+    - id: mms-aligner-win-x86_64-cuda-12
+      engineFamily: mms-aligner
+      label: CUDA 12
+      name: CUDA 12 MMS Aligner (x64)
+      asset: mms-aligner-win-cuda-12.zip
+      kind: process
+      entrypoint: mms-aligner.exe
+      protocolVersion: "1"
+      capabilities: [forced-alignment]
+      modelFormats: [onnx]
+      version: v0.1.0
+      source: https://github.com/dduongtrandai/mms-aligner-runtime/releases/download/
+      type: alignment
+      backend: mms-aligner
+      pipelineProfile: mms-ctc-onnx
+      disabledReason: CUDA alignment runtime is not supported in Phase 2.
+  studio:
+    forced-alignment:
+      layout: alignment
+      action: align
+      inputs:
+        - audio
+        - transcript
+        - language
+      requiredInputs:
+        - audio
+        - transcript
+      parameters:
+        - language
+        - timestamp_unit
+        - output_format
+        - normalize_transcript

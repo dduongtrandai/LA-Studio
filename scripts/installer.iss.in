@@ -1,0 +1,40 @@
+; Inno Setup template for LA Studio. CMake generates installer.iss per build.
+; See https://jrsoftware.org/isinfo.php for details
+
+[Setup]
+AppName=LA Studio
+AppVersion=@PROJECT_VERSION@
+AppPublisher=Tran Dai Duong
+AppPublisherURL=https://github.com/dduongtrandai/LA-Studio
+AppSupportURL=https://github.com/dduongtrandai/LA-Studio/issues
+AppUpdatesURL=https://github.com/dduongtrandai/LA-Studio/releases
+DefaultDirName={autopf}\LA Studio
+DefaultGroupName=LA Studio
+DisableProgramGroupPage=yes
+; LicenseFile=../LICENSE
+OutputDir=@LASTUDIO_INSTALLER_OUTPUT_DIR@
+OutputBaseFilename=LA-Studio-Setup
+Compression=lzma2
+SolidCompression=yes
+WizardStyle=modern
+UninstallDisplayIcon={app}\bin\LA Studio.exe
+SetupIconFile=@LASTUDIO_INSTALLER_ICON_FILE@
+ArchitecturesAllowed=x64
+ArchitecturesInstallIn64BitMode=x64
+
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
+
+[Tasks]
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+
+[Files]
+Source: "@LASTUDIO_INSTALLER_STAGE_DIR@\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs
+
+[Icons]
+Name: "{group}\LA Studio"; Filename: "{app}\bin\LA Studio.exe"
+Name: "{autodesktop}\LA Studio"; Filename: "{app}\bin\LA Studio.exe"; Tasks: desktopicon
+
+[Run]
+Filename: "{app}\bin\LA Studio.exe"; Description: "{cm:LaunchProgram,LA Studio}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\bin\LA Studio.exe"; Flags: nowait skipifnotsilent

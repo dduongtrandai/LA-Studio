@@ -1,0 +1,133 @@
+model: contextboxai/Kokoro-Vietnamese
+base:
+  - key: contextboxai/kokoro-vietnamese-onnx
+    role: model
+    name: Kokoro Vietnamese ONNX
+    purpose: ONNX acoustic model for Vietnamese Kokoro TTS
+    defaultFile: kokoro_vi.onnx
+    sources:
+      - type: huggingface
+        user: contextboxai
+        repo: Kokoro-Vietnamese
+        files:
+          - name: kokoro_vi.onnx
+            size: 326 MB
+  - key: contextboxai/kokoro-vietnamese-config
+    role: config
+    name: Kokoro Vietnamese Config
+    purpose: Kokoro vocab and model configuration
+    defaultFile: config.json
+    sources:
+      - type: huggingface
+        user: contextboxai
+        repo: Kokoro-Vietnamese
+        files:
+          - name: config.json
+            size: 3 KB
+  - key: contextboxai/kokoro-vietnamese-voices
+    role: voices
+    name: Kokoro Vietnamese Voices Metadata
+    purpose: Upstream preset voice list. The native runtime uses converted .bin voicepacks packaged with the runtime.
+    defaultFile: voices.json
+    sources:
+      - type: huggingface
+        user: contextboxai
+        repo: Kokoro-Vietnamese
+        files:
+          - name: voices.json
+            size: 2 KB
+metadataOverrides:
+  domain: tts
+  architectures:
+    - kokoro
+    - styletts2
+  compatibilityTypes:
+    - onnx
+    - native-runtime
+  paramsStrings:
+    - 82M
+  capabilities:
+    - tts
+  vision: false
+config:
+  operation:
+    fields:
+      - key: tts.language
+        value: vi
+laStudio:
+  id: kokoro-vietnamese
+  type: tts
+  localDir: kokoro-vietnamese
+  shortName: KOVI
+  title: Kokoro Vietnamese
+  subtitle: Vietnamese Kokoro TTS via native ONNX runtime
+  description: Fine-tuned Vietnamese Kokoro TTS packaged for LA Studio with a native Windows CPU runtime, ONNX Runtime inference, and bundled vig2p sidecar phonemization.
+  accent: "#2f9e8f"
+  capabilities:
+    - tts
+  supportsTts: true
+  supportsCloning: false
+  tags:
+    - ONNX
+    - Native
+    - Vietnamese
+    - Preset Voices
+    - CPU
+  strengths:
+    - Native C ABI runtime for LA Studio
+    - Vietnamese G2P handled inside the runtime package
+    - Preset Vietnamese voicepacks bundled as runtime assets
+    - 24 kHz mono float PCM output
+  weaknesses:
+    - Windows x64 CPU only in v0.1.0
+    - Preset voices only
+  supportedLanguages:
+    - text: Vietnamese (vi)
+      value: vi
+  parameterDefinitions:
+    voice:
+      name: Voice
+      type: choice
+      description: Select a bundled Kokoro-Vietnamese preset voice.
+    crossfade_ms:
+      name: Crossfade
+      type: int
+      min: 0
+      max: 250
+      default: 50
+      description: Crossfade in milliseconds between generated sentence chunks.
+      advanced: true
+    max_phonemes:
+      name: Max Phonemes
+      type: int
+      min: 64
+      max: 510
+      default: 510
+      description: Maximum phonemes per chunk before runtime splitting.
+      advanced: true
+  runtimes:
+    - id: kokoro-vietnamese-win-x86_64-cpu
+      engineFamily: kokoro-vietnamese
+      backend: kokoro-vietnamese
+      pipelineProfile: kokoro-vietnamese-native-onnx
+      label: CPU
+      name: CPU Kokoro-Vietnamese Runtime (x64)
+      asset: kokoro-vietnamese-win-x86_64-cpu.zip
+      library: bin/kokoro-vietnamese.dll
+      version: v0.1.0
+      source: https://github.com/dduongtrandai/Kokoro-Vietnamese.cpp/releases/download/
+      modelVersion: v0.1.0
+      metadata:
+        runtimeRepository: https://github.com/dduongtrandai/Kokoro-Vietnamese.cpp
+        upstreamRepository: https://github.com/iamdinhthuan/Kokoro-Vietnamese
+        releaseUrl: https://github.com/dduongtrandai/Kokoro-Vietnamese.cpp/releases/tag/v0.1.0
+  studio:
+    tts:
+      layout: tts
+      action: synthesize
+      inputs:
+        - text
+      parameters:
+        - voice
+        - crossfade_ms
+        - max_phonemes

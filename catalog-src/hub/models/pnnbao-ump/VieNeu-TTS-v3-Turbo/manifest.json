@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "lastudio-community/VieNeu-TTS-v3-Turbo-CPP",
+  "publisher": "lastudio-community",
+  "name": "VieNeu-TTS-v3-Turbo-CPP",
+  "title": "VieNeu-TTS v3 Turbo",
+  "task": "text-to-speech",
+  "source": "https://huggingface.co/lastudio-community/VieNeu-TTS-v3-Turbo-CPP",
+  "license": "apache-2.0",
+  "runtimeFormat": "gguf+npz+onnx-codec",
+  "downloadSources": [
+    "lastudio-community/VieNeu-TTS-v3-Turbo-CPP"
+  ]
+}

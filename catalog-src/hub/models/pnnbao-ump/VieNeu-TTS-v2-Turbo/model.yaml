@@ -1,0 +1,186 @@
+model: pnnbao-ump/VieNeu-TTS-v2-Turbo
+base:
+  - key: pnnbao-ump/vieneu-tts-v2-turbo-gguf
+    role: model
+    name: Backbone GGUF Model
+    purpose: Core language/speech representation model
+    defaultFile: vieneu-tts-v2-turbo.gguf
+    sources:
+      - type: huggingface
+        user: pnnbao-ump
+        repo: VieNeu-TTS-v2-Turbo-GGUF
+        files:
+          - name: vieneu-tts-v2-turbo.gguf
+            size: 357 MB
+  - key: pnnbao-ump/vieneu-codec-encoder
+    role: encoder
+    name: Speaker Encoder ONNX
+    purpose: Extracts 128-dimensional speaker embedding from reference audio
+    defaultFile: vieneu_encoder.onnx
+    sources:
+      - type: huggingface
+        user: pnnbao-ump
+        repo: VieNeu-Codec
+        files:
+          - name: vieneu_encoder.onnx
+            size: 16.7 MB
+  - key: pnnbao-ump/vieneu-codec-decoder
+    role: decoder
+    name: Neural Decoder ONNX
+    purpose: Synthesizes PCM waveform from speech tokens and speaker embedding
+    defaultFile: vieneu_decoder.onnx
+    sources:
+      - type: huggingface
+        user: pnnbao-ump
+        repo: VieNeu-Codec
+        files:
+          - name: vieneu_decoder.onnx
+            size: 78.2 MB
+  - key: pnnbao-ump/vieneu-tts-v2-turbo-voices
+    role: voices
+    name: Preset Voices JSON
+    purpose: Provides configuration for default speaker voices
+    defaultFile: voices.json
+    sources:
+      - type: huggingface
+        user: pnnbao-ump
+        repo: VieNeu-TTS-v2-Turbo-GGUF
+        files:
+          - name: voices.json
+            size: 20 KB
+metadataOverrides:
+  domain: tts
+  architectures:
+    - vieneu-tts
+  compatibilityTypes:
+    - gguf
+  paramsStrings:
+    - 300M
+  capabilities:
+    - tts
+    - voice-cloning
+  vision: false
+laStudio:
+  id: vieneu-tts-v2-turbo
+  type: tts
+  localDir: vieneu-tts-v2-turbo
+  shortName: VN
+  title: VieNeu-TTS v2 Turbo
+  subtitle: Bilingual Vietnamese-English TTS & cloning
+  description: A lightweight, C++ bilingual Vietnamese-English TTS and voice cloning engine optimized for CPU execution.
+  accent: "#ff9100"
+  capabilities:
+    - tts
+    - voice-cloning
+  supportsTts: true
+  supportsCloning: true
+  tags:
+    - GGUF
+    - Bilingual
+    - Zero-Shot Cloning
+    - CPU Optimized
+  strengths:
+    - Offline execution
+    - High-speed CPU synthesis
+    - Seamless En-Vi code-switching
+    - 3-5s Zero-shot cloning
+  weaknesses:
+    - Slightly unstable on extremely short phrases under 5 words
+  supportedLanguages:
+    - text: Vietnamese (vi)
+      value: vi
+    - text: English (en)
+      value: en
+  parameterDefinitions:
+    voice:
+      name: Voice
+      type: choice
+      description: Select a voice preset from voices.json.
+    temperature:
+      name: Temperature
+      type: float
+      min: 0.1
+      max: 2.0
+      default: 0.4
+      description: "Randomness of generation. Recommended: 0.3 - 0.5."
+    top_k:
+      name: Top K
+      type: int
+      min: 1
+      max: 100
+      default: 50
+      description: Limit vocabulary selection to top K candidates.
+    max_chars:
+      name: Max Chars
+      type: int
+      min: 50
+      max: 1000
+      default: 256
+      description: Maximum characters per text segment.
+      advanced: true
+    max_tokens:
+      name: Max Tokens
+      type: int
+      min: 128
+      max: 4096
+      default: 2048
+      description: Maximum tokens generated per chunk.
+      advanced: true
+    skip_normalize:
+      name: Skip Normalization
+      type: bool
+      default: false
+      description: Bypass text normalization.
+      advanced: true
+    skip_phonemize:
+      name: Skip Phonemization
+      type: bool
+      default: false
+      description: Assume input text is already phonemes.
+      advanced: true
+    apply_watermark:
+      name: Apply Watermark
+      type: bool
+      default: true
+      description: Apply invisible watermark to output audio.
+      advanced: true
+  runtimes:
+    - id: vieneu-tts-win-x86_64-cpu
+      engineFamily: vieneu-tts
+      backend: vieneu-tts
+      pipelineProfile: vieneu-turbo
+      label: CPU
+      name: CPU VieNeu-TTS.cpp (x64)
+      asset: vieneu-tts-win-cpu.zip
+      library: vieneu-tts.dll
+      version: v0.1.2
+      source: https://github.com/dduongtrandai/VieNeu-TTS.cpp/releases/download/
+  studio:
+    tts:
+      layout: tts
+      action: synthesize
+      inputs:
+        - text
+      parameters:
+        - voice
+        - temperature
+        - top_k
+        - max_chars
+        - max_tokens
+        - skip_normalize
+        - skip_phonemize
+        - apply_watermark
+    voice-cloning:
+      layout: voice-cloning
+      action: clone
+      inputs:
+        - text
+        - ref_audio
+      parameters:
+        - temperature
+        - top_k
+        - max_chars
+        - max_tokens
+        - skip_normalize
+        - skip_phonemize
+        - apply_watermark

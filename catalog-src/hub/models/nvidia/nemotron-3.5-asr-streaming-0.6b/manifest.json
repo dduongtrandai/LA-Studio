@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "nvidia/nemotron-3.5-asr-streaming-0.6b",
+  "publisher": "nvidia",
+  "name": "nemotron-3.5-asr-streaming-0.6b",
+  "title": "Nemotron-3.5 ASR Streaming 0.6B",
+  "task": "speech-to-text",
+  "source": "https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b",
+  "license": "openmdw-1.1",
+  "runtimeFormat": "gguf",
+  "downloadSources": [
+    "cstr/nemotron-3.5-asr-streaming-0.6b-GGUF"
+  ]
+}

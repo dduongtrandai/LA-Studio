@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "openbmb/VoxCPM2",
+  "publisher": "openbmb",
+  "name": "VoxCPM2",
+  "title": "VoxCPM2",
+  "task": "text-to-speech",
+  "source": "https://huggingface.co/openbmb/VoxCPM2",
+  "license": "apache-2.0",
+  "runtimeFormat": "gguf",
+  "downloadSources": [
+    "cstr/voxcpm2-GGUF"
+  ]
+}

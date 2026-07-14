@@ -1,0 +1,232 @@
+model: microsoft/VibeVoice-Realtime-0.5B
+base:
+  - key: cstr/vibevoice-realtime-0.5b-gguf
+    role: model
+    name: VibeVoice Realtime Model
+    purpose: Realtime TTS model with embedded tokenizer and decoder tensors
+    defaultFile: vibevoice-realtime-0.5b-q4_k.gguf
+    sources:
+      - type: huggingface
+        user: cstr
+        repo: vibevoice-realtime-0.5b-GGUF
+        files:
+          - name: vibevoice-realtime-0.5b-q4_k.gguf
+            size: 607 MB
+            quant: Q4_K
+          - name: vibevoice-realtime-0.5b-q8_0.gguf
+            size: 1.1 GB
+            quant: Q8_0
+          - name: vibevoice-realtime-0.5b-tts-f16.gguf
+            size: 2.0 GB
+            quant: F16
+  - key: cstr/vibevoice-realtime-voices
+    role: voice
+    name: VibeVoice Voice Pack
+    purpose: Required preset voice prompt GGUF
+    defaultFile: vibevoice-voice-emma.gguf
+    sources:
+      - type: huggingface
+        user: cstr
+        repo: vibevoice-realtime-0.5b-GGUF
+        files:
+          - name: vibevoice-voice-de-Spk0_man.gguf
+            speaker: Spk0 (Male)
+            language: German
+          - name: vibevoice-voice-de-Spk1_woman.gguf
+            speaker: Spk1 (Female)
+            language: German
+          - name: vibevoice-voice-emma.gguf
+            size: 2-6 MB
+            speaker: Emma (Female)
+            language: English (alias of en-Emma_woman)
+          - name: vibevoice-voice-en-Carter_man.gguf
+            speaker: Carter (Male)
+            language: English
+          - name: vibevoice-voice-en-Davis_man.gguf
+            speaker: Davis (Male)
+            language: English
+          - name: vibevoice-voice-en-Emma_woman.gguf
+            speaker: Emma (Female)
+            language: English
+          - name: vibevoice-voice-en-Frank_man.gguf
+            speaker: Frank (Male)
+            language: English
+          - name: vibevoice-voice-en-Grace_woman.gguf
+            speaker: Grace (Female)
+            language: English
+          - name: vibevoice-voice-en-Mike_man.gguf
+            speaker: Mike (Male)
+            language: English
+          - name: vibevoice-voice-fr-Spk0_man.gguf
+            speaker: Spk0 (Male)
+            language: French
+          - name: vibevoice-voice-fr-Spk1_woman.gguf
+            speaker: Spk1 (Female)
+            language: French
+          - name: vibevoice-voice-in-Samuel_man.gguf
+            speaker: Samuel (Male)
+            language: Indian English
+          - name: vibevoice-voice-it-Spk0_woman.gguf
+            speaker: Spk0 (Female)
+            language: Italian
+          - name: vibevoice-voice-it-Spk1_man.gguf
+            speaker: Spk1 (Male)
+            language: Italian
+          - name: vibevoice-voice-jp-Spk0_man.gguf
+            speaker: Spk0 (Male)
+            language: Japanese
+          - name: vibevoice-voice-jp-Spk1_woman.gguf
+            speaker: Spk1 (Female)
+            language: Japanese
+          - name: vibevoice-voice-kr-Spk0_woman.gguf
+            speaker: Spk0 (Female)
+            language: Korean
+          - name: vibevoice-voice-kr-Spk1_man.gguf
+            speaker: Spk1 (Male)
+            language: Korean
+          - name: vibevoice-voice-nl-Spk0_man.gguf
+            speaker: Spk0 (Male)
+            language: Dutch
+          - name: vibevoice-voice-nl-Spk1_woman.gguf
+            speaker: Spk1 (Female)
+            language: Dutch
+          - name: vibevoice-voice-pl-Spk0_man.gguf
+            speaker: Spk0 (Male)
+            language: Polish
+          - name: vibevoice-voice-pl-Spk1_woman.gguf
+            speaker: Spk1 (Female)
+            language: Polish
+          - name: vibevoice-voice-pt-Spk0_woman.gguf
+            speaker: Spk0 (Female)
+            language: Portuguese
+          - name: vibevoice-voice-pt-Spk1_man.gguf
+            speaker: Spk1 (Male)
+            language: Portuguese
+          - name: vibevoice-voice-sp-Spk0_woman.gguf
+            speaker: Spk0 (Female)
+            language: Spanish
+          - name: vibevoice-voice-sp-Spk1_man.gguf
+            speaker: Spk1 (Male)
+            language: Spanish
+metadataOverrides:
+  domain: tts
+  architectures:
+    - vibevoice
+  compatibilityTypes:
+    - gguf
+  paramsStrings:
+    - 500M
+  capabilities:
+    - tts
+  vision: false
+laStudio:
+  id: vibevoice
+  type: tts
+  localDir: vibevoice
+  shortName: VV
+  title: VibeVoice
+  subtitle: Realtime TTS with preset voice packs
+  description: Microsoft VibeVoice Realtime 0.5B packaged as CrispASR GGUF for low-latency local text-to-speech with selectable preset voice prompts.
+  accent: "#00a6a6"
+  capabilities:
+    - tts
+  supportsTts: true
+  supportsCloning: false
+  tags:
+    - GGUF
+    - Realtime Speed
+    - Low RAM
+    - Preset Voices
+  strengths:
+    - Recommended Q4_K model is about 607 MB
+    - Voice prompts are small GGUF packs
+    - Runs through the shared CrispASR runtime
+  weaknesses:
+    - Realtime 0.5B uses preset voice packs, not dynamic WAV cloning
+    - Fewer generation controls than larger VibeVoice variants
+  supportedLanguages:
+    - text: English (en)
+      value: en
+    - text: German (de)
+      value: de
+    - text: French (fr)
+      value: fr
+    - text: Italian (it)
+      value: it
+    - text: Japanese (ja)
+      value: ja
+    - text: Korean (ko)
+      value: ko
+    - text: Dutch (nl)
+      value: nl
+    - text: Polish (pl)
+      value: pl
+    - text: Portuguese (pt)
+      value: pt
+    - text: Spanish (es)
+      value: es
+  parameterDefinitions:
+    n_diffusion_steps:
+      name: Diffusion Steps
+      type: int
+      min: 4
+      max: 100
+      default: 20
+      description: DPM-Solver++ inference steps used by CrispASR VibeVoice.
+    seed:
+      name: Seed
+      type: int
+      min: 0
+      max: 2147483647
+      default: 0
+      description: Random seed for reproducible VibeVoice sampling. 0 uses the runtime default.
+  runtimes:
+    - id: crispasr-win-x86_64-cpu
+      engineFamily: crispasr
+      label: CPU
+      name: CPU CrispASR (x64)
+      asset: libcrispasr-windows-x86_64.tar.gz
+      version: v0.8.6
+      source: https://github.com/CrispStrobe/CrispASR/releases/download/
+      library: bin/crispasr.dll
+      backend: vibevoice-tts
+      modelVersion: VibeVoice Realtime 0.5B GGUF
+    - id: crispasr-win-x86_64-cuda
+      engineFamily: crispasr
+      label: CUDA
+      name: CUDA CrispASR (x64)
+      asset: libcrispasr-windows-x86_64-cuda.tar.gz
+      version: v0.8.6
+      source: https://github.com/CrispStrobe/CrispASR/releases/download/
+      library: bin/crispasr.dll
+      backend: vibevoice-tts
+      modelVersion: VibeVoice Realtime 0.5B GGUF
+    - id: crispasr-win-x86_64-vulkan
+      engineFamily: crispasr
+      label: Vulkan
+      name: Vulkan CrispASR (x64)
+      asset: libcrispasr-windows-x86_64-vulkan.tar.gz
+      version: v0.8.6
+      source: https://github.com/CrispStrobe/CrispASR/releases/download/
+      library: bin/crispasr.dll
+      backend: vibevoice-tts
+      modelVersion: VibeVoice Realtime 0.5B GGUF
+    - id: crispasr-win-x86_64-cpu-legacy
+      engineFamily: crispasr
+      label: CPU Legacy
+      name: Legacy CPU CrispASR (x64)
+      asset: libcrispasr-windows-x86_64-cpu-legacy.tar.gz
+      version: v0.8.6
+      source: https://github.com/CrispStrobe/CrispASR/releases/download/
+      library: bin/crispasr.dll
+      backend: vibevoice-tts
+      modelVersion: VibeVoice Realtime 0.5B GGUF
+  studio:
+    tts:
+      layout: tts
+      action: synthesize
+      inputs:
+        - text
+      parameters:
+        - n_diffusion_steps
+        - seed

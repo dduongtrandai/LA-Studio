@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "k2-fsa/sherpa-onnx-uvr-vocals-ft",
+  "publisher": "k2-fsa",
+  "name": "sherpa-onnx-uvr-vocals-ft",
+  "title": "UVR-MDX-NET Vocals FT",
+  "task": "voice-isolation",
+  "source": "https://github.com/k2-fsa/sherpa-onnx/releases/tag/source-separation-models",
+  "license": "apache-2.0",
+  "runtimeFormat": "onnx",
+  "downloadSources": [
+    "https://github.com/k2-fsa/sherpa-onnx/releases/download/source-separation-models/UVR-MDX-NET-Voc_FT.onnx"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "pnnbao-ump/VieNeu-TTS-v2-Turbo",
+  "publisher": "pnnbao-ump",
+  "name": "VieNeu-TTS-v2-Turbo",
+  "title": "VieNeu-TTS v2 Turbo",
+  "task": "text-to-speech",
+  "source": "https://huggingface.co/pnnbao-ump/VieNeu-TTS-v2",
+  "license": "apache-2.0",
+  "runtimeFormat": "gguf",
+  "downloadSources": [
+    "pnnbao-ump/VieNeu-TTS-v2-Turbo-GGUF",
+    "pnnbao-ump/VieNeu-Codec"
+  ]
+}

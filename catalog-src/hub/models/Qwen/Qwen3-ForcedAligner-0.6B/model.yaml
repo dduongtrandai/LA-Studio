@@ -1,0 +1,64 @@
+model: Qwen/Qwen3-ForcedAligner-0.6B
+base:
+  - key: cstr/qwen3-forced-aligner-0.6b-gguf
+    role: model
+    name: Qwen3 Forced Aligner
+    purpose: Multilingual forced-alignment model
+    defaultFile: qwen3-forced-aligner-0.6b-q4_k.gguf
+    sources:
+      - type: huggingface
+        user: cstr
+        repo: qwen3-forced-aligner-0.6b-GGUF
+        files:
+          - name: qwen3-forced-aligner-0.6b-q4_k.gguf
+            size: 500 MB
+  - key: ggml-org/silero-vad
+    role: vad
+    name: Silero VAD
+    purpose: Speech chunk detection for alignment
+    defaultFile: ggml-silero-v6.2.0.bin
+    sources:
+      - type: huggingface
+        user: ggml-org
+        repo: whisper-vad
+        files:
+          - name: ggml-silero-v6.2.0.bin
+            size: 1 MB
+metadataOverrides:
+  domain: stt
+  architectures: [qwen3-forced-aligner]
+  compatibilityTypes: [gguf]
+  capabilities: [forced-alignment]
+laStudio:
+  id: qwen3-forced-aligner-0.6b
+  type: stt
+  localDir: qwen3-forced-aligner-0.6b
+  shortName: Q3FA
+  title: Qwen3 Forced Aligner 0.6B
+  subtitle: CrispASR multilingual anchor alignment
+  description: VAD, anchor STT matching, and canonical forced alignment through CrispASR.
+  accent: "#27a99a"
+  capabilities: [forced-alignment]
+  tags: [GGUF, CTC, Offline, Multilingual]
+  parameterDefinitions:
+    language: { name: Language, type: string, default: vie }
+    timestamp_unit: { name: Timestamp Unit, type: choice, default: word, options: [{text: Word, value: word}, {text: Character, value: character}] }
+    output_format: { name: Output Format, type: choice, default: json, options: [{text: JSON, value: json}, {text: SRT, value: srt}, {text: WebVTT, value: webvtt}] }
+  runtimes:
+    - id: crispasr-win-x86_64-cpu
+      engineFamily: crispasr
+      label: CPU
+      name: CPU CrispASR (x64)
+      asset: libcrispasr-windows-x86_64.tar.gz
+      version: v0.8.6
+      source: https://github.com/CrispStrobe/CrispASR/releases/download/
+      library: bin/crispasr.dll
+      backend: qwen3-forced-aligner
+      pipelineProfile: crispasr-anchor-align
+  studio:
+    forced-alignment:
+      layout: alignment
+      action: align
+      inputs: [audio, transcript, language]
+      requiredInputs: [audio]
+      parameters: [language, timestamp_unit, output_format]

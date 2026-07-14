@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "k2-fsa/sherpa-onnx-spleeter-2stems-fp16",
+  "publisher": "k2-fsa",
+  "name": "sherpa-onnx-spleeter-2stems-fp16",
+  "title": "Spleeter 2-stem FP16",
+  "task": "voice-isolation",
+  "source": "https://github.com/k2-fsa/sherpa-onnx/releases/tag/source-separation-models",
+  "license": "apache-2.0",
+  "runtimeFormat": "onnx",
+  "downloadSources": [
+    "https://github.com/k2-fsa/sherpa-onnx/releases/download/source-separation-models/sherpa-onnx-spleeter-2stems-fp16.tar.bz2"
+  ]
+}

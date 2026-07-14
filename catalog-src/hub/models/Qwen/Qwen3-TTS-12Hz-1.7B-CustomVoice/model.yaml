@@ -1,0 +1,169 @@
+model: Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
+base:
+  - key: cstr/qwen3-tts-1.7b-customvoice-gguf
+    role: model
+    name: Qwen3-TTS Model
+    purpose: Core 1.7B CustomVoice model
+    defaultFile: qwen3-tts-12hz-1.7b-customvoice-q8_0.gguf
+    sources:
+      - type: huggingface
+        user: cstr
+        repo: qwen3-tts-1.7b-customvoice-GGUF
+        files:
+          - name: qwen3-tts-12hz-1.7b-customvoice-q8_0.gguf
+            size: 1.8 GB
+          - name: qwen3-tts-12hz-1.7b-customvoice.gguf
+  - key: cstr/qwen3-tts-tokenizer-12hz-gguf
+    role: tokenizer
+    name: Audio Codec
+    purpose: 12Hz Audio Tokenizer
+    defaultFile: qwen3-tts-tokenizer-12hz.gguf
+    sources:
+      - type: huggingface
+        user: cstr
+        repo: qwen3-tts-tokenizer-12hz-GGUF
+        files:
+          - name: qwen3-tts-tokenizer-12hz.gguf
+            size: 700 MB
+metadataOverrides:
+  domain: tts
+  architectures:
+    - qwen2.5-tts
+  compatibilityTypes:
+    - gguf
+  paramsStrings:
+    - 1.7B
+  capabilities:
+    - tts
+  vision: false
+laStudio:
+  id: qwen3-tts-1.7b-customvoice
+  type: tts
+  localDir: qwen3-tts-1.7b-customvoice
+  shortName: Q3C
+  title: Qwen3-TTS CustomVoice 1.7B
+  subtitle: High-quality preset speaker TTS
+  description: Qwen3-TTS model specialized for preset speakers and style instructions. Optimized for 24kHz high-fidelity output.
+  accent: "#4a90e2"
+  capabilities:
+    - tts
+  supportsTts: true
+  supportsCloning: false
+  tags:
+    - GGUF
+    - High-Fidelity
+    - CustomVoice
+    - 1.7B
+  speakersMetadata:
+    - name: aiden
+      displayName: Aiden (Default)
+      language: English (M)
+    - name: dylan
+      displayName: Dylan
+      language: Beijing dialect (M, dialect_token=2074)
+    - name: eric
+      displayName: Eric
+      language: Sichuan dialect (M, dialect_token=2062)
+    - name: ono_anna
+      displayName: Ono Anna
+      language: English (F)
+    - name: ryan
+      displayName: Ryan
+      language: English (M)
+    - name: serena
+      displayName: Serena
+      language: English (F)
+    - name: sohee
+      displayName: Sohee
+      language: English (F)
+    - name: uncle_fu
+      displayName: Uncle Fu
+      language: English (M, older)
+    - name: vivian
+      displayName: Vivian
+      language: English (F)
+  supportedLanguages:
+    - text: Chinese (zh)
+      value: zh
+    - text: English (en)
+      value: en
+    - text: Japanese (ja)
+      value: ja
+    - text: Korean (ko)
+      value: ko
+    - text: German (de)
+      value: de
+    - text: French (fr)
+      value: fr
+    - text: Russian (ru)
+      value: ru
+    - text: Portuguese (pt)
+      value: pt
+    - text: Spanish (es)
+      value: es
+    - text: Italian (it)
+      value: it
+  parameterDefinitions:
+    temperature:
+      name: Temperature
+      type: float
+      min: 0.1
+      max: 2.0
+      default: 0.9
+      description: Randomness of the generation.
+    seed:
+      name: Seed
+      type: int
+      min: -1
+      max: 2147483647
+      default: -1
+      description: Random seed for reproducibility. -1 for random.
+    max_codec_steps:
+      name: Max Codec Steps
+      type: int
+      min: 0
+      max: 400
+      default: 0
+      description: Maximum number of audio codec frames. Set to 0 to size automatically from the prompt.
+      advanced: true
+  runtimes:
+    - id: crispasr-win-x86_64-cpu
+      engineFamily: crispasr
+      label: CPU
+      name: CPU CrispASR (x64)
+      asset: libcrispasr-windows-x86_64.tar.gz
+      version: v0.8.6
+      source: https://github.com/CrispStrobe/CrispASR/releases/download/
+      library: bin/crispasr.dll
+      backend: qwen3-tts
+    - id: crispasr-win-x86_64-cuda
+      engineFamily: crispasr
+      label: CUDA
+      name: CUDA CrispASR (x64)
+      asset: libcrispasr-windows-x86_64-cuda.tar.gz
+      version: v0.8.6
+      source: https://github.com/CrispStrobe/CrispASR/releases/download/
+      library: bin/crispasr.dll
+      backend: qwen3-tts
+    - id: crispasr-win-x86_64-vulkan
+      engineFamily: crispasr
+      label: Vulkan
+      name: Vulkan CrispASR (x64)
+      asset: libcrispasr-windows-x86_64-vulkan.tar.gz
+      version: v0.8.6
+      source: https://github.com/CrispStrobe/CrispASR/releases/download/
+      library: bin/crispasr.dll
+      backend: qwen3-tts
+  studio:
+    tts:
+      layout: tts
+      inputs:
+        - text
+        - language
+        - voice
+        - instruct
+      parameters:
+        - voice
+        - temperature
+        - seed
+        - max_codec_steps

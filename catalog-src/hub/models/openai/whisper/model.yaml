@@ -1,0 +1,348 @@
+model: openai/whisper
+base:
+  - key: ggerganov/whisper-model
+    role: model
+    name: Whisper Model
+    purpose: Core transcription model in whisper.cpp custom ggml format
+    defaultFile: ggml-base.bin
+    sources:
+      - type: huggingface
+        user: ggerganov
+        repo: whisper.cpp
+        files:
+          - name: ggml-tiny.bin
+          - name: ggml-tiny.en.bin
+          - name: ggml-tiny-q5_1.bin
+          - name: ggml-tiny.en-q5_1.bin
+          - name: ggml-tiny-q8_0.bin
+          - name: ggml-base.bin
+            size: 142 MiB
+          - name: ggml-base.en.bin
+          - name: ggml-base-q5_1.bin
+          - name: ggml-base.en-q5_1.bin
+          - name: ggml-base-q8_0.bin
+          - name: ggml-small.bin
+          - name: ggml-small.en.bin
+          - name: ggml-small.en-tdrz.bin
+          - name: ggml-small-q5_1.bin
+          - name: ggml-small.en-q5_1.bin
+          - name: ggml-small-q8_0.bin
+          - name: ggml-medium.bin
+          - name: ggml-medium.en.bin
+          - name: ggml-medium-q5_0.bin
+          - name: ggml-medium.en-q5_0.bin
+          - name: ggml-medium-q8_0.bin
+          - name: ggml-large-v1.bin
+          - name: ggml-large-v2.bin
+          - name: ggml-large-v2-q5_0.bin
+          - name: ggml-large-v3.bin
+          - name: ggml-large-v3-q5_0.bin
+          - name: ggml-large-v3-turbo.bin
+          - name: ggml-large-v3-turbo-q5_0.bin
+metadataOverrides:
+  domain: stt
+  architectures:
+    - whisper
+  compatibilityTypes:
+    - ggml
+  paramsStrings:
+    - Multi-size
+  capabilities:
+    - stt
+  vision: false
+laStudio:
+  id: whisper.cpp
+  type: stt
+  localDir: whisper
+  shortName: WSP
+  title: Whisper.cpp
+  subtitle: Offline multilingual speech recognition and translation
+  description: Native C/C++ inference for OpenAI Whisper models converted to the custom ggml format. Supports multilingual transcription, automatic language detection and translation to English, with optional timestamp, TinyDiarize and Silero VAD workflows in upstream whisper.cpp.
+  accent: "#27a99a"
+  capabilities:
+    - stt
+  supportsStt: true
+  tags:
+    - ggml
+    - Offline
+    - Multilingual
+    - Translation
+    - Timestamps
+    - VAD
+  strengths:
+    - Runs speech recognition locally with CPU and GPU runtime options
+    - Supports 100 languages, automatic language detection and translation to English
+    - Upstream supports token timestamps, TinyDiarize speaker-turn detection and Silero VAD
+  weaknesses:
+    - Large models require substantial download size and memory
+    - TinyDiarize requires a dedicated model ending in -tdrz
+    - LA Studio currently exposes only language, threads and translation controls from the upstream setting set
+  supportedLanguageSetId: whisper-v1
+  supportedLanguageCount: 100
+  featuredLanguages:
+    - text: English
+      value: en
+    - text: Vietnamese
+      value: vi
+    - text: Chinese
+      value: zh
+    - text: Japanese
+      value: ja
+    - text: Korean
+      value: ko
+    - text: French
+      value: fr
+    - text: Spanish
+      value: es
+    - text: German
+      value: de
+    - text: Portuguese
+      value: pt
+    - text: Russian
+      value: ru
+  parameterDefinitions:
+    threads:
+      name: Threads
+      type: int
+      min: 0
+      max: 64
+      default: 0
+      description: Number of computation threads. 0 uses LA Studio Auto based on CPU cores, runtime type, and backend-specific caps.
+    translate:
+      name: Translate to English
+      type: bool
+      default: false
+      description: Translate recognized speech into English instead of transcribing in its original language.
+    language:
+      name: Language
+      type: string
+      default: en
+      description: Language code used for transcription. Upstream defaults to English; LA Studio accepts auto to enable automatic detection.
+    detect_language:
+      name: Detect Language
+      type: bool
+      default: false
+      advanced: true
+      description: Automatically identify the spoken language before decoding.
+    strategy:
+      name: Sampling Strategy
+      type: choice
+      default: greedy
+      advanced: true
+      description: Decoding strategy passed to whisper_full_default_params.
+      options:
+        - text: Greedy
+          value: greedy
+        - text: Beam Search
+          value: beam_search
+    offset_ms:
+      name: Offset (ms)
+      type: int
+      min: 0
+      default: 0
+      advanced: true
+      description: Start processing at this audio offset.
+    duration_ms:
+      name: Duration (ms)
+      type: int
+      min: 0
+      default: 0
+      advanced: true
+      description: Limit processing duration; 0 processes all remaining audio.
+    n_max_text_ctx:
+      name: Maximum Text Context
+      type: int
+      min: 0
+      default: 16384
+      advanced: true
+      description: Maximum number of previous text tokens available as decoder context.
+    no_context:
+      name: Disable Previous Text Context
+      type: bool
+      default: true
+      advanced: true
+      description: Do not feed previously decoded text as prompt to the next audio segment.
+    no_timestamps:
+      name: Disable Timestamps
+      type: bool
+      default: false
+      advanced: true
+      description: Suppress timestamp-token decoding.
+    single_segment:
+      name: Single Segment
+      type: bool
+      default: false
+      advanced: true
+      description: Force the decoded result into one segment.
+    print_special:
+      name: Print Special Tokens
+      type: bool
+      default: false
+      advanced: true
+      description: Include special tokens in printed output.
+    print_progress:
+      name: Print Progress
+      type: bool
+      default: true
+      advanced: true
+      description: Print inference progress updates when using upstream output callbacks or examples.
+    print_realtime:
+      name: Print Realtime
+      type: bool
+      default: false
+      advanced: true
+      description: Print results incrementally during transcription.
+    print_timestamps:
+      name: Print Timestamps
+      type: bool
+      default: true
+      advanced: true
+      description: Print timestamps with generated segments.
+    token_timestamps:
+      name: Token Timestamps
+      type: bool
+      default: false
+      advanced: true
+      description: Compute token-level timestamps during decoding.
+    thold_pt:
+      name: Token Timestamp Probability Threshold
+      type: float
+      min: 0.0
+      max: 1.0
+      default: 0.01
+      advanced: true
+      description: Probability threshold for token timestamp processing.
+    thold_ptsum: { name: "Token Timestamp Sum Threshold", type: "float", min: 0.0, max: 1.0, default: 0.01, advanced: true, description: "Probability-sum threshold for token timestamp processing." }
+    max_len: { name: "Maximum Segment Length", type: "int", min: 0, default: 0, advanced: true, description: "Maximum segment length in characters; 0 leaves segments unconstrained." }
+    split_on_word: { name: "Split On Word", type: "bool", default: false, advanced: true, description: "When segment length is constrained, split only on word boundaries." }
+    max_tokens: { name: "Maximum Tokens Per Segment", type: "int", min: 0, default: 0, advanced: true, description: "Maximum tokens in a segment; 0 disables this constraint." }
+    audio_ctx: { name: "Audio Context", type: "int", min: 0, default: 0, advanced: true, description: "Override the model audio context length; 0 uses the model default." }
+    debug_mode: { name: "Debug Mode", type: "bool", default: false, advanced: true, description: "Enable upstream decoder debugging output." }
+    tdrz_enable: { name: "TinyDiarize Speaker Turns", type: "bool", default: false, advanced: true, description: "Enable speaker-turn detection. Requires a dedicated TinyDiarize model such as ggml-small.en-tdrz.bin." }
+    initial_prompt: { name: "Initial Prompt", type: "string", default: "", advanced: true, description: "Text prompt used to guide initial transcription context." }
+    carry_initial_prompt: { name: "Carry Initial Prompt", type: "bool", default: false, advanced: true, description: "Apply the initial prompt to each internal decoding call." }
+    suppress_blank: { name: "Suppress Blank Tokens", type: "bool", default: true, advanced: true, description: "Suppress blank output tokens during decoding." }
+    suppress_nst: { name: "Suppress Non-Speech Tokens", type: "bool", default: false, advanced: true, description: "Suppress non-speech token classes." }
+    suppress_regex: { name: "Suppress Regex", type: "string", default: "", advanced: true, description: "Regular expression for suppressing matching tokens from the output." }
+    temperature: { name: "Temperature", type: "float", min: 0.0, max: 1.0, default: 0.0, advanced: true, description: "Initial sampling temperature." }
+    max_initial_ts: { name: "Maximum Initial Timestamp", type: "float", min: 0.0, default: 1.0, advanced: true, description: "Maximum initial timestamp in seconds." }
+    length_penalty: { name: "Length Penalty", type: "float", default: -1.0, advanced: true, description: "Decoder length penalty; negative values keep the default behavior." }
+    temperature_inc: { name: "Temperature Increment", type: "float", min: 0.0, default: 0.2, advanced: true, description: "Temperature fallback increment when decoding fails quality thresholds." }
+    entropy_thold: { name: "Entropy Threshold", type: "float", default: 2.4, advanced: true, description: "Entropy threshold used for decoding fallback." }
+    logprob_thold: { name: "Log Probability Threshold", type: "float", default: -1.0, advanced: true, description: "Average log probability threshold used for decoding fallback." }
+    no_speech_thold: { name: "No Speech Threshold", type: "float", min: 0.0, max: 1.0, default: 0.6, advanced: true, description: "Probability threshold for identifying no-speech segments." }
+    best_of: { name: "Greedy Best Of", type: "int", min: 1, default: 5, advanced: true, description: "Number of candidates considered by greedy decoding." }
+    beam_size: { name: "Beam Size", type: "int", min: 1, default: 5, advanced: true, description: "Number of beams used when the beam-search strategy is selected." }
+    beam_patience: { name: "Beam Search Patience", type: "float", default: -1.0, advanced: true, description: "Beam-search patience value; negative values retain upstream default behavior." }
+    grammar: { name: "Grammar", type: "string", default: "", advanced: true, description: "GBNF grammar text used to constrain decoder output." }
+    grammar_rule: { name: "Grammar Start Rule", type: "string", default: "", advanced: true, description: "Root rule name used when grammar constraints are supplied." }
+    grammar_penalty: { name: "Grammar Penalty", type: "float", default: 100.0, advanced: true, description: "Penalty applied to tokens rejected by the grammar." }
+    vad: { name: "Voice Activity Detection", type: "bool", default: false, advanced: true, description: "Enable Silero VAD-assisted filtering. Requires an optional VAD model such as ggml-silero-v6.2.0.bin." }
+    vad_model_path: { name: "VAD Model Path", type: "string", default: "", advanced: true, description: "Filesystem path of the optional Silero VAD model, for example ggml-silero-v6.2.0.bin." }
+    vad_threshold: { name: "VAD Threshold", type: "float", min: 0.0, max: 1.0, default: 0.5, advanced: true, description: "Speech probability threshold used by Silero VAD." }
+    vad_min_speech_duration_ms: { name: "VAD Minimum Speech Duration (ms)", type: "int", min: 0, default: 250, advanced: true, description: "Minimum duration for a detected speech region." }
+    vad_min_silence_duration_ms: { name: "VAD Minimum Silence Duration (ms)", type: "int", min: 0, default: 100, advanced: true, description: "Minimum silence duration required to split speech regions." }
+    vad_max_speech_duration_s: { name: "VAD Maximum Speech Duration (s)", type: "float", min: 0.0, default: 3.4028235e+38, advanced: true, description: "Maximum speech segment duration. Upstream defaults to FLT_MAX, effectively disabling forced splitting." }
+    vad_speech_pad_ms: { name: "VAD Speech Padding (ms)", type: "int", min: 0, default: 30, advanced: true, description: "Padding added before and after detected speech segments." }
+    vad_samples_overlap: { name: "VAD Samples Overlap (s)", type: "float", min: 0.0, default: 0.1, advanced: true, description: "Audio overlap in seconds used while applying VAD-filtered transcription." }
+    use_gpu: { name: "Use GPU", type: "bool", default: true, advanced: true, description: "Use GPU acceleration for the transcription model when the selected runtime supports it. Upstream currently forces VAD inference to CPU." }
+    gpu_device: { name: "GPU Device", type: "int", min: 0, default: 0, advanced: true, description: "GPU device index used for model execution." }
+    flash_attn: { name: "Flash Attention", type: "bool", default: true, advanced: true, description: "Enable flash attention in the model context. Upstream disables DTW token timestamps while flash attention is active." }
+    dtw_token_timestamps: { name: "DTW Token Timestamps", type: "bool", default: false, advanced: true, description: "Enable DTW alignment-head token timestamps. This requires flash attention to be disabled." }
+    dtw_n_top: { name: "DTW Top Text Layers", type: "int", default: -1, advanced: true, description: "Number of top text layers used by the DTW N-top-most alignment-head mode." }
+    dtw_mem_size: { name: "DTW Memory Size (bytes)", type: "int", min: 0, default: 134217728, advanced: true, description: "Maximum memory allocated for DTW timestamp processing." }
+    dtw_preset:
+      name: DTW Alignment Preset
+      type: choice
+      default: none
+      advanced: true
+      description: Model-specific alignment-head preset used for DTW token timestamps.
+      options:
+        - text: None
+          value: none
+        - text: Tiny English
+          value: tiny.en
+        - text: Tiny
+          value: tiny
+        - text: Base English
+          value: base.en
+        - text: Base
+          value: base
+        - text: Small English
+          value: small.en
+        - text: Small
+          value: small
+        - text: Medium English
+          value: medium.en
+        - text: Medium
+          value: medium
+        - text: Large v1
+          value: large.v1
+        - text: Large v2
+          value: large.v2
+        - text: Large v3
+          value: large.v3
+        - text: Large v3 Turbo
+          value: large.v3.turbo
+  runtimes:
+    - id: whisper.cpp-win-x86_64-cpu
+      engineFamily: whisper.cpp
+      label: CPU
+      name: CPU Whisper.cpp (x64)
+      asset: whisper-bin-x64.zip
+      library: whisper.dll
+      version: v1.8.4
+      source: https://github.com/ggml-org/whisper.cpp/releases/download/
+      type: stt
+    - id: whisper.cpp-win-x86_64-cuda-12
+      engineFamily: whisper.cpp
+      label: CUDA 12
+      name: CUDA 12 Whisper.cpp (x64)
+      asset: whisper-cublas-12.4.0-bin-x64.zip
+      library: whisper.dll
+      version: v1.8.4
+      source: https://github.com/ggml-org/whisper.cpp/releases/download/
+      type: stt
+  studio:
+    stt:
+      layout: stt
+      action: transcribe
+      inputs:
+        - audio
+        - language
+      parameters:
+        - threads
+        - translate
+        - strategy
+        - detect_language
+        - initial_prompt
+        - n_max_text_ctx
+        - offset_ms
+        - duration_ms
+        - no_context
+        - no_timestamps
+        - single_segment
+        - print_special
+        - print_progress
+        - print_realtime
+        - print_timestamps
+        - token_timestamps
+        - thold_pt
+        - thold_ptsum
+        - max_len
+        - split_on_word
+        - max_tokens
+        - audio_ctx
+        - debug_mode
+        - suppress_blank
+        - suppress_nst
+        - temperature
+        - max_initial_ts
+        - length_penalty
+        - temperature_inc
+        - entropy_thold
+        - logprob_thold
+        - no_speech_thold
+        - best_of
+        - beam_size
+        - beam_patience

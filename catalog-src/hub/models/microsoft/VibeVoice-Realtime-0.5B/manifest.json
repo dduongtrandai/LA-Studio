@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "microsoft/VibeVoice-Realtime-0.5B",
+  "publisher": "microsoft",
+  "name": "VibeVoice-Realtime-0.5B",
+  "title": "VibeVoice",
+  "task": "text-to-speech",
+  "source": "https://huggingface.co/microsoft/VibeVoice-Realtime-0.5B",
+  "license": "mit",
+  "runtimeFormat": "gguf",
+  "downloadSources": [
+    "cstr/vibevoice-realtime-0.5b-GGUF"
+  ]
+}

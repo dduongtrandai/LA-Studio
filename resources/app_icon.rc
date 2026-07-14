@@ -1,0 +1,2 @@
+// Resource file to embed application icon into Windows executable
+1 ICON "../icons/app_icon.ico"

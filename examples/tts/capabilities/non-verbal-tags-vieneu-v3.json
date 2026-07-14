@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "lastudio.example.v1",
+  "id": "tts-non-verbal-tags-vieneu-v3",
+  "title": "VieNeu-TTS v3 non-verbal tag smoke test",
+  "task": "tts",
+  "model": {
+    "familyId": "vieneu-tts-v3-turbo",
+    "required": true
+  },
+  "capabilities": ["tts", "vi", "non-verbal-tags"],
+  "inputs": {
+    "text": "Tôi vừa hoàn thành bản thu đầu tiên [cười]. Nhưng đoạn này vẫn cần kiểm tra thêm [thở dài]. Được rồi, chúng ta thử lại nào [hắng giọng]."
+  },
+  "settings": {
+    "lang": "vi",
+    "temperature": 0.55,
+    "top_k": 20,
+    "top_p": 0.9,
+    "max_chars": 384
+  },
+  "expected": {
+    "output": "Vietnamese speech with audible non-verbal cues where supported.",
+    "manualChecks": [
+      "The runtime accepts bracketed tags without validation errors.",
+      "At least one non-verbal cue is audible or reflected in prosody.",
+      "Unsupported tags should degrade gracefully instead of stopping generation."
+    ],
+    "supportedTags": ["[cười]", "[thở dài]", "[hắng giọng]"]
+  }
+}
+

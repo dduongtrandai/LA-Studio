@@ -1,0 +1,507 @@
+model: k2-fsa/OmniVoice
+base:
+  - key: Serveurperso/omnivoice-base
+    role: model
+    name: Base Voice Model
+    purpose: Core language model
+    defaultFile: omnivoice-base-Q8_0.gguf
+    sources:
+      - type: huggingface
+        user: Serveurperso
+        repo: OmniVoice-GGUF
+        files:
+          - name: omnivoice-base-Q4_K_M.gguf
+          - name: omnivoice-base-Q8_0.gguf
+            size: 656 MB
+          - name: omnivoice-base-BF16.gguf
+          - name: omnivoice-base-F32.gguf
+  - key: Serveurperso/omnivoice-tokenizer
+    role: tokenizer
+    name: Tokenizer / Audio Codec
+    purpose: Audio tokenization
+    defaultFile: omnivoice-tokenizer-F32.gguf
+    sources:
+      - type: huggingface
+        user: Serveurperso
+        repo: OmniVoice-GGUF
+        files:
+          - name: omnivoice-tokenizer-Q4_K_M.gguf
+          - name: omnivoice-tokenizer-Q8_0.gguf
+          - name: omnivoice-tokenizer-BF16.gguf
+          - name: omnivoice-tokenizer-F32.gguf
+            size: 734 MB
+metadataOverrides:
+  domain: tts
+  architectures:
+    - omnivoice
+  compatibilityTypes:
+    - gguf
+  paramsStrings:
+    - 1B
+  capabilities:
+    - tts
+    - voice-cloning
+    - voice-design
+  vision: false
+laStudio:
+  id: omnivoice
+  type: tts
+  localDir: omnivoice
+  shortName: OV
+  title: OmniVoice
+  subtitle: High quality multilingual TTS & voice cloning
+  description: A quality-first local speech model family for multilingual text to speech, prompt conditioning, and zero-shot voice cloning with reference audio.
+  accent: "#7c4dff"
+  capabilities:
+    - tts
+    - voice-cloning
+    - voice-design
+  supportsTts: true
+  supportsCloning: true
+  tags:
+    - GGUF
+    - High Quality
+    - Multilingual
+    - Zero-Shot Cloning
+  parameterDefinitions:
+    mg_num_step:
+      name: Inference Steps
+      type: int
+      min: 10
+      max: 100
+      default: 32
+      description: Number of iterative decoding steps.
+    mg_guidance_scale:
+      name: CFG Guidance
+      type: float
+      min: 1.0
+      max: 5.0
+      default: 2.0
+      description: Controls style adherence.
+    mg_t_shift:
+      name: T Shift
+      type: float
+      min: 0.0
+      max: 2.0
+      default: 0.1
+      description: Shifts the masked generation schedule.
+      advanced: true
+    mg_layer_penalty_factor:
+      name: Layer Penalty
+      type: float
+      min: 0.0
+      max: 10.0
+      default: 5.0
+      description: Adjusts layer penalty during masked generation.
+      advanced: true
+    mg_position_temperature:
+      name: Position Temperature
+      type: float
+      min: 0.0
+      max: 10.0
+      default: 5.0
+      description: Controls position sampling temperature.
+      advanced: true
+    mg_class_temperature:
+      name: Class Temperature
+      type: float
+      min: 0.0
+      max: 10.0
+      default: 0.0
+      description: Controls class sampling temperature.
+      advanced: true
+    mg_seed:
+      name: Seed
+      type: int
+      min: -1
+      max: 2147483647
+      default: 42
+      description: Random seed for generation.
+    chunk_duration_sec:
+      name: Chunk Duration
+      type: float
+      min: 0.0
+      max: 30.0
+      default: 15.0
+      description: Target chunk duration in seconds for long-form generation. 0 disables chunking.
+      advanced: true
+    chunk_threshold_sec:
+      name: Chunk Threshold
+      type: float
+      min: 0.0
+      max: 60.0
+      default: 30.0
+      description: Activate chunking above this estimated duration.
+      advanced: true
+    duration_sec:
+      name: Duration
+      type: float
+      min: 0.0
+      max: 180
+      default: 0.0
+      description: Force output duration in seconds. 0 uses runtime estimate.
+    denoise:
+      name: Denoise
+      type: float
+      min: 0.0
+      max: 1.0
+      default: 0.0
+      description: Reference audio denoise strength.
+    preprocess_prompt:
+      name: Preprocess Prompt
+      type: bool
+      default: true
+      description: Clean and normalize the input text prompt.
+    voice_design_gender:
+      name: Gender
+      type: choice
+      default: ""
+      description: Voice Design speaker gender. Auto leaves the prompt unchanged.
+      options:
+        - text: Auto
+          value: ""
+        - text: Male
+          value: male
+        - text: Female
+          value: female
+    voice_design_age:
+      name: Age
+      type: choice
+      default: ""
+      description: Voice Design age keyword. Auto leaves the prompt unchanged.
+      options:
+        - text: Auto
+          value: ""
+        - text: Child
+          value: child
+        - text: Teenager
+          value: teenager
+        - text: Young adult
+          value: young adult
+        - text: Middle-aged
+          value: middle-aged
+        - text: Elderly
+          value: elderly
+    voice_design_pitch:
+      name: Pitch
+      type: choice
+      default: ""
+      description: Voice Design pitch keyword. Auto leaves the prompt unchanged.
+      options:
+        - text: Auto
+          value: ""
+        - text: Very low
+          value: very low pitch
+        - text: Low
+          value: low pitch
+        - text: Moderate
+          value: moderate pitch
+        - text: High
+          value: high pitch
+        - text: Very high
+          value: very high pitch
+    voice_design_style:
+      name: Style
+      type: choice
+      default: ""
+      description: Voice Design speaking style keyword. Auto leaves the prompt unchanged.
+      options:
+        - text: Auto
+          value: ""
+        - text: Whisper
+          value: whisper
+    voice_design_english_accent:
+      name: English Accent
+      type: choice
+      default: ""
+      description: English-only Voice Design accent keyword. Used only when the target language is English or Auto.
+      options:
+        - text: Auto
+          value: ""
+        - text: American
+          value: american accent
+        - text: British
+          value: british accent
+        - text: Australian
+          value: australian accent
+        - text: Chinese
+          value: chinese accent
+        - text: Canadian
+          value: canadian accent
+        - text: Indian
+          value: indian accent
+        - text: Korean
+          value: korean accent
+        - text: Portuguese
+          value: portuguese accent
+        - text: Russian
+          value: russian accent
+        - text: Japanese
+          value: japanese accent
+    voice_design_chinese_dialect:
+      name: Chinese Dialect
+      type: choice
+      default: ""
+      description: Chinese-only Voice Design dialect keyword. Used only when the target language is Chinese or Auto.
+      options:
+        - text: Auto
+          value: ""
+        - text: Henan
+          value: 河南话
+        - text: Shaanxi
+          value: 陕西话
+        - text: Sichuan
+          value: 四川话
+        - text: Guizhou
+          value: 贵州话
+        - text: Yunnan
+          value: 云南话
+        - text: Guilin
+          value: 桂林话
+        - text: Jinan
+          value: 济南话
+        - text: Shijiazhuang
+          value: 石家庄话
+        - text: Gansu
+          value: 甘肃话
+        - text: Ningxia
+          value: 宁夏话
+        - text: Qingdao
+          value: 青岛话
+        - text: Northeastern
+          value: 东北话
+  strengths:
+    - Expressive output
+    - Good prompt control
+    - Flexible quantized models
+  weaknesses:
+    - Needs base and tokenizer files
+    - Slower than realtime on CPU
+  supportedLanguageSetId: omnivoice-v1
+  supportedLanguageCount: 646
+  featuredLanguages:
+    - text: English (en)
+      value: en
+    - text: Chinese (zh)
+      value: zh
+    - text: Japanese (ja)
+      value: ja
+    - text: Korean (ko)
+      value: ko
+    - text: French (fr)
+      value: fr
+    - text: Spanish (es)
+      value: es
+    - text: German (de)
+      value: de
+    - text: Vietnamese (vi)
+      value: vi
+  runtimes:
+    - id: omnivoice.cpp-win-x86_64-cpu
+      engineFamily: omnivoice.cpp
+      label: CPU
+      name: CPU Omnivoice (x64)
+      asset: omnivoice-win-cpu.zip
+      library: omnivoice.dll
+      version: v0.1.3
+      source: https://github.com/dduongtrandai/omnivoice.cpp/releases/download/
+      type: tts
+    - id: omnivoice.cpp-win-x86_64-cuda-12
+      engineFamily: omnivoice.cpp
+      label: CUDA 12
+      name: CUDA 12 Omnivoice (x64)
+      asset: omnivoice-win-cuda-12.zip
+      library: omnivoice.dll
+      version: v0.1.3
+      source: https://github.com/dduongtrandai/omnivoice.cpp/releases/download/
+      type: tts
+    - id: omnivoice.cpp-win-x86_64-vulkan
+      engineFamily: omnivoice.cpp
+      label: Vulkan
+      name: Vulkan Omnivoice (x64)
+      asset: omnivoice-win-vulkan.zip
+      library: omnivoice.dll
+      version: v0.1.3
+      source: https://github.com/dduongtrandai/omnivoice.cpp/releases/download/
+      type: tts
+  studio:
+    tts:
+      layout: tts
+      action: synthesize
+      inputs:
+        - text
+        - language
+      parameters:
+        - mg_num_step
+        - mg_guidance_scale
+        - duration_sec
+        - mg_t_shift
+        - mg_layer_penalty_factor
+        - mg_position_temperature
+        - mg_class_temperature
+        - chunk_duration_sec
+        - chunk_threshold_sec
+      nonVerbalTags:
+        - text: "[laughter]"
+          value: "[laughter]"
+          description: tiếng cười.
+        - text: "[sigh]"
+          value: "[sigh]"
+          description: tiếng thở dài.
+        - text: "[confirmation-en]"
+          value: "[confirmation-en]"
+          description: âm xác nhận kiểu tiếng Anh.
+        - text: "[question-en]"
+          value: "[question-en]"
+          description: âm hỏi kiểu tiếng Anh.
+        - text: "[question-ah]"
+          value: "[question-ah]"
+          description: âm hỏi "ah".
+        - text: "[question-oh]"
+          value: "[question-oh]"
+          description: âm hỏi "oh".
+        - text: "[question-ei]"
+          value: "[question-ei]"
+          description: âm hỏi "ei".
+        - text: "[question-yi]"
+          value: "[question-yi]"
+          description: âm hỏi "yi".
+        - text: "[surprise-ah]"
+          value: "[surprise-ah]"
+          description: âm ngạc nhiên "ah".
+        - text: "[surprise-oh]"
+          value: "[surprise-oh]"
+          description: âm ngạc nhiên "oh".
+        - text: "[surprise-wa]"
+          value: "[surprise-wa]"
+          description: âm ngạc nhiên "wa".
+        - text: "[surprise-yo]"
+          value: "[surprise-yo]"
+          description: âm ngạc nhiên "yo".
+        - text: "[dissatisfaction-hnn]"
+          value: "[dissatisfaction-hnn]"
+          description: âm thể hiện không hài lòng / bực bội.
+    voice-cloning:
+      layout: voice-cloning
+      action: clone
+      inputs:
+        - text
+        - language
+        - ref_audio
+        - ref_text
+      parameters:
+        - mg_num_step
+        - mg_guidance_scale
+        - duration_sec
+        - mg_t_shift
+        - mg_layer_penalty_factor
+        - mg_position_temperature
+        - mg_class_temperature
+        - chunk_duration_sec
+        - chunk_threshold_sec
+      nonVerbalTags:
+        - text: "[laughter]"
+          value: "[laughter]"
+          description: tiếng cười.
+        - text: "[sigh]"
+          value: "[sigh]"
+          description: tiếng thở dài.
+        - text: "[confirmation-en]"
+          value: "[confirmation-en]"
+          description: âm xác nhận kiểu tiếng Anh.
+        - text: "[question-en]"
+          value: "[question-en]"
+          description: âm hỏi kiểu tiếng Anh.
+        - text: "[question-ah]"
+          value: "[question-ah]"
+          description: âm hỏi "ah".
+        - text: "[question-oh]"
+          value: "[question-oh]"
+          description: âm hỏi "oh".
+        - text: "[question-ei]"
+          value: "[question-ei]"
+          description: âm hỏi "ei".
+        - text: "[question-yi]"
+          value: "[question-yi]"
+          description: âm hỏi "yi".
+        - text: "[surprise-ah]"
+          value: "[surprise-ah]"
+          description: âm ngạc nhiên "ah".
+        - text: "[surprise-oh]"
+          value: "[surprise-oh]"
+          description: âm ngạc nhiên "oh".
+        - text: "[surprise-wa]"
+          value: "[surprise-wa]"
+          description: âm ngạc nhiên "wa".
+        - text: "[surprise-yo]"
+          value: "[surprise-yo]"
+          description: âm ngạc nhiên "yo".
+        - text: "[dissatisfaction-hnn]"
+          value: "[dissatisfaction-hnn]"
+          description: âm thể hiện không hài lòng / bực bội.
+    voice-design:
+      layout: voice-design
+      action: synthesize
+      freeTextInstruct: false
+      inputs:
+        - text
+        - language
+        - instruct
+      requiredInputs:
+        - text
+      parameters:
+        - voice_design_gender
+        - voice_design_age
+        - voice_design_pitch
+        - voice_design_style
+        - voice_design_english_accent
+        - voice_design_chinese_dialect
+        - mg_num_step
+        - mg_guidance_scale
+        - duration_sec
+        - mg_t_shift
+        - mg_layer_penalty_factor
+        - mg_position_temperature
+        - mg_class_temperature
+        - chunk_duration_sec
+        - chunk_threshold_sec
+      nonVerbalTags:
+        - text: "[laughter]"
+          value: "[laughter]"
+          description: tiếng cười.
+        - text: "[sigh]"
+          value: "[sigh]"
+          description: tiếng thở dài.
+        - text: "[confirmation-en]"
+          value: "[confirmation-en]"
+          description: âm xác nhận kiểu tiếng Anh.
+        - text: "[question-en]"
+          value: "[question-en]"
+          description: âm hỏi kiểu tiếng Anh.
+        - text: "[question-ah]"
+          value: "[question-ah]"
+          description: âm hỏi "ah".
+        - text: "[question-oh]"
+          value: "[question-oh]"
+          description: âm hỏi "oh".
+        - text: "[question-ei]"
+          value: "[question-ei]"
+          description: âm hỏi "ei".
+        - text: "[question-yi]"
+          value: "[question-yi]"
+          description: âm hỏi "yi".
+        - text: "[surprise-ah]"
+          value: "[surprise-ah]"
+          description: âm ngạc nhiên "ah".
+        - text: "[surprise-oh]"
+          value: "[surprise-oh]"
+          description: âm ngạc nhiên "oh".
+        - text: "[surprise-wa]"
+          value: "[surprise-wa]"
+          description: âm ngạc nhiên "wa".
+        - text: "[surprise-yo]"
+          value: "[surprise-yo]"
+          description: âm ngạc nhiên "yo".
+        - text: "[dissatisfaction-hnn]"
+          value: "[dissatisfaction-hnn]"
+          description: âm thể hiện không hài lòng / bực bội.

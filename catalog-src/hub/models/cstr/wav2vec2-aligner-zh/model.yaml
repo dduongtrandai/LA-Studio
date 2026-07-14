@@ -1,0 +1,34 @@
+model: cstr/wav2vec2-aligner-zh
+base:
+  - key: cstr/wav2vec2-aligner-zh
+    role: model
+    defaultFile: wav2vec2-large-xlsr-53-chinese-zh-cn-q4_k.gguf
+    sources:
+      - type: huggingface
+        user: cstr
+        repo: wav2vec2-large-xlsr-53-chinese-zh-cn-GGUF
+        files: [{name: wav2vec2-large-xlsr-53-chinese-zh-cn-q4_k.gguf, size: 300 MB}]
+  - key: ggml-org/silero-vad
+    role: vad
+    defaultFile: ggml-silero-v6.2.0.bin
+    sources:
+      - type: huggingface
+        user: ggml-org
+        repo: whisper-vad
+        files: [{name: ggml-silero-v6.2.0.bin, size: 1 MB}]
+metadataOverrides: {domain: stt, architectures: [wav2vec2], compatibilityTypes: [gguf], capabilities: [forced-alignment]}
+laStudio:
+  id: wav2vec2-aligner-zh
+  type: stt
+  localDir: wav2vec2-aligner-zh
+  shortName: W2V-ZH
+  title: Wav2Vec2 Chinese Aligner
+  subtitle: Character CTC alignment for Mandarin
+  description: Language-specific Mandarin forced aligner through CrispASR with Silero VAD.
+  accent: "#27a99a"
+  capabilities: [forced-alignment]
+  tags: [GGUF, CTC, Chinese, Offline]
+  runtimes:
+    - {id: crispasr-win-x86_64-cpu, engineFamily: crispasr, label: CPU, name: CPU CrispASR (x64), asset: libcrispasr-windows-x86_64.tar.gz, version: v0.8.6, source: "https://github.com/CrispStrobe/CrispASR/releases/download/", library: bin/crispasr.dll, backend: wav2vec2, pipelineProfile: crispasr-anchor-align}
+  studio:
+    forced-alignment: {layout: alignment, action: align, inputs: [audio, transcript, language], requiredInputs: [audio]}

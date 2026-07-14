@@ -1,0 +1,28 @@
+#ifndef FIX_MINGW_H
+#define FIX_MINGW_H
+
+#if defined(_WIN32) && !defined(MSVC) && !defined(THREAD_POWER_THROTTLING_CURRENT_VERSION)
+
+#include <windows.h>
+
+#ifndef THREAD_POWER_THROTTLING_CURRENT_VERSION
+
+typedef struct _THREAD_POWER_THROTTLING_STATE {
+    ULONG Version;
+    ULONG ControlMask;
+    ULONG StateMask;
+} THREAD_POWER_THROTTLING_STATE, *PTHREAD_POWER_THROTTLING_STATE;
+
+#define THREAD_POWER_THROTTLING_CURRENT_VERSION 1
+#define THREAD_POWER_THROTTLING_EXECUTION_SPEED 0x1
+
+// Enum value for THREAD_INFORMATION_CLASS
+#ifndef ThreadPowerThrottling
+#define ThreadPowerThrottling ((THREAD_INFORMATION_CLASS)4)
+#endif
+
+#endif // THREAD_POWER_THROTTLING_CURRENT_VERSION
+
+#endif // _WIN32 && !MSVC
+
+#endif // FIX_MINGW_H

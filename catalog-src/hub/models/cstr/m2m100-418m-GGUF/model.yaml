@@ -1,0 +1,68 @@
+model: cstr/m2m100-418m-GGUF
+base:
+  - key: cstr/m2m100-418m-GGUF
+    role: model
+    name: M2M-100 418M GGUF
+    purpose: Multilingual text-to-text translation model for dubbing
+    defaultFile: m2m100-418m-q8_0.gguf
+    sources:
+      - type: huggingface
+        user: cstr
+        repo: m2m100-418m-GGUF
+        files:
+          - name: m2m100-418m-q8_0.gguf
+            size: 502 MiB
+          - name: m2m100-418m-f16.gguf
+metadataOverrides:
+  domain: stt
+  architectures: [m2m100]
+  compatibilityTypes: [gguf]
+  capabilities: [stt]
+laStudio:
+  id: m2m100-418m
+  type: stt
+  localDir: m2m100-418m
+  shortName: M2M
+  title: M2M-100 418M
+  subtitle: Offline multilingual text translation for dubbing
+  description: Local text-to-text translation through the CrispASR M2M-100 backend. Supports 100 languages in any-to-any directions.
+  accent: "#27a99a"
+  capabilities: [stt]
+  supportsStt: true
+  tags: [GGUF, Offline, Translation, Dubbing]
+  strengths:
+    - 100-language any-to-any translation
+    - Compact model suitable for local dubbing workflows
+    - Runs through the shared CrispASR runtime
+  weaknesses:
+    - Translation quality is below larger specialist checkpoints for some language pairs
+  supportedLanguageCount: 100
+  runtimes:
+    - id: crispasr-win-x86_64-cpu
+      engineFamily: crispasr
+      label: CPU
+      name: CPU CrispASR (x64)
+      asset: libcrispasr-windows-x86_64.tar.gz
+      library: bin/crispasr.dll
+      version: v0.8.6
+      source: https://github.com/CrispStrobe/CrispASR/releases/download/
+      backend: m2m100
+      type: stt
+    - id: crispasr-win-x86_64-cuda
+      engineFamily: crispasr
+      label: CUDA 12
+      name: CUDA 12 CrispASR (x64)
+      asset: libcrispasr-windows-x86_64-cuda.tar.gz
+      library: bin/crispasr.dll
+      version: v0.8.6
+      source: https://github.com/CrispStrobe/CrispASR/releases/download/
+      backend: m2m100
+      type: stt
+  studio:
+    stt:
+      layout: stt
+      action: translate
+      inputs:
+        - text
+        - language
+      parameters: []

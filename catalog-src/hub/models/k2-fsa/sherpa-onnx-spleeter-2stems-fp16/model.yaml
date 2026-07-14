@@ -1,0 +1,96 @@
+model: k2-fsa/sherpa-onnx-spleeter-2stems-fp16
+base:
+  - key: k2-fsa/sherpa-onnx-spleeter-2stems-fp16-vocals
+    role: vocals-model
+    name: Spleeter vocals FP16
+    purpose: Vocals stem model for fast two-stem separation
+    defaultFile: vocals.fp16.onnx
+    sources:
+      - type: url
+        url: https://github.com/k2-fsa/sherpa-onnx/releases/download/source-separation-models/sherpa-onnx-spleeter-2stems-fp16.tar.bz2
+        files:
+          - name: vocals.fp16.onnx
+  - key: k2-fsa/sherpa-onnx-spleeter-2stems-fp16-accompaniment
+    role: accompaniment-model
+    name: Spleeter accompaniment FP16
+    purpose: Accompaniment stem model for fast two-stem separation
+    defaultFile: accompaniment.fp16.onnx
+    sources:
+      - type: url
+        url: https://github.com/k2-fsa/sherpa-onnx/releases/download/source-separation-models/sherpa-onnx-spleeter-2stems-fp16.tar.bz2
+        files:
+          - name: accompaniment.fp16.onnx
+metadataOverrides:
+  domain: stt
+  architectures:
+    - spleeter
+  compatibilityTypes:
+    - onnx
+  paramsStrings:
+    - 2-stem
+    - FP16
+  capabilities:
+    - voice-isolation
+    - stt
+  vision: false
+laStudio:
+  id: sherpa-onnx-spleeter-2stems-fp16
+  type: stt
+  localDir: sherpa-onnx-spleeter-2stems-fp16
+  shortName: SPL
+  title: Spleeter 2-stem FP16
+  subtitle: Fast voice isolation for sherpa-onnx
+  description: Fast local two-stem source separation using the sherpa-onnx Spleeter FP16 vocals and accompaniment models.
+  accent: "#7c4dff"
+  capabilities:
+    - voice-isolation
+    - stt
+  tags:
+    - ONNX
+    - Offline
+    - Spleeter
+    - FP16
+    - Fast
+  strengths:
+    - Fast CPU-oriented vocals and accompaniment separation
+    - Compact model pair for interactive workflows
+  weaknesses:
+    - Lower separation quality than UVR Vocals FT
+    - Two-stem output may retain residual music, effects, or reverb
+  parameterDefinitions:
+    threads:
+      name: Threads
+      type: int
+      min: 1
+      max: 64
+      default: 1
+      advanced: true
+  runtimes:
+    - id: sherpa-onnx-win-x86_64-cpu
+      engineFamily: sherpa-onnx
+      backend: sherpa-onnx
+      pipelineProfile: spleeter-2stems
+      label: CPU
+      name: sherpa-onnx (x64)
+      version: v1.13.4
+      source: https://github.com/k2-fsa/sherpa-onnx/releases/download/
+      asset: sherpa-onnx-v1.13.4-win-x64-shared-MT-Release.tar.bz2
+      library: lib/sherpa-onnx-c-api.dll
+      type: stt
+      capabilities:
+        - voice-isolation
+        - stt
+      modelFormats:
+        - onnx
+      metadata:
+        devRoot: D:/code/sherpa-onnx
+        cApi: source-separation
+  studio:
+    voice-isolation:
+      layout: voice-isolator
+      action: isolate
+      inputs:
+        - audio
+        - video
+      parameters:
+        - threads

@@ -1,0 +1,85 @@
+model: k2-fsa/sherpa-onnx-uvr-vocals-ft
+base:
+  - key: k2-fsa/sherpa-onnx-uvr-vocals-ft-model
+    role: model
+    name: UVR-MDX-NET Vocals FT
+    purpose: Quality two-stem vocals and accompaniment separation
+    defaultFile: UVR-MDX-NET-Voc_FT.onnx
+    sources:
+      - type: url
+        url: https://github.com/k2-fsa/sherpa-onnx/releases/download/source-separation-models/UVR-MDX-NET-Voc_FT.onnx
+        files:
+          - name: UVR-MDX-NET-Voc_FT.onnx
+            size: 335 MiB
+metadataOverrides:
+  domain: stt
+  architectures:
+    - uvr-mdx-net
+  compatibilityTypes:
+    - onnx
+  paramsStrings:
+    - 2-stem
+  capabilities:
+    - voice-isolation
+    - stt
+  vision: false
+laStudio:
+  id: sherpa-onnx-uvr-vocals-ft
+  type: stt
+  localDir: sherpa-onnx-uvr-vocals-ft
+  shortName: UVR
+  title: UVR-MDX-NET Vocals FT
+  subtitle: Quality voice isolation for sherpa-onnx
+  description: Local two-stem source separation using the sherpa-onnx UVR/MDX-Net Vocals FT model.
+  accent: "#7c4dff"
+  capabilities:
+    - voice-isolation
+    - stt
+  tags:
+    - ONNX
+    - Offline
+    - UVR
+    - Quality
+  strengths:
+    - Higher-quality vocals and background separation
+    - Suitable for STT, voice references, and dubbing workflows
+  weaknesses:
+    - Slower than Spleeter on CPU
+    - Two-stem output may retain residual music, effects, or reverb
+  parameterDefinitions:
+    threads:
+      name: Threads
+      type: int
+      min: 1
+      max: 64
+      default: 1
+      advanced: true
+  runtimes:
+    - id: sherpa-onnx-win-x86_64-cpu
+      engineFamily: sherpa-onnx
+      backend: sherpa-onnx
+      pipelineProfile: uvr-2stems
+      label: CPU
+      name: sherpa-onnx (x64)
+      version: v1.13.4
+      source: https://github.com/k2-fsa/sherpa-onnx/releases/download/
+      asset: sherpa-onnx-v1.13.4-win-x64-shared-MT-Release.tar.bz2
+      library: lib/sherpa-onnx-c-api.dll
+      type: stt
+      capabilities:
+        - voice-isolation
+        - stt
+      modelFormats:
+        - onnx
+      metadata:
+        devRoot: D:/code/sherpa-onnx
+        cApi: source-separation
+  studio:
+    voice-isolation:
+      layout: voice-isolator
+      action: isolate
+      inputs:
+        - audio
+        - video
+      parameters:
+        - threads

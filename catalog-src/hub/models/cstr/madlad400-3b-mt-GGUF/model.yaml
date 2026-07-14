@@ -1,0 +1,68 @@
+model: cstr/madlad400-3b-mt-GGUF
+base:
+  - key: cstr/madlad400-3b-mt-GGUF
+    role: model
+    name: MADLAD-400 3B GGUF
+    purpose: High-coverage multilingual text-to-text translation model for dubbing
+    defaultFile: madlad400-3b-mt-q4_k.gguf
+    sources:
+      - type: huggingface
+        user: cstr
+        repo: madlad400-3b-mt-GGUF
+        files:
+          - name: madlad400-3b-mt-q4_k.gguf
+            size: 1.9 GiB
+          - name: madlad400-3b-mt-f16.gguf
+metadataOverrides:
+  domain: stt
+  architectures: [madlad]
+  compatibilityTypes: [gguf]
+  capabilities: [stt]
+laStudio:
+  id: madlad400-3b-mt
+  type: stt
+  localDir: madlad400-3b-mt
+  shortName: MAD
+  title: MADLAD-400 3B
+  subtitle: Offline 419-language translation for dubbing
+  description: Local text-to-text translation through the CrispASR MADLAD backend, with target-language tags and coverage for 419 languages.
+  accent: "#d98b2b"
+  capabilities: [stt]
+  supportsStt: true
+  tags: [GGUF, Offline, Translation, Dubbing]
+  strengths:
+    - Broad 419-language coverage
+    - Useful fallback for less common dubbing languages
+    - Runs through the shared CrispASR runtime
+  weaknesses:
+    - Larger memory and compute requirement than M2M-100
+  supportedLanguageCount: 419
+  runtimes:
+    - id: crispasr-win-x86_64-cpu
+      engineFamily: crispasr
+      label: CPU
+      name: CPU CrispASR (x64)
+      asset: libcrispasr-windows-x86_64.tar.gz
+      library: bin/crispasr.dll
+      version: v0.8.6
+      source: https://github.com/CrispStrobe/CrispASR/releases/download/
+      backend: madlad
+      type: stt
+    - id: crispasr-win-x86_64-cuda
+      engineFamily: crispasr
+      label: CUDA 12
+      name: CUDA 12 CrispASR (x64)
+      asset: libcrispasr-windows-x86_64-cuda.tar.gz
+      library: bin/crispasr.dll
+      version: v0.8.6
+      source: https://github.com/CrispStrobe/CrispASR/releases/download/
+      backend: madlad
+      type: stt
+  studio:
+    stt:
+      layout: stt
+      action: translate
+      inputs:
+        - text
+        - language
+      parameters: []

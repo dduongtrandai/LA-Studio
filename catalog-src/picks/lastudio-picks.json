@@ -1,0 +1,92 @@
+{
+  "id": "lastudio-picks",
+  "title": "LA Studio Picks",
+  "description": "All model families currently curated and used by LA Studio workflows.",
+  "items": [
+    {
+      "familyId": "qwen3-tts-0.6b-base",
+      "modelId": "Qwen/Qwen3-TTS-12Hz-0.6B-Base",
+      "reason": "Lightweight Qwen3 voice-cloning baseline for fast local iteration."
+    },
+    {
+      "familyId": "qwen3-tts-1.7b-base",
+      "modelId": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+      "reason": "Larger Qwen3 base model for higher quality voice cloning."
+    },
+    {
+      "familyId": "qwen3-tts-1.7b-customvoice",
+      "modelId": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
+      "reason": "Qwen3 custom voice workflow with reference conditioning."
+    },
+    {
+      "familyId": "qwen3-tts-1.7b-voicedesign",
+      "modelId": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+      "reason": "Qwen3 voice design model for generating voices from text descriptions."
+    },
+    {
+      "familyId": "vibevoice",
+      "modelId": "microsoft/VibeVoice-Realtime-0.5B",
+      "reason": "Low-latency VibeVoice realtime TTS through CrispASR with compact preset voice packs."
+    },
+    {
+      "familyId": "vieneu-tts-v2-turbo",
+      "modelId": "pnnbao-ump/VieNeu-TTS-v2-Turbo",
+      "reason": "Vietnamese-focused TTS model for LA Studio speech workflows."
+    },
+    {
+      "familyId": "vieneu-tts-v3-turbo",
+      "modelId": "pnnbao-ump/VieNeu-TTS-v3-Turbo",
+      "reason": "48 kHz VieNeu v3 Turbo package for Vietnamese-English TTS, reference-audio cloning, and native runtime progress."
+    },
+    {
+      "familyId": "omnivoice",
+      "modelId": "k2-fsa/OmniVoice",
+      "reason": "High quality multilingual TTS, voice cloning, and voice design package."
+    },
+    {
+      "familyId": "kokoro",
+      "modelId": "hexgrad/Kokoro-82M",
+      "reason": "Small multilingual preset-voice TTS with practical CPU runtime options."
+    },
+    {
+      "familyId": "kokoro-vietnamese",
+      "modelId": "contextboxai/Kokoro-Vietnamese",
+      "reason": "Vietnamese Kokoro TTS through the dedicated native ONNX runtime with bundled vig2p phonemization."
+    },
+    {
+      "familyId": "voxcpm2",
+      "modelId": "openbmb/VoxCPM2",
+      "reason": "30-language VoxCPM2 TTS, voice design, and zero-shot voice cloning through CrispASR v0.8.6."
+    },
+    {
+      "familyId": "whisper.cpp",
+      "modelId": "openai/whisper",
+      "reason": "Offline multilingual speech recognition and translation backend."
+    },
+    {
+      "familyId": "qwen3-asr-0.6b",
+      "modelId": "Qwen/Qwen3-ASR-0.6B",
+      "reason": "Lightweight offline speech-to-text and audio Q&A model."
+    },
+    {
+      "familyId": "qwen3-asr-1.7b",
+      "modelId": "Qwen/Qwen3-ASR-1.7B",
+      "reason": "Medium offline speech-to-text and audio Q&A model."
+    },
+    {
+      "familyId": "nemotron-3.5-asr-streaming-0.6b",
+      "modelId": "nvidia/nemotron-3.5-asr-streaming-0.6b",
+      "reason": "Streaming-native multilingual ASR with a compact 0.6B local GGUF model."
+    },
+    {
+      "familyId": "m2m100-418m",
+      "modelId": "cstr/m2m100-418m-GGUF",
+      "reason": "Compact 100-language local translation model for dubbing."
+    },
+    {
+      "familyId": "madlad400-3b-mt",
+      "modelId": "cstr/madlad400-3b-mt-GGUF",
+      "reason": "Broad 419-language local translation model for dubbing."
+    }
+  ]
+}

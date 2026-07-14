@@ -1,0 +1,102 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "windows-base",
+      "hidden": true,
+      "inherits": "base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "cl.exe",
+        "CMAKE_CXX_COMPILER": "cl.exe"
+      }
+    },
+    {
+      "name": "windows-msvc-release",
+      "displayName": "Windows MSVC Release",
+      "description": "Windows x64 Release build (MSVC toolchain)",
+      "inherits": "windows-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "windows-msvc-debug",
+      "displayName": "Windows MSVC Debug",
+      "description": "Windows x64 Debug build (MSVC toolchain)",
+      "inherits": "windows-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "windows-mingw-release",
+      "displayName": "Windows MinGW Release",
+      "description": "Windows Release build (MinGW toolchain)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "gcc.exe",
+        "CMAKE_CXX_COMPILER": "g++.exe"
+      }
+    },
+    {
+      "name": "x64-release",
+      "hidden": true,
+      "inherits": "windows-msvc-release"
+    },
+    {
+      "name": "x64-debug",
+      "hidden": true,
+      "inherits": "windows-msvc-debug"
+    },
+    {
+      "name": "mingw-release",
+      "hidden": true,
+      "inherits": "windows-mingw-release"
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "windows-msvc-release",
+      "configurePreset": "windows-msvc-release"
+    },
+    {
+      "name": "windows-msvc-debug",
+      "configurePreset": "windows-msvc-debug"
+    },
+    {
+      "name": "windows-mingw-release",
+      "configurePreset": "windows-mingw-release"
+    },
+    {
+      "name": "x64-release",
+      "hidden": true,
+      "configurePreset": "windows-msvc-release"
+    },
+    {
+      "name": "x64-debug",
+      "hidden": true,
+      "configurePreset": "windows-msvc-debug"
+    },
+    {
+      "name": "mingw-release",
+      "hidden": true,
+      "configurePreset": "windows-mingw-release"
+    }
+  ]
+}

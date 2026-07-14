@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "Qwen/Qwen3-ASR-0.6B",
+  "publisher": "Qwen",
+  "name": "Qwen3-ASR-0.6B",
+  "title": "Qwen3-ASR 0.6B",
+  "task": "speech-to-text",
+  "source": "https://huggingface.co/Qwen/Qwen3-ASR-0.6B",
+  "license": "apache-2.0",
+  "runtimeFormat": "gguf",
+  "downloadSources": [
+    "cstr/qwen3-asr-0.6b-GGUF"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "Qwen/Qwen3-ForcedAligner-0.6B",
+  "publisher": "Qwen",
+  "name": "Qwen3-ForcedAligner-0.6B",
+  "title": "Qwen3 Forced Aligner 0.6B",
+  "task": "forced-alignment",
+  "source": "https://huggingface.co/Qwen/Qwen3-ForcedAligner-0.6B",
+  "license": "apache-2.0",
+  "runtimeFormat": "gguf",
+  "downloadSources": ["cstr/qwen3-forced-aligner-0.6b-GGUF", "ggml-org/whisper-vad"]
+}

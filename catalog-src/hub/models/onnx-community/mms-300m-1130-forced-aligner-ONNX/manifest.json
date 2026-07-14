@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "onnx-community/mms-300m-1130-forced-aligner-ONNX",
+  "publisher": "onnx-community",
+  "name": "mms-300m-1130-forced-aligner-ONNX",
+  "title": "MMS Forced Aligner ONNX",
+  "task": "forced-alignment",
+  "source": "https://huggingface.co/onnx-community/mms-300m-1130-forced-aligner-ONNX",
+  "license": "cc-by-nc-4.0",
+  "runtimeFormat": "onnx",
+  "downloadSources": [
+    "onnx-community/mms-300m-1130-forced-aligner-ONNX"
+  ]
+}

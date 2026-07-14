@@ -1,0 +1,163 @@
+model: hexgrad/Kokoro-82M
+base:
+  - key: cstr/kokoro-82m-gguf
+    role: model
+    name: Kokoro Backbone
+    purpose: Core StyleTTS2 / iSTFTNet model
+    defaultFile: kokoro-82m-f16.gguf
+    sources:
+      - type: huggingface
+        user: cstr
+        repo: kokoro-82m-GGUF
+        files:
+          - name: kokoro-82m-f16.gguf
+            size: 330 MB
+          - name: kokoro-de-hui-base-f16.gguf
+  - key: cstr/kokoro-voices-gguf
+    role: tokenizer
+    name: Voice Pack
+    purpose: Preset speaker style vectors
+    defaultFile: kokoro-voice-af_heart.gguf
+    sources:
+      - type: huggingface
+        user: cstr
+        repo: kokoro-voices-GGUF
+        files:
+          - name: kokoro-voice-af_heart.gguf
+            size: 0.6 MB
+          - name: kokoro-voice-ff_siwis.gguf
+          - name: kokoro-voice-df_victoria.gguf
+          - name: kokoro-voice-df_eva.gguf
+          - name: kokoro-voice-dm_martin.gguf
+          - name: kokoro-voice-dm_bernd.gguf
+metadataOverrides:
+  domain: tts
+  architectures:
+    - styletts2
+  compatibilityTypes:
+    - gguf
+  paramsStrings:
+    - 82M
+  capabilities:
+    - tts
+  vision: false
+config:
+  operation:
+    fields:
+      - key: tts.language
+        value: en
+customFields:
+  - key: voicePack
+    displayName: Voice Pack
+    description: Selects the installed Kokoro voice GGUF used for synthesis.
+    type: string
+    defaultValue: kokoro-voice-af_heart.gguf
+laStudio:
+  id: kokoro
+  type: tts
+  localDir: kokoro
+  shortName: KO
+  title: Kokoro
+  subtitle: Small multilingual preset-voice TTS
+  description: A compact open-weight TTS model with 82M parameters, installed in LA Studio through a Kokoro backbone GGUF plus a per-voice GGUF pack.
+  accent: "#4f9d69"
+  capabilities:
+    - tts
+  supportsTts: true
+  supportsCloning: false
+  tags:
+    - GGUF
+    - Small
+    - Fast
+    - Multilingual
+    - Preset Voices
+  supportedLanguages:
+    - text: English (en)
+      value: en
+    - text: Spanish (es)
+      value: es
+    - text: French (fr)
+      value: fr
+    - text: Hindi (hi)
+      value: hi
+    - text: Italian (it)
+      value: it
+    - text: Japanese (ja)
+      value: ja
+    - text: Portuguese (pt)
+      value: pt
+    - text: Chinese (zh)
+      value: zh
+    - text: German (de)
+      value: de
+  strengths:
+    - Fast CPU inference
+    - Small model footprint
+    - Multilingual phonemizer routing
+  weaknesses:
+    - Uses preset voice packs only
+    - Needs espeak-ng availability from the CrispASR runtime environment
+  runtimes:
+    - id: crispasr-win-x86_64-cpu
+      engineFamily: crispasr
+      label: CPU
+      name: CPU CrispASR (x64)
+      asset: libcrispasr-windows-x86_64.tar.gz
+      version: v0.8.6
+      source: https://github.com/CrispStrobe/CrispASR/releases/download/
+      library: bin/crispasr.dll
+      dependencyDownloads:
+        - dependency: espeak-ng
+          filename: espeak-ng.msi
+          url: https://github.com/espeak-ng/espeak-ng/releases/download/1.52.0/espeak-ng.msi
+      backend: kokoro
+      modelVersion: Kokoro-82M GGUF
+    - id: crispasr-win-x86_64-cuda
+      engineFamily: crispasr
+      label: CUDA
+      name: CUDA CrispASR (x64)
+      asset: libcrispasr-windows-x86_64-cuda.tar.gz
+      version: v0.8.6
+      source: https://github.com/CrispStrobe/CrispASR/releases/download/
+      library: bin/crispasr.dll
+      dependencyDownloads:
+        - dependency: espeak-ng
+          filename: espeak-ng.msi
+          url: https://github.com/espeak-ng/espeak-ng/releases/download/1.52.0/espeak-ng.msi
+      backend: kokoro
+      modelVersion: Kokoro-82M GGUF
+    - id: crispasr-win-x86_64-vulkan
+      engineFamily: crispasr
+      label: Vulkan
+      name: Vulkan CrispASR (x64)
+      asset: libcrispasr-windows-x86_64-vulkan.tar.gz
+      version: v0.8.6
+      source: https://github.com/CrispStrobe/CrispASR/releases/download/
+      library: bin/crispasr.dll
+      dependencyDownloads:
+        - dependency: espeak-ng
+          filename: espeak-ng.msi
+          url: https://github.com/espeak-ng/espeak-ng/releases/download/1.52.0/espeak-ng.msi
+      backend: kokoro
+      modelVersion: Kokoro-82M GGUF
+    - id: crispasr-win-x86_64-cpu-legacy
+      engineFamily: crispasr
+      label: CPU Legacy
+      name: Legacy CPU CrispASR (x64)
+      asset: libcrispasr-windows-x86_64-cpu-legacy.tar.gz
+      version: v0.8.6
+      source: https://github.com/CrispStrobe/CrispASR/releases/download/
+      library: bin/crispasr.dll
+      dependencyDownloads:
+        - dependency: espeak-ng
+          filename: espeak-ng.msi
+          url: https://github.com/espeak-ng/espeak-ng/releases/download/1.52.0/espeak-ng.msi
+      backend: kokoro
+      modelVersion: Kokoro-82M GGUF
+  studio:
+    tts:
+      layout: tts
+      action: synthesize
+      inputs:
+        - text
+        - language

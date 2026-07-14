@@ -1,0 +1,652 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lastudio.local/schemas/catalog.schema.json",
+  "title": "LA Studio Catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "version", "modelCategories", "ttsFamilies", "sttFamilies"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "modelCategories": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/modelCategory"
+      }
+    },
+    "modelPicks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/modelPickCollection"
+      }
+    },
+    "ttsFamilies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/family"
+      }
+    },
+    "sttFamilies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/family"
+      }
+    }
+  },
+  "$defs": {
+    "stringArray": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "modelCategory": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "name", "title", "capabilities", "items"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9.-]*$"
+        },
+        "name": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/catalogItem"
+          }
+        }
+      }
+    },
+    "modelPickCollection": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "title", "items"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9.-]*$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/modelPickItem"
+          }
+        }
+      }
+    },
+    "modelPickItem": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["familyId"],
+      "properties": {
+        "familyId": {
+          "type": "string"
+        },
+        "modelId": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "catalogItem": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "name", "realId", "localDir", "task", "desc", "tags"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "realId": {
+          "type": "string"
+        },
+        "modelId": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "modelCardUrl": {
+          "type": "string"
+        },
+        "readme": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "filename": { "type": "string" },
+            "source": { "type": "string" },
+            "content": { "type": "string" }
+          }
+        },
+        "hubFiles": {
+          "$ref": "#/$defs/hubFiles"
+        },
+        "localDir": {
+          "type": "string"
+        },
+        "task": {
+          "enum": ["tts", "stt", "voice-cloning", "voice-design", "forced-alignment"]
+        },
+        "file": {
+          "type": "string"
+        },
+        "size": {
+          "type": "string"
+        },
+        "desc": {
+          "type": "string"
+        },
+        "tags": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "params": {
+          "type": "string"
+        },
+        "variants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fileVariant"
+          }
+        },
+        "isPackage": {
+          "type": "boolean"
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/component"
+          }
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["name", "variants"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "variants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fileVariant"
+          }
+        }
+      }
+    },
+    "fileVariant": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["name", "file"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "modelId": {
+          "type": "string"
+        },
+        "size": {
+          "type": "string"
+        },
+        "tags": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "modelId": {
+          "type": "string"
+        }
+      }
+    },
+    "family": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "localDir", "title", "modelId", "capabilities", "requiredFiles", "runtimes", "studio"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "localDir": {
+          "type": "string"
+        },
+        "shortName": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "subtitle": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "accent": {
+          "type": "string"
+        },
+        "modelId": {
+          "type": "string"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "supportsTts": {
+          "type": "boolean"
+        },
+        "supportsStt": {
+          "type": "boolean"
+        },
+        "supportsCloning": {
+          "type": "boolean"
+        },
+        "tags": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "strengths": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "weaknesses": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "supportedLanguages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/language"
+          }
+        },
+        "featuredLanguages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/language"
+          }
+        },
+        "supportedLanguageSetId": {
+          "type": "string"
+        },
+        "supportedLanguageCount": {
+          "type": "integer"
+        },
+        "requiredFiles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/requiredFile"
+          }
+        },
+        "runtimes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/runtime"
+          }
+        },
+        "parameterDefinitions": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/parameterDefinition"
+          }
+        },
+        "studio": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/studioConfig"
+          }
+        },
+        "metadataOverrides": {
+          "$ref": "#/$defs/modelYamlMetadata"
+        },
+        "stats": {
+          "$ref": "#/$defs/familyStats"
+        },
+        "modelYaml": {
+          "$ref": "#/$defs/modelYaml"
+        },
+        "hubFiles": {
+          "$ref": "#/$defs/hubFiles"
+        }
+      }
+    },
+    "hubFiles": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "manifest": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "readme": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "filename": { "type": "string" },
+            "content": { "type": "string" }
+          }
+        },
+        "thumbnail": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "filename": { "type": "string" },
+            "mimeType": { "type": "string" },
+            "base64": { "type": "string" }
+          }
+        }
+      }
+    },
+    "familyStats": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "upstreamModelId": { "type": "string" },
+        "likesModelId": { "type": "string" },
+        "downloadModelIds": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "localDownloads": { "type": "integer" },
+        "displayDownloads": { "type": "integer" },
+        "localDownloadsAllTime": { "type": "integer" },
+        "upstreamLikes": { "type": "integer" },
+        "upstreamDownloads": { "type": "integer" },
+        "upstreamDownloadsAllTime": { "type": "integer" },
+        "updatedAt": { "type": "string" },
+        "policy": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "downloads": { "type": "string" },
+            "likes": { "type": "string" }
+          }
+        },
+        "sources": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "parameterDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "enum": ["int", "float", "bool", "string", "choice"] },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "default": { "type": ["number", "boolean", "string"] },
+        "advanced": { "type": "boolean" },
+        "description": { "type": "string" },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": { "type": "string" },
+              "value": { "type": ["string", "number"] }
+            }
+          }
+        }
+      }
+    },
+    "studioConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "layout": { "type": "string" },
+        "action": { "type": "string" },
+        "inputs": { "$ref": "#/$defs/stringArray" },
+        "requiredInputs": { "$ref": "#/$defs/stringArray" },
+        "parameters": { "$ref": "#/$defs/stringArray" },
+        "parameterDefaults": {
+          "type": "object",
+          "additionalProperties": {
+            "type": ["string", "number", "boolean"]
+          }
+        },
+        "nonVerbalTags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonVerbalTag"
+          }
+        }
+      }
+    },
+    "nonVerbalTag": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value"],
+      "properties": {
+        "text": { "type": "string" },
+        "value": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "language": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "value"],
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "requiredFile": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["role", "name", "purpose", "file"],
+      "properties": {
+        "role": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "size": {
+          "type": "string"
+        },
+        "candidates": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "variants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceFile"
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/modelSource"
+          }
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "engineFamily", "label", "name", "asset", "version", "source"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "engineFamily": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "asset": {
+          "type": "string"
+        },
+        "library": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "backend": {
+          "type": "string"
+        },
+        "modelVersion": {
+          "type": "string"
+        },
+        "disabledReason": {
+          "type": "string"
+        },
+        "dependencyDownloads": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    "modelYaml": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["model", "base"],
+      "properties": {
+        "model": { "type": "string" },
+        "base": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/modelBase"
+          }
+        },
+        "metadataOverrides": {
+          "$ref": "#/$defs/modelYamlMetadata"
+        },
+        "config": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "customFields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "suggestions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    "modelBase": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["key", "sources"],
+      "properties": {
+        "key": { "type": "string" },
+        "role": { "type": "string" },
+        "name": { "type": "string" },
+        "purpose": { "type": "string" },
+        "defaultFile": { "type": "string" },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/modelSource"
+          }
+        }
+      }
+    },
+    "modelSource": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string" },
+        "user": { "type": "string" },
+        "repo": { "type": "string" },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceFile"
+          }
+        }
+      }
+    },
+    "sourceFile": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "name": { "type": "string" },
+        "file": { "type": "string" },
+        "size": { "type": "string" },
+        "quant": { "type": "string" },
+        "tags": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "modelYamlMetadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "domain": { "type": "string" },
+        "architectures": { "$ref": "#/$defs/stringArray" },
+        "compatibilityTypes": { "$ref": "#/$defs/stringArray" },
+        "paramsStrings": { "$ref": "#/$defs/stringArray" },
+        "minMemoryUsageBytes": { "type": "integer" },
+        "contextLengths": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "vision": { "type": ["boolean", "string"] },
+        "reasoning": { "type": ["boolean", "string"] },
+        "trainedForToolUse": { "type": ["boolean", "string"] },
+        "capabilities": { "$ref": "#/$defs/stringArray" }
+      }
+    }
+  }
+}

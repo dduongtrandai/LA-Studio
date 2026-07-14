@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "lastudio.example.v1",
+  "id": "voice-cloning-vieneu-v3-turbo",
+  "title": "VieNeu-TTS v3 Turbo reference voice cloning",
+  "task": "voice-cloning",
+  "model": {
+    "familyId": "vieneu-tts-v3-turbo",
+    "required": true,
+    "runtimeFamily": "vieneu-tts",
+    "pipelineProfile": "vieneu-v3-native"
+  },
+  "capabilities": ["voice-cloning", "vi", "en", "mixed-language", "non-verbal-tags"],
+  "inputs": {
+    "referenceAudio": "draft/vi/ref.WAV",
+    "referenceText": "Đây là đoạn âm thanh tham chiếu dùng để kiểm tra khả năng giữ chất giọng.",
+    "text": "Đây là câu kiểm tra giọng clone bằng VieNeu-TTS v3 Turbo. We can also include a short English phrase in the cloned voice [cười]."
+  },
+  "settings": {
+    "lang": "vi",
+    "temperature": 0.8,
+    "top_k": 25,
+    "top_p": 0.95,
+    "max_new_frames": 180,
+    "repetition_penalty": 1.2,
+    "max_chars": 384,
+    "apply_watermark": true
+  },
+  "expected": {
+    "output": "48 kHz speech generated from the target text using the reference audio timbre.",
+    "manualChecks": [
+      "The reference WAV is accepted by the runtime.",
+      "Generated speech follows the target text, not the reference transcript.",
+      "The output keeps a recognizable similarity to the reference audio.",
+      "Mixed-language text and the non-verbal tag do not stop generation."
+    ]
+  },
+  "references": {
+    "catalogModel": "catalog-src/hub/models/pnnbao-ump/VieNeu-TTS-v3-Turbo/model.yaml",
+    "sampleReferenceAudio": "draft/vi/ref.WAV"
+  }
+}
+

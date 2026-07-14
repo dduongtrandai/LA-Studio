@@ -1,0 +1,12 @@
+{
+  "languages": [
+    { "text": "English", "value": "en", "detail": "Language code: en" },
+    { "text": "Chinese", "value": "zh", "detail": "Language code: zh" },
+    { "text": "Japanese", "value": "ja", "detail": "Language code: ja" },
+    { "text": "Korean", "value": "ko", "detail": "Language code: ko" },
+    { "text": "French", "value": "fr", "detail": "Language code: fr" },
+    { "text": "Spanish", "value": "es", "detail": "Language code: es" },
+    { "text": "German", "value": "de", "detail": "Language code: de" },
+    { "text": "Vietnamese", "value": "vi", "detail": "Language code: vi" }
+  ]
+}

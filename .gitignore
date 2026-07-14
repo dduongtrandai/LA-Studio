@@ -1,0 +1,131 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# CMake
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_CPack_Packages
+CPackConfig.cmake
+CPackSourceConfig.cmake
+CMakeUserPresets.json
+
+# Build directories
+build/
+bin/
+out/
+dist/
+
+# Android local state
+android/.gradle/
+android/.idea/
+android/local.properties
+
+# Qt Creator
+*.user
+*.user.*
+
+# Qt Specific
+*.qmlc
+*.jsc
+*.qrc.cpp
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+*.qmake.stash
+
+# Visual Studio
+.vs/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.suo
+*.pdb
+*.ilk
+*.aps
+
+# CLion/IntelliJ
+.idea/
+cmake-build-*/
+
+# VS Code
+.vscode/
+
+# Vcpkg
+vcpkg_installed/
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.swp
+*~
+*.log
+*.tmp
+scripts/__pycache__/
+
+# Models & Runtimes (Avoid committing large binary file
+*.bin
+*.onnx
+*.gguf
+
+ref-projects/
+.github/
+!.github/
+.github/*
+!.github/workflows/
+.github/workflows/*
+!.github/workflows/windows-release.yml
+LA-Studio/
+
+# Speckit / specify artifacts: ignore generated spec kit files but keep constitution
+**/*speckit*
+.specify/*
+!.specify/memory/
+!.specify/memory/constitution.md
+.antigravitycli/
+
+# Dependency directories
+.deps/
+
+# Codex
+.codex/
+

@@ -1,0 +1,1 @@
+{"schemaVersion":"1.0.0","id":"nvidia/canary-ctc-aligner","publisher":"NVIDIA","name":"canary-ctc-aligner","title":"Canary CTC Aligner","task":"forced-alignment","source":"https://huggingface.co/cstr/canary-ctc-aligner-GGUF","license":"cc-by-4.0","runtimeFormat":"gguf","downloadSources":["cstr/canary-ctc-aligner-GGUF","ggml-org/whisper-vad"]}

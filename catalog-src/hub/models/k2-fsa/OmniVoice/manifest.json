@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "k2-fsa/OmniVoice",
+  "publisher": "k2-fsa",
+  "name": "OmniVoice",
+  "title": "OmniVoice",
+  "task": "text-to-speech",
+  "source": "https://huggingface.co/k2-fsa/OmniVoice",
+  "license": "apache-2.0",
+  "runtimeFormat": "gguf",
+  "downloadSources": [
+    "Serveurperso/OmniVoice-GGUF"
+  ]
+}

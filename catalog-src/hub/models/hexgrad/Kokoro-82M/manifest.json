@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "hexgrad/Kokoro-82M",
+  "publisher": "hexgrad",
+  "name": "Kokoro-82M",
+  "title": "Kokoro 82M",
+  "task": "text-to-speech",
+  "source": "https://huggingface.co/hexgrad/Kokoro-82M",
+  "license": "apache-2.0",
+  "runtimeFormat": "gguf",
+  "downloadSources": [
+    "cstr/kokoro-82m-GGUF",
+    "cstr/kokoro-voices-GGUF"
+  ]
+}

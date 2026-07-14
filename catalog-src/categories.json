@@ -1,0 +1,1156 @@
+[
+  {
+    "id": "alignment",
+    "name": "Alignment",
+    "title": "Alignment",
+    "description": "Models for matching a known transcript to audio and producing word or character timestamps.",
+    "capabilities": ["forced-alignment"],
+    "items": [
+      {
+        "id": "mms-forced-aligner-onnx",
+        "name": "MMS Forced Aligner ONNX",
+        "realId": "onnx-community/mms-300m-1130-forced-aligner-ONNX",
+        "modelId": "onnx-community/mms-300m-1130-forced-aligner-ONNX",
+        "source": "https://huggingface.co/onnx-community/mms-300m-1130-forced-aligner-ONNX",
+        "readme": {
+          "filename": "README.md",
+          "source": "https://huggingface.co/onnx-community/mms-300m-1130-forced-aligner-ONNX/raw/main/README.md"
+        },
+        "localDir": "mms-forced-aligner-onnx",
+        "task": "forced-alignment",
+        "desc": "ONNX export of the MMS 300M forced aligner for transcript-to-audio timestamp alignment across 158 languages. Non-commercial license.",
+        "tags": [
+          "forced-alignment",
+          "onnx",
+          "ctc",
+          "timestamps",
+          "non-commercial"
+        ],
+        "params": "300M",
+        "isPackage": true,
+        "components": [
+          {
+            "name": "1. Alignment graph",
+            "variants": [
+              {
+                "name": "INT8 CPU",
+                "file": "model_int8.onnx",
+                "size": "317 MB",
+                "tags": ["int8", "cpu"]
+              },
+              {
+                "name": "FP16 CUDA",
+                "file": "model_fp16.onnx",
+                "size": "632 MB",
+                "tags": ["fp16", "cuda"]
+              },
+              {
+                "name": "FP32 reference",
+                "file": "model.onnx",
+                "size": "1.26 GB",
+                "tags": ["fp32", "reference"]
+              }
+            ]
+          },
+          {
+            "name": "2. Tokenizer and config",
+            "variants": [
+              { "name": "Config", "file": "config.json" },
+              { "name": "Preprocessor config", "file": "preprocessor_config.json" },
+              { "name": "Tokenizer config", "file": "tokenizer_config.json" },
+              { "name": "Special tokens", "file": "special_tokens_map.json" },
+              { "name": "Vocabulary", "file": "vocab.json" }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "voice-cloning",
+    "name": "Voice Cloning",
+    "title": "Voice Cloning",
+    "description": "Model packages for zero-shot voice cloning and reference-audio speech generation.",
+    "capabilities": ["voice-cloning", "tts"],
+    "items": [
+      {
+        "id": "voxcpm2-tts",
+        "name": "VoxCPM2",
+        "realId": "openbmb/VoxCPM2",
+        "modelId": "openbmb/VoxCPM2",
+        "source": "https://huggingface.co/openbmb/VoxCPM2",
+        "readme": {
+          "filename": "README.md",
+          "source": "https://huggingface.co/openbmb/VoxCPM2/raw/main/README.md"
+        },
+        "localDir": "voxcpm2",
+        "task": "tts",
+        "desc": "Tokenizer-free 2B multilingual TTS with 48kHz output, voice design, and zero-shot voice cloning through the CrispASR VoxCPM2 runtime.",
+        "tags": [
+          "text-to-speech",
+          "voice-cloning",
+          "voice-design",
+          "gguf",
+          "multilingual"
+        ],
+        "params": "2B",
+        "isPackage": true,
+        "components": [
+          {
+            "name": "1. VoxCPM2 Model",
+            "variants": [
+              {
+                "name": "Q4_K (Recommended)",
+                "modelId": "cstr/voxcpm2-GGUF",
+                "file": "voxcpm2-q4_k.gguf",
+                "size": "1.5 GB",
+                "tags": [
+                  "q4_k"
+                ]
+              },
+              {
+                "name": "F16 (Full Precision)",
+                "modelId": "cstr/voxcpm2-GGUF",
+                "file": "voxcpm2-f16.gguf",
+                "size": "4.63 GB",
+                "tags": [
+                  "f16"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "omnivoice-tts",
+        "name": "OmniVoice TTS (Base + Codec)",
+        "realId": "k2-fsa/OmniVoice",
+        "localDir": "omnivoice",
+        "task": "tts",
+        "desc": "Advanced voice cloning and zero-shot TTS. Requires BOTH a Base Model and a Tokenizer to function. We recommend Q8_0 for the Base and F32 for the Tokenizer.",
+        "tags": [
+          "text-to-speech",
+          "voice-cloning",
+          "gguf"
+        ],
+        "params": "1B",
+        "isPackage": true,
+        "components": [
+          {
+            "name": "1. Language Model (Base)",
+            "variants": [
+              {
+                "name": "Q4_K_M (Fastest)",
+                "file": "omnivoice-base-Q4_K_M.gguf",
+                "size": "407 MB",
+                "tags": [
+                  "q4_k_m"
+                ]
+              },
+              {
+                "name": "Q8_0 (Recommended)",
+                "file": "omnivoice-base-Q8_0.gguf",
+                "size": "656 MB",
+                "tags": [
+                  "q8_0"
+                ]
+              },
+              {
+                "name": "BF16 (Standard)",
+                "file": "omnivoice-base-BF16.gguf",
+                "size": "1.23 GB",
+                "tags": [
+                  "bf16"
+                ]
+              },
+              {
+                "name": "F32 (Master)",
+                "file": "omnivoice-base-F32.gguf",
+                "size": "2.46 GB",
+                "tags": [
+                  "f32"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "2. Audio Codec (Tokenizer)",
+            "variants": [
+              {
+                "name": "Q4_K_M",
+                "file": "omnivoice-tokenizer-Q4_K_M.gguf",
+                "size": "252 MB",
+                "tags": [
+                  "q4_k_m"
+                ]
+              },
+              {
+                "name": "Q8_0",
+                "file": "omnivoice-tokenizer-Q8_0.gguf",
+                "size": "289 MB",
+                "tags": [
+                  "q8_0"
+                ]
+              },
+              {
+                "name": "BF16",
+                "file": "omnivoice-tokenizer-BF16.gguf",
+                "size": "373 MB",
+                "tags": [
+                  "bf16"
+                ]
+              },
+              {
+                "name": "F32 (Recommended)",
+                "file": "omnivoice-tokenizer-F32.gguf",
+                "size": "734 MB",
+                "tags": [
+                  "f32"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "voice-design",
+    "name": "Voice Design",
+    "title": "Voice Design",
+    "description": "Model packages for generating custom voices from descriptive text prompts.",
+    "capabilities": ["voice-design"],
+    "items": [
+      {
+        "id": "voxcpm2-voicedesign",
+        "name": "VoxCPM2",
+        "realId": "openbmb/VoxCPM2",
+        "modelId": "openbmb/VoxCPM2",
+        "source": "https://huggingface.co/openbmb/VoxCPM2",
+        "localDir": "voxcpm2",
+        "task": "voice-design",
+        "desc": "Generate new voices from natural-language descriptions using VoxCPM2's upstream parenthesized prompt format through the CrispASR VoxCPM2 runtime.",
+        "tags": [
+          "voice-design",
+          "voice-cloning",
+          "gguf",
+          "multilingual"
+        ],
+        "params": "2B",
+        "isPackage": true,
+        "components": [
+          {
+            "name": "1. VoxCPM2 Model",
+            "variants": [
+              {
+                "name": "Q4_K (Recommended)",
+                "modelId": "cstr/voxcpm2-GGUF",
+                "file": "voxcpm2-q4_k.gguf",
+                "size": "1.5 GB",
+                "tags": [
+                  "q4_k"
+                ]
+              },
+              {
+                "name": "F16 (Full Precision)",
+                "modelId": "cstr/voxcpm2-GGUF",
+                "file": "voxcpm2-f16.gguf",
+                "size": "4.63 GB",
+                "tags": [
+                  "f16"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "qwen3-tts-1.7b-voicedesign-item",
+        "name": "Qwen3-TTS 1.7B VoiceDesign",
+        "realId": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "localDir": "qwen3-tts-1.7b-voicedesign",
+        "task": "voice-design",
+        "desc": "Expressive voice generation from instructions. Requires both the model and the tokenizer.",
+        "tags": [
+          "voice-design",
+          "gguf"
+        ],
+        "params": "1.7B",
+        "isPackage": true,
+        "components": [
+          {
+            "name": "1. VoiceDesign Model",
+            "variants": [
+              {
+                "name": "Q8_0 (Recommended)",
+                "file": "qwen3-tts-12hz-1.7b-voicedesign-q8_0.gguf",
+                "size": "1.8 GB",
+                "tags": [
+                  "q8_0"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "2. Audio Codec (Tokenizer)",
+            "variants": [
+              {
+                "name": "Tokenizer (Required)",
+                "modelId": "cstr/qwen3-tts-tokenizer-12hz-GGUF",
+                "file": "qwen3-tts-tokenizer-12hz.gguf",
+                "size": "700 MB",
+                "tags": [
+                  "tokenizer"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "omnivoice-voicedesign-item",
+        "name": "OmniVoice TTS (Base + Codec)",
+        "realId": "k2-fsa/OmniVoice",
+        "localDir": "omnivoice",
+        "task": "voice-design",
+        "desc": "Advanced voice cloning, text-to-speech, and voice design.",
+        "tags": [
+          "text-to-speech",
+          "voice-cloning",
+          "voice-design",
+          "gguf"
+        ],
+        "params": "1B",
+        "isPackage": true,
+        "components": [
+          {
+            "name": "1. Language Model (Base)",
+            "variants": [
+              {
+                "name": "Q8_0 (Recommended)",
+                "file": "omnivoice-base-Q8_0.gguf",
+                "size": "656 MB",
+                "tags": [
+                  "q8_0"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "2. Audio Codec (Tokenizer)",
+            "variants": [
+              {
+                "name": "F32 (Recommended)",
+                "file": "omnivoice-tokenizer-F32.gguf",
+                "size": "734 MB",
+                "tags": [
+                  "f32"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "speech-generation-and-recognition",
+    "name": "Speech Generation & Recognition",
+    "title": "Speech Generation & Recognition",
+    "description": "Model packages that provide speech generation and speech recognition workflows.",
+    "capabilities": ["tts", "stt"],
+    "items": [
+      {
+        "id": "vibevoice-bundle",
+        "name": "VibeVoice Realtime 0.5B (CrispASR)",
+        "realId": "microsoft/VibeVoice-Realtime-0.5B",
+        "localDir": "vibevoice",
+        "task": "tts",
+        "desc": "Microsoft VibeVoice Realtime 0.5B packaged as CrispASR GGUF. Supports low-latency Text-to-Speech with preset GGUF voice packs.",
+        "tags": [
+          "text-to-speech",
+          "preset-voice",
+          "crispasr",
+          "gguf"
+        ],
+        "params": "500M",
+        "isPackage": true,
+        "components": [
+          {
+            "name": "1. Text-to-Speech (TTS)",
+            "variants": [
+              {
+                "name": "Realtime TTS (0.5B Q4_K)",
+                "file": "vibevoice-realtime-0.5b-q4_k.gguf",
+                "size": "607 MB",
+                "tags": [
+                  "q4_k",
+                  "tts"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "2. Preset Voice Packs",
+            "variants": [
+              {
+                "name": "Voice: Emma (Female)",
+                "file": "vibevoice-voice-emma.gguf",
+                "size": "2-6 MB",
+                "speaker": "Emma (Female)",
+                "language": "English (alias of en-Emma_woman)",
+                "tags": [
+                  "voice",
+                  "female",
+                  "english"
+                ]
+              },
+              {
+                "name": "Voice: Emma (Female) - English",
+                "file": "vibevoice-voice-en-Emma_woman.gguf",
+                "size": "2-6 MB",
+                "speaker": "Emma (Female)",
+                "language": "English",
+                "tags": [
+                  "voice",
+                  "female",
+                  "english"
+                ]
+              },
+              {
+                "name": "Voice: Carter (Male) - English",
+                "file": "vibevoice-voice-en-Carter_man.gguf",
+                "size": "2-6 MB",
+                "speaker": "Carter (Male)",
+                "language": "English",
+                "tags": [
+                  "voice",
+                  "male",
+                  "english"
+                ]
+              },
+              {
+                "name": "Voice: Davis (Male) - English",
+                "file": "vibevoice-voice-en-Davis_man.gguf",
+                "size": "2-6 MB",
+                "speaker": "Davis (Male)",
+                "language": "English",
+                "tags": [
+                  "voice",
+                  "male",
+                  "english"
+                ]
+              },
+              {
+                "name": "Voice: Frank (Male) - English",
+                "file": "vibevoice-voice-en-Frank_man.gguf",
+                "size": "2-6 MB",
+                "speaker": "Frank (Male)",
+                "language": "English",
+                "tags": [
+                  "voice",
+                  "male",
+                  "english"
+                ]
+              },
+              {
+                "name": "Voice: Grace (Female) - English",
+                "file": "vibevoice-voice-en-Grace_woman.gguf",
+                "size": "2-6 MB",
+                "speaker": "Grace (Female)",
+                "language": "English",
+                "tags": [
+                  "voice",
+                  "female",
+                  "english"
+                ]
+              },
+              {
+                "name": "Voice: Mike (Male) - English",
+                "file": "vibevoice-voice-en-Mike_man.gguf",
+                "size": "2-6 MB",
+                "speaker": "Mike (Male)",
+                "language": "English",
+                "tags": [
+                  "voice",
+                  "male",
+                  "english"
+                ]
+              },
+              {
+                "name": "Voice: Spk0 (Male) - German",
+                "file": "vibevoice-voice-de-Spk0_man.gguf",
+                "size": "2-6 MB",
+                "speaker": "Spk0 (Male)",
+                "language": "German",
+                "tags": [
+                  "voice",
+                  "male",
+                  "german"
+                ]
+              },
+              {
+                "name": "Voice: Spk1 (Female) - German",
+                "file": "vibevoice-voice-de-Spk1_woman.gguf",
+                "size": "2-6 MB",
+                "speaker": "Spk1 (Female)",
+                "language": "German",
+                "tags": [
+                  "voice",
+                  "female",
+                  "german"
+                ]
+              },
+              {
+                "name": "Voice: Spk0 (Male) - French",
+                "file": "vibevoice-voice-fr-Spk0_man.gguf",
+                "size": "2-6 MB",
+                "speaker": "Spk0 (Male)",
+                "language": "French",
+                "tags": [
+                  "voice",
+                  "male",
+                  "french"
+                ]
+              },
+              {
+                "name": "Voice: Spk1 (Female) - French",
+                "file": "vibevoice-voice-fr-Spk1_woman.gguf",
+                "size": "2-6 MB",
+                "speaker": "Spk1 (Female)",
+                "language": "French",
+                "tags": [
+                  "voice",
+                  "female",
+                  "french"
+                ]
+              },
+              {
+                "name": "Voice: Samuel (Male) - Indian English",
+                "file": "vibevoice-voice-in-Samuel_man.gguf",
+                "size": "2-6 MB",
+                "speaker": "Samuel (Male)",
+                "language": "Indian English",
+                "tags": [
+                  "voice",
+                  "male",
+                  "indian english"
+                ]
+              },
+              {
+                "name": "Voice: Spk0 (Female) - Italian",
+                "file": "vibevoice-voice-it-Spk0_woman.gguf",
+                "size": "2-6 MB",
+                "speaker": "Spk0 (Female)",
+                "language": "Italian",
+                "tags": [
+                  "voice",
+                  "female",
+                  "italian"
+                ]
+              },
+              {
+                "name": "Voice: Spk1 (Male) - Italian",
+                "file": "vibevoice-voice-it-Spk1_man.gguf",
+                "size": "2-6 MB",
+                "speaker": "Spk1 (Male)",
+                "language": "Italian",
+                "tags": [
+                  "voice",
+                  "male",
+                  "italian"
+                ]
+              },
+              {
+                "name": "Voice: Spk0 (Male) - Japanese",
+                "file": "vibevoice-voice-jp-Spk0_man.gguf",
+                "size": "2-6 MB",
+                "speaker": "Spk0 (Male)",
+                "language": "Japanese",
+                "tags": [
+                  "voice",
+                  "male",
+                  "japanese"
+                ]
+              },
+              {
+                "name": "Voice: Spk1 (Female) - Japanese",
+                "file": "vibevoice-voice-jp-Spk1_woman.gguf",
+                "size": "2-6 MB",
+                "speaker": "Spk1 (Female)",
+                "language": "Japanese",
+                "tags": [
+                  "voice",
+                  "female",
+                  "japanese"
+                ]
+              },
+              {
+                "name": "Voice: Spk0 (Female) - Korean",
+                "file": "vibevoice-voice-kr-Spk0_woman.gguf",
+                "size": "2-6 MB",
+                "speaker": "Spk0 (Female)",
+                "language": "Korean",
+                "tags": [
+                  "voice",
+                  "female",
+                  "korean"
+                ]
+              },
+              {
+                "name": "Voice: Spk1 (Male) - Korean",
+                "file": "vibevoice-voice-kr-Spk1_man.gguf",
+                "size": "2-6 MB",
+                "speaker": "Spk1 (Male)",
+                "language": "Korean",
+                "tags": [
+                  "voice",
+                  "male",
+                  "korean"
+                ]
+              },
+              {
+                "name": "Voice: Spk0 (Male) - Dutch",
+                "file": "vibevoice-voice-nl-Spk0_man.gguf",
+                "size": "2-6 MB",
+                "speaker": "Spk0 (Male)",
+                "language": "Dutch",
+                "tags": [
+                  "voice",
+                  "male",
+                  "dutch"
+                ]
+              },
+              {
+                "name": "Voice: Spk1 (Female) - Dutch",
+                "file": "vibevoice-voice-nl-Spk1_woman.gguf",
+                "size": "2-6 MB",
+                "speaker": "Spk1 (Female)",
+                "language": "Dutch",
+                "tags": [
+                  "voice",
+                  "female",
+                  "dutch"
+                ]
+              },
+              {
+                "name": "Voice: Spk0 (Male) - Polish",
+                "file": "vibevoice-voice-pl-Spk0_man.gguf",
+                "size": "2-6 MB",
+                "speaker": "Spk0 (Male)",
+                "language": "Polish",
+                "tags": [
+                  "voice",
+                  "male",
+                  "polish"
+                ]
+              },
+              {
+                "name": "Voice: Spk1 (Female) - Polish",
+                "file": "vibevoice-voice-pl-Spk1_woman.gguf",
+                "size": "2-6 MB",
+                "speaker": "Spk1 (Female)",
+                "language": "Polish",
+                "tags": [
+                  "voice",
+                  "female",
+                  "polish"
+                ]
+              },
+              {
+                "name": "Voice: Spk0 (Female) - Portuguese",
+                "file": "vibevoice-voice-pt-Spk0_woman.gguf",
+                "size": "2-6 MB",
+                "speaker": "Spk0 (Female)",
+                "language": "Portuguese",
+                "tags": [
+                  "voice",
+                  "female",
+                  "portuguese"
+                ]
+              },
+              {
+                "name": "Voice: Spk1 (Male) - Portuguese",
+                "file": "vibevoice-voice-pt-Spk1_man.gguf",
+                "size": "2-6 MB",
+                "speaker": "Spk1 (Male)",
+                "language": "Portuguese",
+                "tags": [
+                  "voice",
+                  "male",
+                  "portuguese"
+                ]
+              },
+              {
+                "name": "Voice: Spk0 (Female) - Spanish",
+                "file": "vibevoice-voice-sp-Spk0_woman.gguf",
+                "size": "2-6 MB",
+                "speaker": "Spk0 (Female)",
+                "language": "Spanish",
+                "tags": [
+                  "voice",
+                  "female",
+                  "spanish"
+                ]
+              },
+              {
+                "name": "Voice: Spk1 (Male) - Spanish",
+                "file": "vibevoice-voice-sp-Spk1_man.gguf",
+                "size": "2-6 MB",
+                "speaker": "Spk1 (Male)",
+                "language": "Spanish",
+                "tags": [
+                  "voice",
+                  "male",
+                  "spanish"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "preset-voice-tts",
+    "name": "Preset Voice TTS",
+    "title": "Preset Voice TTS",
+    "description": "Text-to-speech packages built around fixed or packaged speaker voices.",
+    "capabilities": ["tts"],
+    "items": [
+      {
+        "id": "kokoro-tts",
+        "name": "Kokoro 82M (GGUF + Voice Pack)",
+        "realId": "hexgrad/Kokoro-82M",
+        "modelId": "hexgrad/Kokoro-82M",
+        "source": "https://huggingface.co/hexgrad/Kokoro-82M",
+        "readme": {
+          "filename": "README.md",
+          "source": "https://huggingface.co/hexgrad/Kokoro-82M/raw/main/README.md"
+        },
+        "localDir": "kokoro",
+        "task": "tts",
+        "desc": "Small, fast multilingual TTS using the CrispASR Kokoro runtime. Requires a Kokoro model GGUF and one kokoro-voice-*.gguf voice pack.",
+        "tags": [
+          "text-to-speech",
+          "kokoro",
+          "gguf",
+          "multilingual"
+        ],
+        "params": "82M",
+        "isPackage": true,
+        "components": [
+          {
+            "name": "1. Kokoro Backbone",
+            "variants": [
+              {
+                "name": "Kokoro 82M F16",
+                "file": "kokoro-82m-f16.gguf",
+                "size": "330 MB",
+                "tags": [
+                  "f16",
+                  "model"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "2. Voice Pack",
+            "variants": [
+              {
+                "name": "AF Heart (English)",
+                "modelId": "cstr/kokoro-voices-GGUF",
+                "file": "kokoro-voice-af_heart.gguf",
+                "size": "0.6 MB",
+                "tags": [
+                  "voice",
+                  "english"
+                ]
+              },
+              {
+                "name": "FF Siwis (Fallback)",
+                "modelId": "cstr/kokoro-voices-GGUF",
+                "file": "kokoro-voice-ff_siwis.gguf",
+                "size": "0.6 MB",
+                "tags": [
+                  "voice",
+                  "fallback"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "general-tts",
+    "name": "General TTS",
+    "title": "General TTS",
+    "description": "General purpose text-to-speech models.",
+    "capabilities": ["tts"],
+    "items": [
+      {
+        "id": "voxcpm2-general-tts",
+        "name": "VoxCPM2",
+        "realId": "openbmb/VoxCPM2",
+        "modelId": "openbmb/VoxCPM2",
+        "source": "https://huggingface.co/openbmb/VoxCPM2",
+        "localDir": "voxcpm2",
+        "task": "tts",
+        "desc": "Tokenizer-free 2B multilingual text-to-speech model with 30-language support and 48kHz output through CrispASR.",
+        "tags": [
+          "text-to-speech",
+          "voice-cloning",
+          "voice-design",
+          "gguf",
+          "multilingual"
+        ],
+        "params": "2B",
+        "isPackage": true,
+        "components": [
+          {
+            "name": "1. VoxCPM2 Model",
+            "variants": [
+              {
+                "name": "Q4_K (Recommended)",
+                "modelId": "cstr/voxcpm2-GGUF",
+                "file": "voxcpm2-q4_k.gguf",
+                "size": "1.5 GB",
+                "tags": [
+                  "q4_k"
+                ]
+              },
+              {
+                "name": "F16 (Full Precision)",
+                "modelId": "cstr/voxcpm2-GGUF",
+                "file": "voxcpm2-f16.gguf",
+                "size": "4.63 GB",
+                "tags": [
+                  "f16"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "parler-tts/parler-tts-mini-v1",
+        "name": "Parler TTS Mini v1",
+        "realId": "parler-tts/parler-tts-mini-v1",
+        "localDir": "parler-tts-mini-v1",
+        "task": "tts",
+        "file": "model.safetensors",
+        "size": "2.3 GB",
+        "desc": "High-quality, expressive TTS model.",
+        "tags": [
+          "text-to-speech",
+          "english"
+        ],
+        "params": "880M"
+      },
+      {
+        "id": "microsoft/speecht5_tts",
+        "name": "SpeechT5 TTS",
+        "realId": "microsoft/speecht5_tts",
+        "localDir": "speecht5_tts",
+        "task": "tts",
+        "file": "pytorch_model.bin",
+        "size": "560 MB",
+        "desc": "Standard TTS model for English.",
+        "tags": [
+          "text-to-speech",
+          "english"
+        ],
+        "params": "144M"
+      }
+    ]
+  },
+  {
+    "id": "speech-to-text",
+    "name": "Speech to Text",
+    "title": "Speech to Text",
+    "description": "Automatic speech recognition and transcription models.",
+    "capabilities": ["stt"],
+    "items": [
+      {
+        "id": "whisper-tiny",
+        "name": "Whisper Tiny",
+        "realId": "openai/whisper",
+        "localDir": "whisper",
+        "task": "stt",
+        "desc": "Whisper Tiny (39M parameters). Fastest model for basic transcription. Needs very little RAM.",
+        "tags": [
+          "ASR",
+          "ggml",
+          "openai"
+        ],
+        "params": "39M",
+        "variants": [
+          {
+            "name": "Multilingual (f16)",
+            "file": "ggml-tiny.bin",
+            "size": "75 MB",
+            "tags": [
+              "multi",
+              "f16"
+            ]
+          },
+          {
+            "name": "English Only (f16)",
+            "file": "ggml-tiny.en.bin",
+            "size": "75 MB",
+            "tags": [
+              "en",
+              "f16"
+            ]
+          },
+          {
+            "name": "Multilingual (q5_1)",
+            "file": "ggml-tiny-q5_1.bin",
+            "size": "31 MB",
+            "tags": [
+              "multi",
+              "q5_1"
+            ]
+          },
+          {
+            "name": "English Only (q5_1)",
+            "file": "ggml-tiny.en-q5_1.bin",
+            "size": "31 MB",
+            "tags": [
+              "en",
+              "q5_1"
+            ]
+          },
+          {
+            "name": "Multilingual (q8_0)",
+            "file": "ggml-tiny-q8_0.bin",
+            "size": "40 MB",
+            "tags": [
+              "multi",
+              "q8_0"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "whisper-base",
+        "name": "Whisper Base",
+        "realId": "openai/whisper",
+        "localDir": "whisper",
+        "task": "stt",
+        "desc": "Whisper Base (74M parameters). Fast model with decent accuracy.",
+        "tags": [
+          "ASR",
+          "ggml",
+          "openai"
+        ],
+        "params": "74M",
+        "variants": [
+          {
+            "name": "Multilingual (f16)",
+            "file": "ggml-base.bin",
+            "size": "142 MB",
+            "tags": [
+              "multi",
+              "f16"
+            ]
+          },
+          {
+            "name": "English Only (f16)",
+            "file": "ggml-base.en.bin",
+            "size": "142 MB",
+            "tags": [
+              "en",
+              "f16"
+            ]
+          },
+          {
+            "name": "Multilingual (q5_1)",
+            "file": "ggml-base-q5_1.bin",
+            "size": "57 MB",
+            "tags": [
+              "multi",
+              "q5_1"
+            ]
+          },
+          {
+            "name": "English Only (q5_1)",
+            "file": "ggml-base.en-q5_1.bin",
+            "size": "57 MB",
+            "tags": [
+              "en",
+              "q5_1"
+            ]
+          },
+          {
+            "name": "Multilingual (q8_0)",
+            "file": "ggml-base-q8_0.bin",
+            "size": "78 MB",
+            "tags": [
+              "multi",
+              "q8_0"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "whisper-small",
+        "name": "Whisper Small",
+        "realId": "openai/whisper",
+        "localDir": "whisper",
+        "task": "stt",
+        "desc": "Whisper Small (244M parameters). Good balance of speed and accuracy for transcription.",
+        "tags": [
+          "ASR",
+          "ggml",
+          "openai"
+        ],
+        "params": "244M",
+        "variants": [
+          {
+            "name": "Multilingual (f16)",
+            "file": "ggml-small.bin",
+            "size": "466 MB",
+            "tags": [
+              "multi",
+              "f16"
+            ]
+          },
+          {
+            "name": "English Only (f16)",
+            "file": "ggml-small.en.bin",
+            "size": "466 MB",
+            "tags": [
+              "en",
+              "f16"
+            ]
+          },
+          {
+            "name": "Multilingual (q5_1)",
+            "file": "ggml-small-q5_1.bin",
+            "size": "181 MB",
+            "tags": [
+              "multi",
+              "q5_1"
+            ]
+          },
+          {
+            "name": "English Only (q5_1)",
+            "file": "ggml-small.en-q5_1.bin",
+            "size": "181 MB",
+            "tags": [
+              "en",
+              "q5_1"
+            ]
+          },
+          {
+            "name": "Multilingual (q8_0)",
+            "file": "ggml-small-q8_0.bin",
+            "size": "258 MB",
+            "tags": [
+              "multi",
+              "q8_0"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "whisper-medium",
+        "name": "Whisper Medium",
+        "realId": "openai/whisper",
+        "localDir": "whisper",
+        "task": "stt",
+        "desc": "Whisper Medium (769M parameters). Very high accuracy, suitable for multilingual.",
+        "tags": [
+          "ASR",
+          "ggml",
+          "openai"
+        ],
+        "params": "769M",
+        "variants": [
+          {
+            "name": "Multilingual (f16)",
+            "file": "ggml-medium.bin",
+            "size": "1.5 GB",
+            "tags": [
+              "multi",
+              "f16"
+            ]
+          },
+          {
+            "name": "English Only (f16)",
+            "file": "ggml-medium.en.bin",
+            "size": "1.5 GB",
+            "tags": [
+              "en",
+              "f16"
+            ]
+          },
+          {
+            "name": "Multilingual (q5_0)",
+            "file": "ggml-medium-q5_0.bin",
+            "size": "544 MB",
+            "tags": [
+              "multi",
+              "q5_0"
+            ]
+          },
+          {
+            "name": "English Only (q5_0)",
+            "file": "ggml-medium.en-q5_0.bin",
+            "size": "544 MB",
+            "tags": [
+              "en",
+              "q5_0"
+            ]
+          },
+          {
+            "name": "Multilingual (q8_0)",
+            "file": "ggml-medium-q8_0.bin",
+            "size": "813 MB",
+            "tags": [
+              "multi",
+              "q8_0"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "whisper-large-v3",
+        "name": "Whisper Large v3",
+        "realId": "openai/whisper",
+        "localDir": "whisper",
+        "task": "stt",
+        "desc": "Whisper Large v3 (1550M parameters). State of the art transcription.",
+        "tags": [
+          "ASR",
+          "ggml",
+          "openai"
+        ],
+        "params": "1550M",
+        "variants": [
+          {
+            "name": "Multilingual (f16)",
+            "file": "ggml-large-v3.bin",
+            "size": "3.1 GB",
+            "tags": [
+              "multi",
+              "f16"
+            ]
+          },
+          {
+            "name": "Multilingual (q5_0)",
+            "file": "ggml-large-v3-q5_0.bin",
+            "size": "1.1 GB",
+            "tags": [
+              "multi",
+              "q5_0"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

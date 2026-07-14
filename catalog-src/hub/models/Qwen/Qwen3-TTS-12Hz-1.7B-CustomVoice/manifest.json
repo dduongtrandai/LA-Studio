@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
+  "publisher": "Qwen",
+  "name": "Qwen3-TTS-12Hz-1.7B-CustomVoice",
+  "title": "Qwen3-TTS CustomVoice 1.7B",
+  "task": "text-to-speech",
+  "source": "https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
+  "license": "apache-2.0",
+  "runtimeFormat": "gguf",
+  "downloadSources": [
+    "cstr/qwen3-tts-1.7b-customvoice-GGUF",
+    "cstr/qwen3-tts-tokenizer-12hz-GGUF"
+  ]
+}

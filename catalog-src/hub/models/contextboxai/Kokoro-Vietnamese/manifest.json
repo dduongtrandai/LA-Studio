@@ -1,0 +1,12 @@
+{
+  "id": "kokoro-vietnamese",
+  "name": "Kokoro Vietnamese",
+  "type": "tts",
+  "runtimeFormat": "onnx+bin+sidecar",
+  "upstream": "https://github.com/iamdinhthuan/Kokoro-Vietnamese",
+  "model": "https://huggingface.co/contextboxai/Kokoro-Vietnamese",
+  "runtime": "https://github.com/dduongtrandai/Kokoro-Vietnamese.cpp/releases/tag/v0.1.0",
+  "sampleRate": 24000,
+  "channels": 1,
+  "notes": "LA Studio passes text and voice settings to kokoro-vietnamese.dll. Phonemization is handled by the bundled kokoro_vi_g2p.exe sidecar."
+}

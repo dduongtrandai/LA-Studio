@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "openai/whisper",
+  "publisher": "openai",
+  "name": "whisper",
+  "title": "Whisper.cpp",
+  "task": "speech-to-text",
+  "source": "https://huggingface.co/openai/whisper-large-v3",
+  "license": "mit",
+  "runtimeFormat": "ggml",
+  "downloadSources": [
+    "ggerganov/whisper.cpp"
+  ]
+}
