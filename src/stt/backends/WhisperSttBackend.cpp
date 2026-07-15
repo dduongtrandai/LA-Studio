@@ -4,6 +4,7 @@
 #include "core/Logger.h"
 #include <runtimes/WhisperInterface.h>
 #include <algorithm>
+#include <QElapsedTimer>
 
 namespace LAStudio {
 
@@ -69,6 +70,8 @@ bool WhisperSttBackend::transcribe(const QVector<float> &samples,
                                    QVariantList &segments,
                                    QString &error)
 {
+    QElapsedTimer timer;
+    timer.start();
     if (!m_ctx) {
         error = QStringLiteral("No model loaded");
         return false;
@@ -174,6 +177,8 @@ bool WhisperSttBackend::transcribe(const QVector<float> &samples,
 
     int result = wi.full_run(m_ctx, params, samples.constData(), samples.size());
     if (result != 0) {
+        Logger::error(QStringLiteral("WhisperSttBackend"),
+                      QStringLiteral("whisper_full_run failed code=%1 elapsedMs=%2").arg(result).arg(timer.elapsed()));
         error = QStringLiteral("Whisper transcription failed with code: %1").arg(result);
         return false;
     }
@@ -199,6 +204,9 @@ bool WhisperSttBackend::transcribe(const QVector<float> &samples,
 
     fullText = outText.trimmed();
     segments = outSegments;
+    Logger::info(QStringLiteral("WhisperSttBackend"),
+                 QStringLiteral("Inference complete segments=%1 textChars=%2 elapsedMs=%3")
+                     .arg(nSegments).arg(fullText.size()).arg(timer.elapsed()));
     return true;
 }
 

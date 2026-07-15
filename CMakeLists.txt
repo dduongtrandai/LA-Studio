@@ -102,6 +102,8 @@ set(LASTUDIO_SOURCES
     src/controllers/VoiceDesignPresetService.cpp
     src/controllers/DownloadInstallService.cpp
     src/controllers/AlignmentExecutionService.cpp
+    src/controllers/AlignmentRefinementService.cpp
+    src/controllers/DubbingSegmentNormalizer.cpp
     src/controllers/AlignmentTranscriptMatcher.cpp
     src/controllers/CrispAlignmentInterface.cpp
     src/controllers/CrispTranslationInterface.cpp
@@ -213,6 +215,8 @@ set(LASTUDIO_HEADERS
     src/controllers/VoiceDesignPresetService.h
     src/controllers/DownloadInstallService.h
     src/controllers/AlignmentExecutionService.h
+    src/controllers/AlignmentRefinementService.h
+    src/controllers/DubbingSegmentNormalizer.h
     src/controllers/AlignmentTranscriptMatcher.h
     include/runtimes/CrispAlignmentInterface.h
     include/runtimes/CrispTranslationInterface.h
@@ -345,6 +349,7 @@ qt_add_qml_module(LAStudio
         qml/components/voicecloning/VoiceCloningSetupPanel.qml
         qml/components/shared/StudioHeaderBar.qml
         qml/components/shared/GeneratedAudioOutput.qml
+        qml/components/shared/VoiceSeparationOutput.qml
         qml/components/shared/LoadedModelDialog.qml
         qml/components/shared/ExamplePickerDialog.qml
         qml/components/shared/CapabilityGallery.qml

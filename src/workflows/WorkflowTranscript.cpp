@@ -34,6 +34,21 @@ bool WorkflowTranscriptArtifact::validate(QString *error) const
             setError(error, QStringLiteral("Invalid transcript timing for segment: %1").arg(id));
             return false;
         }
+        const QVariantList words = segment.value(QStringLiteral("words")).toList();
+        qint64 previousWordEnd = start;
+        for (int wordIndex = 0; wordIndex < words.size(); ++wordIndex) {
+            const QVariantMap word = words.at(wordIndex).toMap();
+            const QString text = word.value(QStringLiteral("text"),
+                                            word.value(QStringLiteral("word"))).toString().trimmed();
+            const qint64 wordStart = word.value(QStringLiteral("startMs")).toLongLong();
+            const qint64 wordEnd = word.value(QStringLiteral("endMs")).toLongLong();
+            if (text.isEmpty() || wordStart < start || wordEnd <= wordStart || wordEnd > end
+                || wordStart < previousWordEnd) {
+                setError(error, QStringLiteral("Invalid word timing at segment %1, word %2").arg(id).arg(wordIndex));
+                return false;
+            }
+            previousWordEnd = wordEnd;
+        }
     }
     return true;
 }

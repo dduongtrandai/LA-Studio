@@ -29,6 +29,9 @@ class DubbingController : public QObject
     Q_PROPERTY(QString projectPath READ projectPath NOTIFY projectChanged)
     Q_PROPERTY(QString sourceMediaPath READ sourceMediaPath NOTIFY projectChanged)
     Q_PROPERTY(QUrl sourceMediaUrl READ sourceMediaUrl NOTIFY projectChanged)
+    Q_PROPERTY(QString normalizedAudioPath READ normalizedAudioPath NOTIFY projectChanged)
+    Q_PROPERTY(QString vocalsPath READ vocalsPath NOTIFY projectChanged)
+    Q_PROPERTY(QString backgroundPath READ backgroundPath NOTIFY projectChanged)
     Q_PROPERTY(QString sourceLanguage READ sourceLanguage WRITE setSourceLanguage NOTIFY projectChanged)
     Q_PROPERTY(QString targetLanguage READ targetLanguage WRITE setTargetLanguage NOTIFY projectChanged)
     Q_PROPERTY(QVariantList speakers READ speakers NOTIFY projectChanged)
@@ -40,6 +43,7 @@ class DubbingController : public QObject
     Q_PROPERTY(QString previewPath READ previewPath NOTIFY previewChanged)
     Q_PROPERTY(QString exportPath READ exportPath NOTIFY exportChanged)
     Q_PROPERTY(QVariantList workflowNodes READ workflowNodes NOTIFY workflowChanged)
+    Q_PROPERTY(QVariantMap workflowNodeConfigurations READ workflowNodeConfigurations NOTIFY workflowChanged)
     Q_PROPERTY(bool workflowReady READ workflowReady NOTIFY workflowChanged)
     Q_PROPERTY(QString workflowStatusText READ workflowStatusText NOTIFY workflowChanged)
     Q_PROPERTY(QString workflowId READ workflowId CONSTANT)
@@ -49,6 +53,10 @@ class DubbingController : public QObject
     Q_PROPERTY(QString workflowNodeRunId READ workflowNodeRunId NOTIFY processingChanged)
     Q_PROPERTY(bool workflowWaitingForInput READ workflowWaitingForInput NOTIFY workflowChanged)
     Q_PROPERTY(QVariantMap workflowReviewRequest READ workflowReviewRequest NOTIFY workflowChanged)
+    Q_PROPERTY(QString workflowMode READ workflowMode NOTIFY workflowChanged)
+    Q_PROPERTY(QString currentStepId READ currentStepId NOTIFY workflowChanged)
+    Q_PROPERTY(QVariantMap currentStepOutput READ currentStepOutput NOTIFY workflowChanged)
+    Q_PROPERTY(QString lastCompletedStepId READ lastCompletedStepId NOTIFY workflowChanged)
 
 public:
     explicit DubbingController(SttSessionController *sttSession, TtsEngine *tts,
@@ -58,6 +66,9 @@ public:
     bool hasProject() const { return !m_project.projectPath.isEmpty(); }
     QString projectPath() const { return m_project.projectPath; }
     QString sourceMediaPath() const { return m_project.sourceMediaPath; }
+    QString normalizedAudioPath() const { return m_project.masterAudioPath; }
+    QString vocalsPath() const { return m_project.analysisAudioPath; }
+    QString backgroundPath() const { return m_project.backgroundAudioPath; }
     QUrl sourceMediaUrl() const {
         if (m_project.sourceMediaPath.isEmpty()) return QUrl();
         return QUrl::fromLocalFile(m_project.sourceMediaPath);
@@ -73,6 +84,7 @@ public:
     QString previewPath() const;
     QString exportPath() const;
     QVariantList workflowNodes() const;
+    QVariantMap workflowNodeConfigurations() const { return m_workflowNodeConfigurations; }
     bool workflowReady() const;
     QString workflowStatusText() const;
     QString workflowId() const;
@@ -82,6 +94,10 @@ public:
     QString workflowNodeRunId() const;
     bool workflowWaitingForInput() const;
     QVariantMap workflowReviewRequest() const;
+    QString workflowMode() const { return m_workflowMode; }
+    QString currentStepId() const;
+    QVariantMap currentStepOutput() const;
+    QString lastCompletedStepId() const { return m_lastCompletedStepId; }
 
     void setSourceLanguage(const QString &value);
     void setTargetLanguage(const QString &value);
@@ -105,8 +121,18 @@ public:
     Q_INVOKABLE void clearError();
     Q_INVOKABLE void prepareWorkflow();
     Q_INVOKABLE bool runWorkflow(const QString &outputPath = QString());
+    Q_INVOKABLE bool startAutomaticWorkflow(const QString &outputPath);
+    Q_INVOKABLE void startStepByStep();
+    Q_INVOKABLE bool runCurrentStep(const QString &outputPath = QString());
+    Q_INVOKABLE bool rerunStep(const QString &stepId, const QString &outputPath = QString());
+    Q_INVOKABLE QVariantMap stepOutput(const QString &stepId) const;
     Q_INVOKABLE bool approveWorkflowReview(const QVariantMap &artifact = QVariantMap());
     Q_INVOKABLE bool rejectWorkflowReview(const QString &reason = QString());
+    Q_INVOKABLE bool setWorkflowNodeModel(const QString &nodeId,
+                                          const QString &familyId,
+                                          const QString &runtimeId,
+                                          const QString &runtimeVersion,
+                                          const QVariantMap &selectedFiles = QVariantMap());
 
 signals:
     void projectChanged();
@@ -124,6 +150,9 @@ private:
     bool ensureProject(const QString &path);
     void setError(const QString &message);
     void persistAfterEdit();
+    void setWorkflowMode(const QString &mode);
+    void setCurrentStep(const QString &stepId);
+    void advanceManualStep(const QString &completedStepId);
 
     DubbingProject m_project;
     DubbingJobRunner *m_runner = nullptr;
@@ -133,6 +162,11 @@ private:
     std::unique_ptr<WorkflowRunJournal> m_workflowJournal;
     QVariantMap m_workflowReviewRequest;
     QString m_activeReviewId;
+    QString m_workflowMode = QStringLiteral("idle");
+    QString m_currentStepId = QStringLiteral("import");
+    QVariantMap m_stepOutputs;
+    QString m_lastCompletedStepId;
+    QVariantMap m_workflowNodeConfigurations;
     SttSessionController *m_sttSession = nullptr;
     TtsEngine *m_tts = nullptr;
 };

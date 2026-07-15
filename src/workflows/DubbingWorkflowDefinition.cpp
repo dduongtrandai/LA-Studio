@@ -81,7 +81,7 @@ WorkflowGraph DubbingWorkflowDefinition::create()
     };
     graph.edges = {
         link(QStringLiteral("l01"), QStringLiteral("media-input"), QStringLiteral("value"), QStringLiteral("ingest"), QStringLiteral("media")),
-        link(QStringLiteral("l02"), QStringLiteral("ingest"), QStringLiteral("analysisAudio"), QStringLiteral("source-separate"), QStringLiteral("audio")),
+        link(QStringLiteral("l02"), QStringLiteral("ingest"), QStringLiteral("masterAudio"), QStringLiteral("source-separate"), QStringLiteral("audio")),
         link(QStringLiteral("l02b"), QStringLiteral("source-separate"), QStringLiteral("vocals"), QStringLiteral("transcribe"), QStringLiteral("audio")),
         link(QStringLiteral("l03"), QStringLiteral("transcribe"), QStringLiteral("transcript"), QStringLiteral("review-transcript"), QStringLiteral("artifact")),
         link(QStringLiteral("l04"), QStringLiteral("review-transcript"), QStringLiteral("artifact"), QStringLiteral("translate"), QStringLiteral("transcript")),

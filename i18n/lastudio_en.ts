@@ -1375,6 +1375,12 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../qml/pages/DubbingPage.qml" line="527"/>
+        <location filename="../qml/pages/DubbingPage.qml" line="584"/>
+        <source>Run again</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../qml/pages/DubbingPage.qml" line="458"/>
         <source>Search segments...</source>
         <translation type="unfinished"></translation>

@@ -61,6 +61,7 @@ public:
     QString transcript() const;
     bool processing() const;
     int progress() const;
+    bool canTranscribe() const;
     bool recording() const;
     double recordingLevel() const;
     QVariantList history() const;
@@ -114,6 +115,7 @@ signals:
     // Forward the timestamped backend result so composite workflows (such as
     // Dubbing) can reuse the shared STT session without duplicating inference.
     void transcriptionFinished(const QString &text, const QVariantList &segments);
+    void transcriptionFailed(const QString &message);
 
 private slots:
     void onDecoderFinished(const QVector<float> &samples);

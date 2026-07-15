@@ -144,53 +144,24 @@ StudioShell {
                     Layout.fillHeight: true
                     spacing: Theme.paddingMedium
 
-                    Repeater {
-                        model: [
-                            { title: qsTr("Vocals"), subtitle: qsTr("Use for STT, diarization and voice reference"), path: root.isolator.vocalsPath, kind: "vocals", samples: root.isolator.vocalsSamples },
-                            { title: qsTr("Background"), subtitle: qsTr("Use for dubbing mix and export"), path: root.isolator.backgroundPath, kind: "background", samples: root.isolator.backgroundSamples }
-                        ]
-                        delegate: Rectangle {
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            Layout.minimumHeight: 180
-                            radius: Theme.radiusMedium
-                            color: Theme.surface
-                            border.color: root.playingStem === modelData.kind ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.45) : Qt.rgba(1, 1, 1, 0.08)
-                            ColumnLayout {
-                                anchors.fill: parent
-                                anchors.margins: Theme.paddingMedium
-                                spacing: Theme.paddingSmall
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    LineIcon { name: modelData.kind === "vocals" ? "mic" : "waves"; color: Theme.accent; Layout.preferredWidth: 18; Layout.preferredHeight: 18 }
-                                    ColumnLayout { Layout.fillWidth: true; spacing: 1
-                                        Text { text: modelData.title; color: Theme.textPrimary; font.pixelSize: Theme.fontMedium; font.bold: true }
-                                        Text { text: modelData.subtitle; color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
-                                    }
-                                    Text { text: modelData.path.length > 0 ? qsTr("Ready") : qsTr("Waiting"); color: modelData.path.length > 0 ? Theme.success : Theme.textSecondary; font.pixelSize: Theme.fontSmall; font.bold: true }
-                                }
-                                WaveformView {
-                                    Layout.fillWidth: true
-                                    Layout.fillHeight: true
-                                    framed: true
-                                    samples: modelData.samples
-                                    placeholderText: modelData.path.length > 0 ? qsTr("Loading waveform...") : qsTr("Stem waveform will appear here")
-                                    showPlaceholder: modelData.samples.length === 0
-                                    playbackProgress: AppController.player.playbackDurationMs > 0
-                                                      ? AppController.player.playbackPositionMs / AppController.player.playbackDurationMs : 0
-                                    showPlaybackProgress: root.playingStem === modelData.kind && AppController.player.playing
-                                    seekEnabled: root.playingStem === modelData.kind && AppController.player.playbackDurationMs > 0
-                                    onSeekRequested: function(progress) {
-                                        AppController.player.seek(Math.round(progress * AppController.player.playbackDurationMs))
-                                    }
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    Text { Layout.fillWidth: true; text: modelData.path; color: Theme.textSecondary; font.pixelSize: 10; elide: Text.ElideMiddle }
-                                    PrimaryButton { text: root.playingStem === modelData.kind && AppController.player.playing ? qsTr("Stop") : qsTr("Play"); iconName: root.playingStem === modelData.kind && AppController.player.playing ? "stop" : "play"; quiet: true; textColor: Theme.textPrimary; enabled: modelData.path.length > 0; onClicked: root.playingStem === modelData.kind && AppController.player.playing ? AppController.player.stop() : root.playStem(modelData.kind, modelData.path) }
-                                    PrimaryButton { text: qsTr("Export WAV"); iconName: "save"; quiet: true; textColor: Theme.textPrimary; enabled: modelData.path.length > 0; onClicked: { root.exportSource = modelData.path; exportDialog.open() } }
-                                }
-                            }
+                    VoiceSeparationOutput {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        vocalsPath: root.isolator.vocalsPath
+                        backgroundPath: root.isolator.backgroundPath
+                        vocalsSamples: root.isolator.vocalsSamples
+                        backgroundSamples: root.isolator.backgroundSamples
+                        playingStem: root.playingStem
+                        onPlayRequested: function(kind, path) {
+                            root.playingStem === kind && AppController.player.playing
+                                ? AppController.player.stop() : root.playStem(kind, path)
+                        }
+                        onSeekRequested: function(kind, progress) {
+                            AppController.player.seek(Math.round(progress * AppController.player.playbackDurationMs))
+                        }
+                        onExportRequested: function(kind, path) {
+                            root.exportSource = path
+                            exportDialog.open()
                         }
                     }
                 }

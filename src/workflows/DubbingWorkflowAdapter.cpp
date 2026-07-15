@@ -1,6 +1,7 @@
 #include "DubbingWorkflowAdapter.h"
 
 #include "controllers/DubbingJobRunner.h"
+#include "core/Logger.h"
 
 namespace LAStudio {
 
@@ -17,12 +18,17 @@ DubbingWorkflowAdapter::DubbingWorkflowAdapter(DubbingJobRunner *runner, QObject
 void DubbingWorkflowAdapter::start(const QString &nodeType, const QVariantMap &inputs,
                                    const QVariantMap &parameters)
 {
+    Logger::info(QStringLiteral("DubbingWorkflow"),
+                 QStringLiteral("Node start type=%1 inputs=%2 parameters=%3")
+                     .arg(nodeType, inputs.keys().join(QLatin1Char(',')), parameters.keys().join(QLatin1Char(','))));
     if (!m_runner) {
         emit failed(QStringLiteral("Dubbing workflow runtime is unavailable."));
         return;
     }
     if (nodeType == QStringLiteral("media.ingest")) {
         m_runner->startIngest(inputs.value(QStringLiteral("media")).toString());
+    } else if (nodeType == QStringLiteral("audio.source-separate")) {
+        m_runner->startSourceSeparation(inputs.value(QStringLiteral("audio")).toString());
     } else if (nodeType == QStringLiteral("audio.transcribe")) {
         m_runner->startTranscription(parameters.value(QStringLiteral("language"), QStringLiteral("auto")).toString(),
                                      inputs.value(QStringLiteral("audio")).toString());

@@ -12,6 +12,13 @@ private slots:
     void rejectsUnknownSchema();
     void mergesSegmentPatchesByStableId();
     void rejectsUnknownAndDuplicateSegmentPatches();
+    void importingMediaDoesNotStartProcessing();
+    void rejectsRerunningUnsupportedStep();
+    void transcriptionRequiresReadyModel();
+    void alignmentRefinementFallsBackWithoutDependencies();
+    void sourceTextEditInvalidatesWordTiming();
+    void segmentNormalizerSplitsLongAsrTranscript();
+    void segmentNormalizerUsesAlignedWordBoundaries();
 };
 
 } // namespace LAStudio

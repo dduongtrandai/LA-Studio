@@ -33,7 +33,23 @@ SttModelSession::SttModelSession(SttEngine *engine, QObject *parent)
     if (m_engine) {
         connect(m_engine, &SttEngine::stateChanged, this, &SttModelSession::onEngineStateChanged);
         connect(m_engine, &SttEngine::errorOccurred, this, [this](const QString &err) {
-            m_lifecycle->onLoadError(err);
+            const QString failedSignature = m_engine->activeSignature();
+            SttEngineInstance *instance = m_engine->instance(failedSignature);
+            const bool loadFailed = instance && instance->state() == SttEngineInstance::Error;
+            if (loadFailed) {
+                m_loadedConfigs.remove(failedSignature);
+                emit activeConfigurationChanged();
+                emit activeSignatureChanged();
+                emit stateChanged();
+                QMetaObject::invokeMethod(this, [this, failedSignature]() {
+                    SttEngineInstance *failed = m_engine ? m_engine->instance(failedSignature) : nullptr;
+                    if (failed && failed->state() == SttEngineInstance::Error)
+                        m_engine->unloadInstance(failedSignature);
+                }, Qt::QueuedConnection);
+                m_lifecycle->onLoadError(err);
+            } else {
+                m_lifecycle->onEngineError(err);
+            }
         });
     }
 }

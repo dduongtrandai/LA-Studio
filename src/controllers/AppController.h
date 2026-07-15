@@ -130,6 +130,8 @@ private slots:
     void onError(const QString &msg);
 
 private:
+    void loadDefaultSttModel();
+
     static AppController *s_instance;
 
     Settings*        m_settings = nullptr;

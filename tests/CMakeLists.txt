@@ -33,6 +33,8 @@ set(TEST_SOURCES
     ../src/controllers/ExampleManager.cpp
     ../src/controllers/DownloadInstallService.cpp
     ../src/controllers/AlignmentExecutionService.cpp
+    ../src/controllers/AlignmentRefinementService.cpp
+    ../src/controllers/DubbingSegmentNormalizer.cpp
     ../src/controllers/AlignmentTranscriptMatcher.cpp
     ../src/controllers/CrispAlignmentInterface.cpp
     ../src/controllers/CrispTranslationInterface.cpp

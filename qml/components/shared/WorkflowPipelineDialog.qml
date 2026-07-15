@@ -17,11 +17,17 @@ Dialog {
     property string modelName: ""
     property string runtimeName: ""
     property var configurableNodeIds: []
+    property var nodeConfigurations: ({})
     property string actionText: qsTr("Refresh")
     property string actionIconName: "refresh"
+    property bool reviewWaiting: false
     property real canvasScale: 1.0
     signal prepareRequested()
+    signal runRequested()
+    signal approveRequested()
+    signal rejectRequested()
     signal nodeConfigureRequested(string nodeId)
+    signal nodeConfigurationChanged(string nodeId, string familyId, string runtimeId, string runtimeVersion, var selectedFiles)
 
     readonly property int nodeWidth: 188
     readonly property int nodeHeight: 208
@@ -29,7 +35,8 @@ Dialog {
     readonly property int canvasPadding: 64
 
     function nodeConfigurable(nodeId) {
-        return configurableNodeIds && configurableNodeIds.indexOf(nodeId) >= 0
+        var item = nodes ? nodes.find(function(entry) { return entry.id === nodeId }) : null
+        return (item && item.configurable === true) || (configurableNodeIds && configurableNodeIds.indexOf(nodeId) >= 0)
     }
 
     function fitCanvas() {
@@ -43,6 +50,12 @@ Dialog {
     }
 
     onOpened: Qt.callLater(fitCanvas)
+
+    StudioPageController {
+        id: workflowModelController
+        capabilityId: modelDialog.capabilityId
+        autoLoadOnSync: false
+    }
 
     parent: Overlay.overlay
     modal: true
@@ -172,7 +185,10 @@ Dialog {
                                 required property int index
                                 readonly property bool nodeReady: modelData.state === "ready" || modelData.state === "completed"
                                 readonly property bool nodeBlocked: modelData.state === "blocked"
-                                readonly property color stateColor: nodeReady ? Theme.success : (nodeBlocked ? Theme.warning : Theme.danger)
+                                readonly property bool nodeWaiting: modelData.state === "waiting_for_input"
+                                readonly property bool nodeMissing: modelData.state === "missing"
+                                readonly property bool nodeFailed: modelData.state === "failed"
+                                readonly property color stateColor: nodeReady ? Theme.success : (nodeWaiting || nodeBlocked ? Theme.warning : (nodeMissing || nodeFailed ? Theme.danger : Theme.textSecondary))
                                 width: root.nodeWidth
                                 height: root.nodeHeight
 
@@ -220,7 +236,7 @@ Dialog {
                                                 Layout.preferredWidth: 34; Layout.preferredHeight: 34
                                                 radius: Theme.radiusSmall
                                                 color: Qt.rgba(stageDelegate.stateColor.r, stageDelegate.stateColor.g, stageDelegate.stateColor.b, 0.14)
-                                                LineIcon { anchors.centerIn: parent; name: stageDelegate.nodeReady ? "check" : (stageDelegate.nodeBlocked ? "activity" : "close"); color: stageDelegate.stateColor; width: 16; height: 16 }
+                                                LineIcon { anchors.centerIn: parent; name: stageDelegate.nodeReady ? "check" : ((stageDelegate.nodeWaiting || stageDelegate.nodeBlocked) ? "activity" : "close"); color: stageDelegate.stateColor; width: 16; height: 16 }
                                             }
                                             Item { Layout.fillWidth: true }
                                             Text { text: qsTr("NODE %1").arg(stageDelegate.index + 1); color: Theme.textSecondary; font.pixelSize: 9; font.bold: true; font.letterSpacing: 0.8 }
@@ -247,9 +263,18 @@ Dialog {
                                             Layout.fillWidth: true
                                             spacing: 6
                                             Rectangle { Layout.preferredWidth: 7; Layout.preferredHeight: 7; radius: 4; color: stageDelegate.stateColor }
-                                            Text { text: stageDelegate.nodeReady ? qsTr("Ready") : (stageDelegate.nodeBlocked ? qsTr("Blocked") : qsTr("Missing")); color: stageDelegate.stateColor; font.pixelSize: 10; font.bold: true }
+                                            Text { text: stageDelegate.nodeReady ? qsTr("Ready") : (stageDelegate.nodeWaiting ? qsTr("Review") : (stageDelegate.nodeBlocked ? qsTr("Blocked") : (stageDelegate.nodeMissing ? qsTr("Missing") : qsTr("Failed")))); color: stageDelegate.stateColor; font.pixelSize: 10; font.bold: true }
                                             Item { Layout.fillWidth: true }
-                                            Text { visible: root.nodeConfigurable(stageDelegate.modelData.id || ""); text: qsTr("Configure  ›"); color: Theme.accentLight; font.pixelSize: 10; font.bold: true }
+                                            Button {
+                                                visible: root.nodeConfigurable(stageDelegate.modelData.id || "")
+                                                text: qsTr("Configure")
+                                                implicitWidth: 76
+                                                implicitHeight: 26
+                                                padding: 0
+                                                onClicked: root.nodeConfigureRequested(stageDelegate.modelData.id || "")
+                                                contentItem: Text { text: parent.text + "  ›"; color: parent.hovered ? Theme.textPrimary : Theme.accentLight; font.pixelSize: 10; font.bold: true; horizontalAlignment: Text.AlignRight; verticalAlignment: Text.AlignVCenter }
+                                                background: Rectangle { radius: Theme.radiusSmall; color: parent.hovered ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.18) : "transparent" }
+                                            }
                                         }
                                     }
                                 }
@@ -305,7 +330,82 @@ Dialog {
             Rectangle { Layout.preferredWidth: 8; Layout.preferredHeight: 8; radius: 4; color: root.workflowReady ? Theme.success : Theme.warning }
             Text { Layout.fillWidth: true; text: root.statusText; color: root.workflowReady ? Theme.success : Theme.warning; font.pixelSize: Theme.fontSmall; font.bold: true; elide: Text.ElideRight }
             Text { text: qsTr("Topology locked"); color: Theme.textSecondary; font.pixelSize: 10 }
-            PrimaryButton { text: root.busy ? qsTr("Preparing…") : root.actionText; iconName: root.actionIconName; enabled: !root.busy; onClicked: root.prepareRequested() }
+            PrimaryButton { visible: root.reviewWaiting; text: qsTr("Approve review"); iconName: "check"; enabled: !root.busy; onClicked: root.approveRequested() }
+            PrimaryButton { visible: root.reviewWaiting; text: qsTr("Reject"); iconName: "close"; quiet: true; enabled: !root.busy; onClicked: root.rejectRequested() }
+            PrimaryButton { visible: !root.reviewWaiting; text: root.busy ? qsTr("Running…") : qsTr("Run workflow"); iconName: root.busy ? "activity" : "play"; enabled: !root.busy && root.workflowReady; onClicked: root.runRequested() }
+            PrimaryButton { visible: !root.busy && !root.reviewWaiting; text: root.actionText; iconName: root.actionIconName; quiet: true; onClicked: root.prepareRequested() }
         }
     }
+
+    Dialog {
+        id: modelDialog
+        parent: Overlay.overlay
+        modal: true
+        padding: 0
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        property string nodeId: ""
+        property string capabilityId: ""
+        property var families: []
+        property var runtimes: []
+        property string selectedFamilyId: ""
+        property string selectedRuntimeId: ""
+        width: Math.min(1260, Math.max(980, parent ? parent.width - 48 : 1100))
+        height: Math.min(780, Math.max(560, parent ? parent.height - 48 : 680))
+        x: parent ? Math.round((parent.width - width) / 2) : 0
+        y: parent ? Math.round((parent.height - height) / 2) : 0
+        standardButtons: Dialog.NoButton
+
+        background: Rectangle {
+            color: Qt.rgba(0.06, 0.06, 0.09, 0.98)
+            radius: Theme.radiusMedium
+            border.color: Qt.rgba(1, 1, 1, 0.10)
+            border.width: 1
+        }
+
+        function openFor(value) {
+            var item = root.nodes ? root.nodes.find(function(entry) { return entry.id === value }) : null
+            if (!item) return
+            nodeId = value
+            capabilityId = item.capabilityId || "stt"
+            families = capabilityId === "stt" ? AppController.registry.sttFamilies : AppController.registry.ttsFamilies
+            var saved = root.nodeConfigurations[nodeId] || {}
+            selectedFamilyId = saved.familyId || item.selectedFamilyId || (families.length ? families[0].id : "")
+            workflowModelController.openConfiguration(selectedFamilyId)
+            modelGallery.selectedFamilyId = selectedFamilyId
+            open()
+        }
+
+        function refreshRuntimes() {
+            var family = families.find(function(entry) { return entry.id === selectedFamilyId })
+            runtimes = family && family.runtimes ? family.runtimes : []
+            var saved = root.nodeConfigurations[nodeId] || {}
+            selectedRuntimeId = saved.runtimeId || (runtimes.length ? runtimes[0].id : "")
+            runtimeBox.currentIndex = Math.max(0, runtimes.findIndex(function(entry) { return entry.id === selectedRuntimeId }))
+        }
+
+        contentItem: Item {
+            width: modelDialog.width
+            height: modelDialog.height
+
+            CapabilityGallery {
+                id: modelGallery
+                anchors.fill: parent
+                capability: modelDialog.capabilityId
+                modalMode: true
+                familiesModel: workflowModelController.familiesModel
+                selectedFamilyId: modelDialog.selectedFamilyId
+                initialSelectedFiles: workflowModelController.selectedFiles
+                onFamilySelected: function(familyId) {
+                    modelDialog.selectedFamilyId = familyId
+                    workflowModelController.selectFamily(familyId)
+                }
+                onConfigurationAccepted: function(familyId, runtimeId, runtimeVersion, selectedFiles) {
+                    root.nodeConfigurationChanged(modelDialog.nodeId, familyId, runtimeId, runtimeVersion, selectedFiles)
+                    modelDialog.close()
+                }
+            }
+        }
+    }
+
+    onNodeConfigureRequested: function(nodeId) { modelDialog.openFor(nodeId) }
 }

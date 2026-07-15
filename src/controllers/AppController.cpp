@@ -2,6 +2,7 @@
 
 #include "core/Settings.h"
 #include "controllers/ModelSessionRegistry.h"
+#include "core/StudioSelectionRepository.h"
 #include "controllers/WorkflowActivityManager.h"
 #include "core/HFHubClient.h"
 #include "core/DownloadManager.h"
@@ -19,6 +20,7 @@
 #include <QClipboard>
 #include "core/Logger.h"
 #include <QTimer>
+#include <QFileInfo>
 
 namespace LAStudio {
 
@@ -86,11 +88,88 @@ AppController::AppController(QObject *parent)
         m_models->scanLocalModels();
     });
 
+    // Dubbing and the standalone transcript page share the same STT session.
+    // Load the selected/default model once at startup so a workflow cannot reach
+    // inference with an empty active instance.
+    QTimer::singleShot(0, this, &AppController::loadDefaultSttModel);
+    connect(m_runtimes, &RuntimeManager::registryUpdated,
+            this, &AppController::loadDefaultSttModel);
+
     QTimer::singleShot(2000, this, [this]() {
         if (m_updates) {
             m_updates->checkForUpdates(QStringLiteral("stable"));
         }
     });
+}
+
+void AppController::loadDefaultSttModel()
+{
+    if (!m_sessionRegistry || !m_registry || !m_settings) return;
+    IModelSession *session = m_sessionRegistry->sessionForCapability(QStringLiteral("stt"));
+    if (!session || session->modelActive()
+        || session->state() == ModelSessionState::Loading
+        || session->state() == ModelSessionState::Processing) return;
+
+    QVariantMap family;
+    const QString configuredFamily = m_settings->selectedSttFamily();
+    // Migrate the previous bundled STT default. Any other non-empty value is
+    // treated as an explicit user choice and remains untouched.
+    const QString preferredFamily = configuredFamily.isEmpty()
+        || configuredFamily == QStringLiteral("qwen3-asr-0.6b")
+        ? QStringLiteral("nemotron-3.5-asr-streaming-0.6b")
+        : configuredFamily;
+    for (const QVariant &entry : m_registry->sttFamilies()) {
+        const QVariantMap candidate = entry.toMap();
+        if (candidate.value(QStringLiteral("id")).toString() == preferredFamily) {
+            family = candidate;
+            break;
+        }
+    }
+    if (family.isEmpty()) {
+        Logger::warning(QStringLiteral("AppController"),
+                        QStringLiteral("Default STT family is unavailable: %1").arg(preferredFamily));
+        return;
+    }
+
+    QVariantMap runtime;
+    const QVariantList runtimes = family.value(QStringLiteral("runtimes")).toList();
+    for (const QVariant &entry : runtimes) {
+        const QVariantMap candidate = entry.toMap();
+        if (candidate.value(QStringLiteral("id")).toString() == m_settings->selectedSttRuntime()) {
+            runtime = candidate;
+            break;
+        }
+    }
+    if (runtime.isEmpty() && !runtimes.isEmpty()) runtime = runtimes.first().toMap();
+    if (runtime.isEmpty()) return;
+
+    StudioConfiguration configuration;
+    configuration.capabilityId = QStringLiteral("stt");
+    configuration.familyId = family.value(QStringLiteral("id")).toString();
+    configuration.runtimeId = runtime.value(QStringLiteral("id")).toString();
+    configuration.runtimeVersion = runtime.value(QStringLiteral("version")).toString();
+    for (const QVariant &entry : family.value(QStringLiteral("requiredFiles")).toList()) {
+        const QVariantMap file = entry.toMap();
+        configuration.selectedFiles.insert(file.value(QStringLiteral("role")).toString(),
+                                           file.value(QStringLiteral("file")).toString());
+    }
+
+    const QString runtimePath = m_runtimes->getRuntimePathForVersion(
+        configuration.runtimeId, configuration.runtimeVersion);
+    if (runtimePath.isEmpty() || !QFileInfo::exists(runtimePath)) {
+        Logger::info(QStringLiteral("AppController"),
+                     QStringLiteral("Deferring default STT load until runtime scan completes: %1 %2")
+                         .arg(configuration.runtimeId, configuration.runtimeVersion));
+        return;
+    }
+
+    m_settings->setSelectedSttFamily(configuration.familyId);
+    m_settings->setSelectedSttRuntime(configuration.runtimeId);
+    m_settings->setSelectedSttRuntimeVersion(configuration.runtimeVersion);
+    Logger::info(QStringLiteral("AppController"),
+                 QStringLiteral("Loading default STT model family=%1 runtime=%2 version=%3")
+                     .arg(configuration.familyId, configuration.runtimeId, configuration.runtimeVersion));
+    session->requestLoad(QStringLiteral("stt"), configuration);
 }
 
 AppController::~AppController()

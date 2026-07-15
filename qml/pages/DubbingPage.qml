@@ -4,6 +4,7 @@ import QtQuick.Dialogs
 import QtQuick.Layouts
 import QtMultimedia
 import "../components/base"
+import "../components/shared"
 import LAStudio
 
 Item {
@@ -13,6 +14,27 @@ Item {
     property var dubbing: AppController.dubbing
     property int selectedSegment: -1
     property bool isVideoSource: dubbing.sourceMediaPath.length > 0 && /\.(mp4|mkv|mov|webm|avi)$/i.test(dubbing.sourceMediaPath)
+    property string reviewStepId: "import"
+    property string observedCompletedStep: ""
+    property string playingSeparationStem: ""
+    readonly property var languageCatalog: AppController.catalog.languageSet("default")
+
+    Connections {
+        target: dubbing
+        function onWorkflowChanged() {
+            if (dubbing.processing) {
+                root.reviewStepId = dubbing.currentStepId
+            } else if (dubbing.lastCompletedStepId !== "" && dubbing.lastCompletedStepId !== root.observedCompletedStep) {
+                root.observedCompletedStep = dubbing.lastCompletedStepId
+                root.reviewStepId = dubbing.lastCompletedStepId
+            }
+        }
+    }
+
+    Connections {
+        target: AppController.player
+        function onPlayingChanged() { if (!AppController.player.playing) root.playingSeparationStem = "" }
+    }
 
     MediaPlayer {
         id: videoPlayer
@@ -65,6 +87,44 @@ Item {
         workflowDialog.open()
     }
 
+    function stepTitle(stepId) {
+        if (stepId === "import") return qsTr("Import")
+        if (stepId === "ingest") return qsTr("Normalize")
+        if (stepId === "source-separate") return qsTr("Separate speech")
+        if (stepId === "transcribe") return qsTr("Transcribe")
+        if (stepId === "translate") return qsTr("Translate")
+        if (stepId === "synthesize") return qsTr("Generate voice")
+        if (stepId === "mix") return qsTr("Mix audio")
+        if (stepId === "export") return qsTr("Export")
+        return qsTr("Completed")
+    }
+
+    function stepComplete(stepId) {
+        if (stepId === "import") return dubbing.sourceMediaPath.length > 0
+        if (stepId === "ingest") return dubbing.normalizedAudioPath.length > 0
+        if (stepId === "source-separate") return dubbing.vocalsPath.length > 0 && dubbing.backgroundPath.length > 0
+        if (stepId === "transcribe") return dubbing.segments.length > 0
+        if (stepId === "translate") {
+            if (dubbing.segments.length === 0) return false
+            for (var i = 0; i < dubbing.segments.length; ++i)
+                if (!(dubbing.segments[i].targetText || "").trim()) return false
+            return true
+        }
+        if (stepId === "synthesize") {
+            if (dubbing.segments.length === 0) return false
+            for (var j = 0; j < dubbing.segments.length; ++j)
+                if (!(dubbing.segments[j].clipPath || "")) return false
+            return true
+        }
+        if (stepId === "mix") return dubbing.previewPath.length > 0
+        if (stepId === "export") return dubbing.exportPath.length > 0
+        return false
+    }
+
+    function canRerunStep(stepId) {
+        return stepId !== "import" && stepId !== "completed" && root.stepComplete(stepId)
+    }
+
     component Field: TextField {
         color: Theme.textPrimary
         placeholderTextColor: Theme.textSecondary
@@ -88,12 +148,14 @@ Item {
     }
 
     component Step: Item {
+        property string stepId: ""
         property string title: ""
         property string iconName: "check"
         property bool complete: false
         property bool active: false
         implicitWidth: stepRow.implicitWidth
         implicitHeight: 32
+        signal selected(string stepId)
 
         RowLayout {
             id: stepRow
@@ -108,6 +170,8 @@ Item {
             }
             Text { text: title; color: active ? Theme.textPrimary : Theme.textSecondary; font.pixelSize: Theme.fontSmall; font.bold: active || complete }
         }
+        TapHandler { onTapped: parent.selected(parent.stepId) }
+        HoverHandler { cursorShape: Qt.PointingHandCursor }
     }
 
     Rectangle { anchors.fill: parent; color: Theme.background }
@@ -132,13 +196,19 @@ Item {
                         Text { text: dubbing.hasProject ? qsTr("Project workspace") : qsTr("New project"); color: Theme.textSecondary; font.pixelSize: 10 }
                     }
                 }
-                Step { title: qsTr("Import"); iconName: "folder"; complete: dubbing.sourceMediaPath.length > 0; active: dubbing.sourceMediaPath.length === 0 }
-                Rectangle { Layout.preferredWidth: 32; Layout.preferredHeight: 1; color: Qt.rgba(1, 1, 1, 0.14) }
-                Step { title: qsTr("Transcribe"); iconName: "mic"; complete: dubbing.segments.length > 0; active: dubbing.sourceMediaPath.length > 0 && dubbing.segments.length === 0 }
-                Rectangle { Layout.preferredWidth: 32; Layout.preferredHeight: 1; color: Qt.rgba(1, 1, 1, 0.14) }
-                Step { title: qsTr("Edit & translate"); iconName: "alignment"; active: dubbing.segments.length > 0 && !dubbing.processing }
-                Rectangle { Layout.preferredWidth: 32; Layout.preferredHeight: 1; color: Qt.rgba(1, 1, 1, 0.14) }
-                Step { title: qsTr("Generate"); iconName: "volume"; active: dubbing.processing && dubbing.stage.indexOf("Generat") >= 0 }
+                Step { stepId: "import"; title: qsTr("Import"); iconName: "folder"; complete: root.stepComplete(stepId); active: dubbing.currentStepId === stepId; onSelected: function(id) { root.reviewStepId = id } }
+                Rectangle { Layout.preferredWidth: 16; Layout.preferredHeight: 1; color: Qt.rgba(1, 1, 1, 0.14) }
+                Step { stepId: "ingest"; title: qsTr("Normalize"); iconName: "activity"; complete: root.stepComplete(stepId); active: dubbing.currentStepId === stepId; onSelected: function(id) { root.reviewStepId = id } }
+                Rectangle { Layout.preferredWidth: 16; Layout.preferredHeight: 1; color: Qt.rgba(1, 1, 1, 0.14) }
+                Step { stepId: "source-separate"; title: qsTr("Separate"); iconName: "waves"; complete: root.stepComplete(stepId); active: dubbing.currentStepId === stepId; onSelected: function(id) { root.reviewStepId = id } }
+                Rectangle { Layout.preferredWidth: 16; Layout.preferredHeight: 1; color: Qt.rgba(1, 1, 1, 0.14) }
+                Step { stepId: "transcribe"; title: qsTr("Transcribe"); iconName: "mic"; complete: root.stepComplete(stepId); active: dubbing.currentStepId === stepId; onSelected: function(id) { root.reviewStepId = id } }
+                Rectangle { Layout.preferredWidth: 16; Layout.preferredHeight: 1; color: Qt.rgba(1, 1, 1, 0.14) }
+                Step { stepId: "translate"; title: qsTr("Translate"); iconName: "alignment"; complete: root.stepComplete(stepId); active: dubbing.currentStepId === stepId; onSelected: function(id) { root.reviewStepId = id } }
+                Rectangle { Layout.preferredWidth: 16; Layout.preferredHeight: 1; color: Qt.rgba(1, 1, 1, 0.14) }
+                Step { stepId: "synthesize"; title: qsTr("Voice"); iconName: "volume"; complete: root.stepComplete(stepId); active: dubbing.currentStepId === stepId; onSelected: function(id) { root.reviewStepId = id } }
+                Rectangle { Layout.preferredWidth: 16; Layout.preferredHeight: 1; color: Qt.rgba(1, 1, 1, 0.14) }
+                Step { stepId: "export"; title: qsTr("Output"); iconName: "download"; complete: root.stepComplete(stepId); active: dubbing.currentStepId === "mix" || dubbing.currentStepId === stepId || dubbing.currentStepId === "completed"; onSelected: function(id) { root.reviewStepId = id } }
                 Item { Layout.fillWidth: true }
                 PrimaryButton {
                     text: qsTr("Workflow")
@@ -153,7 +223,7 @@ Item {
                 Rectangle { implicitWidth: statusRow.implicitWidth + 16; implicitHeight: 28; radius: 14; color: Qt.rgba(dubbing.processing ? Theme.warning.r : Theme.success.r, dubbing.processing ? Theme.warning.g : Theme.success.g, dubbing.processing ? Theme.warning.b : Theme.success.b, 0.12)
                     RowLayout { id: statusRow; anchors.centerIn: parent; spacing: 5
                         Rectangle { width: 6; height: 6; radius: 3; color: dubbing.processing ? Theme.warning : Theme.success }
-                        Text { text: dubbing.processing ? qsTr("%1 · %2%").arg(dubbing.stage).arg(dubbing.progress) : qsTr("Ready"); color: dubbing.processing ? Theme.warning : Theme.success; font.pixelSize: Theme.fontSmall; font.bold: true }
+                        Text { text: dubbing.processing ? qsTr("%1 · %2%").arg(root.stepTitle(dubbing.currentStepId)).arg(dubbing.progress) : (dubbing.workflowMode === "step" ? qsTr("Waiting for next step") : qsTr("Ready")); color: dubbing.processing ? Theme.warning : Theme.success; font.pixelSize: Theme.fontSmall; font.bold: true }
                     }
                 }
                 PrimaryButton { text: qsTr("Save"); iconName: "save"; quiet: true; enabled: dubbing.hasProject; onClicked: dubbing.saveProject() }
@@ -445,14 +515,19 @@ Item {
 
             Panel {
                 Layout.fillWidth: true; Layout.fillHeight: true; Layout.preferredWidth: 670
-                ColumnLayout { anchors.fill: parent; anchors.margins: Theme.paddingMedium; spacing: Theme.paddingSmall
+                ColumnLayout {
+                    anchors.fill: parent; anchors.margins: Theme.paddingMedium; spacing: Theme.paddingSmall
+                    visible: root.reviewStepId === "transcribe" || root.reviewStepId === "translate"
                     RowLayout { Layout.fillWidth: true
                         ColumnLayout { Layout.fillWidth: true; spacing: 1
-                            Text { text: qsTr("TRANSCRIPT EDITOR"); color: Theme.textPrimary; font.pixelSize: Theme.fontLarge; font.bold: true }
-                            Text { text: dubbing.segments.length > 0 ? qsTr("Review source text and edit the target translation.") : qsTr("Transcribe your source media to create editable segments."); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
+                            Text { text: root.stepTitle(root.reviewStepId).toUpperCase(); color: Theme.textPrimary; font.pixelSize: Theme.fontLarge; font.bold: true }
+                            Text { text: qsTr("Review and edit every segment before continuing."); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
                         }
                         PrimaryButton { text: qsTr("Add segment"); iconName: "more-horizontal"; quiet: true; enabled: dubbing.hasProject && !dubbing.processing; onClicked: dubbing.addSegment(0, 2000, "") }
-                        PrimaryButton { text: qsTr("Transcribe"); iconName: "mic"; enabled: !dubbing.processing && dubbing.sourceMediaPath.length > 0; onClicked: dubbing.transcribeSource() }
+                        PrimaryButton { visible: root.canRerunStep(root.reviewStepId); text: qsTr("Run again"); iconName: "refresh"; quiet: true; enabled: !dubbing.processing; Layout.preferredWidth: 104; onClicked: dubbing.rerunStep(root.reviewStepId, root.defaultExportPath()) }
+                        PrimaryButton { text: qsTr("Automatic A–Z"); iconName: "activity"; enabled: !dubbing.processing && dubbing.workflowReady; onClicked: dubbing.startAutomaticWorkflow(root.defaultExportPath()) }
+                        PrimaryButton { text: qsTr("Step-by-step"); iconName: "chevron-right"; quiet: true; enabled: !dubbing.processing && dubbing.sourceMediaPath.length > 0; onClicked: { dubbing.startStepByStep(); root.reviewStepId = dubbing.currentStepId } }
+                        PrimaryButton { visible: dubbing.workflowMode === "step"; text: qsTr("Run: %1").arg(root.stepTitle(dubbing.currentStepId)); iconName: "play"; enabled: !dubbing.processing && dubbing.currentStepId !== "completed"; onClicked: dubbing.runCurrentStep(root.defaultExportPath()) }
                     }
                     RowLayout { Layout.fillWidth: true; spacing: Theme.paddingSmall
                         Field { Layout.fillWidth: true; placeholderText: qsTr("Search segments...") }
@@ -484,7 +559,7 @@ Item {
                             RowLayout { anchors.fill: parent; anchors.margins: Theme.paddingSmall; spacing: Theme.paddingSmall
                                 Text { text: "%1–%2".arg(modelData.startMs).arg(modelData.endMs); color: Theme.textSecondary; font.pixelSize: 10; Layout.preferredWidth: 88; elide: Text.ElideRight }
                                 ColumnLayout { Layout.fillWidth: true; spacing: 3
-                                    Text { text: modelData.sourceText || qsTr("(empty source)"); color: Theme.textPrimary; font.pixelSize: Theme.fontSmall; elide: Text.ElideRight; Layout.fillWidth: true }
+                                    Field { text: modelData.sourceText || ""; placeholderText: qsTr("Source transcript"); implicitHeight: 30; Layout.fillWidth: true; onEditingFinished: dubbing.updateSegment(index, { sourceText: text }) }
                                     Field { text: modelData.targetText || ""; placeholderText: qsTr("Target translation"); implicitHeight: 30; Layout.fillWidth: true; onEditingFinished: dubbing.updateSegment(index, { targetText: text }) }
                                 }
                                 Text { text: modelData.state || qsTr("Ready"); color: modelData.state === "stale" ? Theme.warning : Theme.textSecondary; font.pixelSize: 10; Layout.preferredWidth: 64; horizontalAlignment: Text.AlignRight }
@@ -498,6 +573,60 @@ Item {
                         }
                     }
                 }
+                ColumnLayout {
+                    anchors.fill: parent; anchors.margins: Theme.paddingLarge; spacing: Theme.paddingMedium
+                    visible: root.reviewStepId !== "transcribe" && root.reviewStepId !== "translate"
+                    RowLayout { Layout.fillWidth: true
+                        ColumnLayout { Layout.fillWidth: true; spacing: 1
+                            Text { text: root.stepTitle(root.reviewStepId).toUpperCase(); color: Theme.textPrimary; font.pixelSize: Theme.fontLarge; font.bold: true }
+                            Text { text: root.reviewStepId === "import" ? qsTr("Import only selects the source; no processing starts automatically.") : qsTr("Review this step output before continuing."); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
+                        }
+                        PrimaryButton { visible: root.canRerunStep(root.reviewStepId); text: qsTr("Run again"); iconName: "refresh"; quiet: true; enabled: !dubbing.processing; Layout.preferredWidth: 104; onClicked: dubbing.rerunStep(root.reviewStepId, root.defaultExportPath()) }
+                        PrimaryButton { text: qsTr("Automatic A-Z"); iconName: "activity"; enabled: !dubbing.processing && dubbing.workflowReady; onClicked: dubbing.startAutomaticWorkflow(root.defaultExportPath()) }
+                        PrimaryButton { text: qsTr("Step-by-step"); iconName: "chevron-right"; quiet: true; enabled: !dubbing.processing && dubbing.sourceMediaPath.length > 0; onClicked: { dubbing.startStepByStep(); root.reviewStepId = dubbing.currentStepId } }
+                        PrimaryButton { visible: dubbing.workflowMode === "step"; text: qsTr("Run: %1").arg(root.stepTitle(dubbing.currentStepId)); iconName: "play"; enabled: !dubbing.processing && dubbing.currentStepId !== "completed"; onClicked: dubbing.runCurrentStep(root.defaultExportPath()) }
+                    }
+                    Item { Layout.fillHeight: true }
+                    VoiceSeparationOutput {
+                        visible: root.reviewStepId === "source-separate"
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: visible ? implicitHeight : 0
+                        compact: true
+                        showActions: true
+                        showPlaybackControls: true
+                        showExportButton: false
+                        showWaveforms: false
+                        vocalsPath: dubbing.vocalsPath
+                        backgroundPath: dubbing.backgroundPath
+                        playingStem: root.playingSeparationStem
+                        onPlayRequested: function(kind, path) {
+                            if (root.playingSeparationStem === kind && AppController.player.playing) {
+                                AppController.player.stop()
+                            } else {
+                                root.playingSeparationStem = kind
+                                AppController.player.playFile(path)
+                            }
+                        }
+                    }
+                    ColumnLayout {
+                        visible: root.reviewStepId !== "source-separate"
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignVCenter
+                        spacing: Theme.paddingMedium
+                        LineIcon { Layout.alignment: Qt.AlignHCenter; name: root.reviewStepId === "synthesize" ? "volume" : "folder"; color: Theme.accentLight; Layout.preferredWidth: 40; Layout.preferredHeight: 40 }
+                        Text { Layout.alignment: Qt.AlignHCenter; text: root.stepComplete(root.reviewStepId) ? qsTr("Step output is ready") : qsTr("No output for this step yet"); color: root.stepComplete(root.reviewStepId) ? Theme.success : Theme.textPrimary; font.pixelSize: Theme.fontMedium; font.bold: true }
+                        Text {
+                            Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideMiddle
+                            color: Theme.textSecondary; font.pixelSize: Theme.fontSmall
+                            text: root.reviewStepId === "import" ? dubbing.sourceMediaPath
+                                : root.reviewStepId === "ingest" ? (dubbing.normalizedAudioPath || qsTr("Run Normalize to create the working audio."))
+                                : root.reviewStepId === "synthesize" ? qsTr("%1 segment clips available").arg(dubbing.segments.length)
+                                : root.reviewStepId === "export" ? (dubbing.exportPath || dubbing.previewPath || qsTr("Run Mix and Export to create final media."))
+                                : qsTr("Select a step in the topbar to inspect its output.")
+                        }
+                    }
+                    Item { Layout.fillHeight: true }
+                }
             }
         }
 
@@ -507,9 +636,39 @@ Item {
                 ColumnLayout { Layout.preferredWidth: 270; Layout.fillHeight: true; spacing: 4
                     Text { text: qsTr("LANGUAGE & VOICE"); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall; font.bold: true; font.letterSpacing: 1.1 }
                     RowLayout { Layout.fillWidth: true
-                        Field { Layout.fillWidth: true; text: dubbing.sourceLanguage; placeholderText: qsTr("Source"); onEditingFinished: dubbing.sourceLanguage = text }
+                        AppComboBox {
+                            id: sourceLanguageCombo
+                            Layout.fillWidth: true
+                            model: root.languageCatalog
+                            textRole: "text"
+                            secondaryTextRole: "detail"
+                            searchable: model.length > 6
+                            currentIndex: {
+                                for (var i = 0; i < model.length; ++i)
+                                    if (model[i].value === dubbing.sourceLanguage) return i
+                                return 0
+                            }
+                            onActivated: function(index) {
+                                if (index >= 0 && index < model.length) dubbing.sourceLanguage = model[index].value
+                            }
+                        }
                         LineIcon { name: "chevron-right"; color: Theme.textSecondary; Layout.preferredWidth: 16; Layout.preferredHeight: 16 }
-                        Field { Layout.fillWidth: true; text: dubbing.targetLanguage; placeholderText: qsTr("Target"); onEditingFinished: dubbing.targetLanguage = text }
+                        AppComboBox {
+                            id: targetLanguageCombo
+                            Layout.fillWidth: true
+                            model: root.languageCatalog
+                            textRole: "text"
+                            secondaryTextRole: "detail"
+                            searchable: model.length > 6
+                            currentIndex: {
+                                for (var i = 0; i < model.length; ++i)
+                                    if (model[i].value === dubbing.targetLanguage) return i
+                                return 0
+                            }
+                            onActivated: function(index) {
+                                if (index >= 0 && index < model.length) dubbing.targetLanguage = model[index].value
+                            }
+                        }
                     }
                     PrimaryButton { text: qsTr("Add speaker"); iconName: "users"; quiet: true; onClicked: dubbing.addSpeaker() }
                 }
@@ -530,16 +689,10 @@ Item {
                 Rectangle { Layout.fillHeight: true; Layout.preferredWidth: 1; color: Qt.rgba(1, 1, 1, 0.08) }
                 ColumnLayout { Layout.preferredWidth: 340; Layout.fillHeight: true; spacing: Theme.paddingSmall
                     Text { text: qsTr("OUTPUT"); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall; font.bold: true; font.letterSpacing: 1.1 }
-                    Text { text: dubbing.previewPath.length > 0 ? qsTr("Preview ready") : qsTr("Generate audio after translation"); color: dubbing.previewPath.length > 0 ? Theme.success : Theme.textSecondary; font.pixelSize: Theme.fontSmall }
-                    RowLayout { Layout.fillWidth: true
-                        PrimaryButton { text: qsTr("Translate"); iconName: "spark"; quiet: true; Layout.fillWidth: true; enabled: !dubbing.processing && dubbing.segments.length > 0; onClicked: dubbing.translateSource() }
-                        PrimaryButton { text: qsTr("Generate audio"); iconName: "volume"; Layout.fillWidth: true; enabled: !dubbing.processing && dubbing.segments.length > 0; onClicked: dubbing.generateAudio() }
-                    }
-                    RowLayout { Layout.fillWidth: true
-                        PrimaryButton { text: qsTr("Render WAV"); iconName: "save"; quiet: true; Layout.fillWidth: true; enabled: !dubbing.processing && dubbing.segments.length > 0; onClicked: dubbing.renderPreview() }
-                        PrimaryButton { text: qsTr("Export"); iconName: "download"; Layout.fillWidth: true; enabled: !dubbing.processing && dubbing.previewPath.length > 0; onClicked: dubbing.exportMedia(defaultExportPath()) }
-                        PrimaryButton { text: qsTr("Cancel"); visible: dubbing.processing; buttonColor: Theme.danger; onClicked: dubbing.cancelProcessing() }
-                    }
+                    Text { text: dubbing.workflowMode === "automatic" ? qsTr("Automatic A-Z") : (dubbing.workflowMode === "step" ? qsTr("Step-by-step") : qsTr("Choose a processing mode")); color: dubbing.workflowMode === "idle" ? Theme.textSecondary : Theme.accentLight; font.pixelSize: Theme.fontSmall; font.bold: true }
+                    Text { Layout.fillWidth: true; text: qsTr("Current: %1").arg(root.stepTitle(dubbing.currentStepId)); color: dubbing.processing ? Theme.warning : Theme.textSecondary; font.pixelSize: Theme.fontSmall; elide: Text.ElideRight }
+                    Text { Layout.fillWidth: true; text: dubbing.exportPath.length > 0 ? dubbing.exportPath : (dubbing.previewPath.length > 0 ? dubbing.previewPath : qsTr("Final output has not been created.")); color: dubbing.exportPath.length > 0 ? Theme.success : Theme.textSecondary; font.pixelSize: 10; elide: Text.ElideMiddle }
+                    PrimaryButton { text: qsTr("Cancel processing"); visible: dubbing.processing; buttonColor: Theme.danger; onClicked: dubbing.cancelProcessing() }
                 }
             }
         }
@@ -561,7 +714,13 @@ Item {
         id: workflowDialog
         nodes: dubbing.workflowNodes; workflowReady: dubbing.workflowReady; statusText: dubbing.workflowStatusText
         busy: dubbing.processing; progress: dubbing.progress / 100.0; dialogTitle: qsTr("Dubbing workflow")
+        reviewWaiting: dubbing.workflowWaitingForInput
         description: qsTr("Review the media, transcription, translation, voice, timing, and output stages.")
         onPrepareRequested: dubbing.prepareWorkflow()
+        onRunRequested: dubbing.startAutomaticWorkflow(defaultExportPath())
+        onApproveRequested: dubbing.approveWorkflowReview()
+        onRejectRequested: dubbing.rejectWorkflowReview(qsTr("Rejected from workflow review"))
+        nodeConfigurations: dubbing.workflowNodeConfigurations
+        onNodeConfigurationChanged: dubbing.setWorkflowNodeModel(nodeId, familyId, runtimeId, runtimeVersion, selectedFiles)
     }
 }

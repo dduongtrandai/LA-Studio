@@ -2,6 +2,7 @@
 
 #include "controllers/DubbingJobRunner.h"
 #include "DubbingWorkflowAdapter.h"
+#include "core/Logger.h"
 #include <QPointer>
 #include <QUuid>
 
@@ -44,18 +45,6 @@ public:
         }
         if (m_typeId == QStringLiteral("dubbing.fit-timing")) {
             emit completed({{QStringLiteral("timeline"), inputs.value(QStringLiteral("timeline"))}});
-            return;
-        }
-        if (m_typeId == QStringLiteral("audio.source-separate")) {
-            const QString vocals = inputs.value(QStringLiteral("vocals")).toString();
-            const QString background = inputs.value(QStringLiteral("background")).toString();
-            if (!vocals.isEmpty() && !background.isEmpty()) {
-                emit completed({{QStringLiteral("vocals"), vocals}, {QStringLiteral("background"), background}});
-            } else {
-                emit completed({{QStringLiteral("vocals"), inputs.value(QStringLiteral("audio"))},
-                                {QStringLiteral("background"), inputs.value(QStringLiteral("audio"))},
-                                {QStringLiteral("warning"), QStringLiteral("Voice isolation unavailable; using original audio.")}});
-            }
             return;
         }
         if (!m_adapter) {
@@ -101,7 +90,11 @@ private:
 
     void onStageCompleted(const QString &nodeId, const QVariantMap &outputs)
     {
+        Logger::info(QStringLiteral("DubbingWorkflow"),
+                     QStringLiteral("Node completed node=%1 outputs=%2")
+                         .arg(nodeId, outputs.keys().join(QLatin1Char(','))));
         const QString expected = m_typeId == QStringLiteral("media.ingest") ? QStringLiteral("ingest")
+            : m_typeId == QStringLiteral("audio.source-separate") ? QStringLiteral("source-separate")
             : m_typeId == QStringLiteral("audio.transcribe") ? QStringLiteral("transcribe")
             : m_typeId == QStringLiteral("text.translate-transcript") ? QStringLiteral("translate")
             : m_typeId == QStringLiteral("dubbing.synthesize-segments") ? QStringLiteral("synthesize")
@@ -115,6 +108,10 @@ private:
                             {QStringLiteral("masterAudio"), outputs.value(QStringLiteral("masterAudioPath"))},
                             {QStringLiteral("vocals"), outputs.value(QStringLiteral("analysisAudioPath"))},
                             {QStringLiteral("background"), outputs.value(QStringLiteral("backgroundAudioPath"))}});
+        } else if (m_typeId == QStringLiteral("audio.source-separate")) {
+            emit completed({{QStringLiteral("vocals"), outputs.value(QStringLiteral("vocals"))},
+                            {QStringLiteral("background"), outputs.value(QStringLiteral("background"))},
+                            {QStringLiteral("warning"), outputs.value(QStringLiteral("warning"))}});
         } else if (m_typeId == QStringLiteral("audio.transcribe") || m_typeId == QStringLiteral("text.translate-transcript")) {
             emit completed({{QStringLiteral("transcript"), outputs.value(QStringLiteral("transcript"))}});
         } else if (m_typeId == QStringLiteral("dubbing.synthesize-segments")) {

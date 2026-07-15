@@ -8,6 +8,8 @@
 #include "workflows/WorkflowGraphRunner.h"
 #include "core/PathUtils.h"
 #include "core/Logger.h"
+#include "controllers/AppController.h"
+#include "controllers/StudioConfigurationResolver.h"
 
 #include <QFileInfo>
 #include <QFile>
@@ -17,6 +19,7 @@
 #include <QUuid>
 #include <QDir>
 #include <QDateTime>
+#include <QHash>
 
 namespace LAStudio {
 
@@ -59,12 +62,14 @@ DubbingController::DubbingController(SttSessionController *sttSession, TtsEngine
         if (m_workflowReviewStore && !m_activeReviewId.isEmpty()) m_workflowReviewStore->remove(m_activeReviewId);
         m_activeReviewId.clear();
         m_workflowReviewRequest.clear();
+        setCurrentStep(QStringLiteral("completed"));
         emit workflowChanged();
     });
     connect(m_workflowRunner, &WorkflowGraphRunner::failed, this, [this](const QString &) {
         if (m_workflowReviewStore && !m_activeReviewId.isEmpty()) m_workflowReviewStore->remove(m_activeReviewId);
         m_activeReviewId.clear();
         m_workflowReviewRequest.clear();
+        setWorkflowMode(QStringLiteral("idle"));
         emit workflowChanged();
     });
 
@@ -93,6 +98,24 @@ DubbingController::DubbingController(SttSessionController *sttSession, TtsEngine
     });
 
     connect(m_runner, &DubbingJobRunner::ingestFinished, this, &DubbingController::onIngestFinished);
+    connect(m_runner, &DubbingJobRunner::sourceSeparationFinished, this, [this](const QVariantMap &outputs) {
+        m_project.analysisAudioPath = outputs.value(QStringLiteral("vocals"), m_project.masterAudioPath).toString();
+        m_project.backgroundAudioPath = outputs.value(QStringLiteral("background"), m_project.masterAudioPath).toString();
+        m_runner->setBackgroundAudioPath(m_project.backgroundAudioPath);
+        emit projectChanged();
+        emit workflowChanged();
+        persistAfterEdit();
+    });
+    connect(m_runner, &DubbingJobRunner::stageCompleted, this,
+            [this](const QString &nodeId, const QVariantMap &outputs) {
+        m_stepOutputs.insert(nodeId, outputs);
+        m_lastCompletedStepId = nodeId;
+        if (m_workflowMode == QStringLiteral("step")
+            && (!m_workflowRunner || !m_workflowRunner->running())) {
+            advanceManualStep(nodeId);
+        }
+        emit workflowChanged();
+    });
 }
 
 bool DubbingController::processing() const
@@ -130,11 +153,13 @@ QVariantList DubbingController::workflowNodes() const
     const bool hasMedia = !m_project.sourceMediaPath.trimmed().isEmpty();
     const bool hasSegments = !m_project.segments.isEmpty();
     bool hasTargets = false;
+    bool allTargets = hasSegments;
     bool hasClips = false;
     bool hasConflict = false;
     for (const QVariant &entry : m_project.segments) {
         const QVariantMap segment = entry.toMap();
         hasTargets = hasTargets || !segment.value(QStringLiteral("targetText")).toString().trimmed().isEmpty();
+        allTargets = allTargets && !segment.value(QStringLiteral("targetText")).toString().trimmed().isEmpty();
         hasClips = hasClips || (!segment.value(QStringLiteral("clipPath")).toString().isEmpty()
                                 && QFileInfo::exists(segment.value(QStringLiteral("clipPath")).toString()));
         hasConflict = hasConflict || segment.value(QStringLiteral("timingConflict")).toBool();
@@ -159,10 +184,17 @@ QVariantList DubbingController::workflowNodes() const
             state = hasMedia ? QStringLiteral("ready") : QStringLiteral("missing");
             detail = hasMedia ? QFileInfo(m_project.sourceMediaPath).fileName() : QStringLiteral("Import audio or video");
         } else if (definition.id == QStringLiteral("ingest")) {
-            state = hasMedia ? QStringLiteral("completed") : QStringLiteral("missing");
-            detail = hasMedia ? QStringLiteral("Media normalized") : QStringLiteral("Import source media");
+            const bool normalized = !m_project.masterAudioPath.trimmed().isEmpty();
+            state = normalized ? QStringLiteral("completed") : (hasMedia ? QStringLiteral("ready") : QStringLiteral("missing"));
+            detail = normalized ? QStringLiteral("Media normalized") : (hasMedia ? QStringLiteral("Ready to normalize") : QStringLiteral("Import source media"));
+        } else if (definition.id == QStringLiteral("source-separate")) {
+            const bool separated = hasMedia && !m_project.backgroundAudioPath.trimmed().isEmpty();
+            state = hasMedia ? (separated ? QStringLiteral("completed") : QStringLiteral("ready")) : QStringLiteral("missing");
+            detail = separated ? QStringLiteral("Voice and background stems available")
+                               : (hasMedia ? QStringLiteral("Use original audio if separation is unavailable") : QStringLiteral("Import source media"));
         } else if (definition.id == QStringLiteral("transcribe")) {
-            state = hasSegments ? QStringLiteral("completed") : (hasMedia ? QStringLiteral("ready") : QStringLiteral("missing"));
+            const bool audioReady = !m_project.analysisAudioPath.trimmed().isEmpty() || !m_project.masterAudioPath.trimmed().isEmpty();
+            state = hasSegments ? QStringLiteral("completed") : (audioReady ? QStringLiteral("ready") : QStringLiteral("blocked"));
             detail = hasSegments ? QStringLiteral("%1 segments").arg(m_project.segments.size()) : QStringLiteral("Speech-to-text source stage");
         } else if (definition.id == QStringLiteral("review-transcript")) {
             state = hasSegments ? QStringLiteral("completed") : QStringLiteral("blocked");
@@ -175,17 +207,18 @@ QVariantList DubbingController::workflowNodes() const
             state = hasTargets ? QStringLiteral("completed") : QStringLiteral("blocked");
             detail = hasTargets ? QStringLiteral("Translated transcript available for review") : QStringLiteral("Translate the transcript first");
         } else if (definition.id == QStringLiteral("assign-voices")) {
-            state = hasTargets ? QStringLiteral("ready") : QStringLiteral("blocked");
-            detail = hasTargets ? QStringLiteral("Review speaker voice assignments") : QStringLiteral("Translated transcript required");
+            const bool voicesReady = hasTargets && !m_project.speakers.isEmpty();
+            state = voicesReady ? QStringLiteral("ready") : QStringLiteral("blocked");
+            detail = voicesReady ? QStringLiteral("Speaker assignments are ready") : QStringLiteral("Translated transcript and a speaker are required");
         } else if (definition.id == QStringLiteral("synthesize")) {
-            state = !ttsReady ? QStringLiteral("missing") : (hasClips ? QStringLiteral("completed") : (hasTargets ? QStringLiteral("ready") : QStringLiteral("blocked")));
+            state = !ttsReady ? QStringLiteral("missing") : (hasClips ? QStringLiteral("completed") : (allTargets ? QStringLiteral("ready") : QStringLiteral("blocked")));
             detail = ttsReady ? QStringLiteral("TTS model loaded") : QStringLiteral("Load a TTS model");
             provider = ttsReady ? QStringLiteral("Local TTS") : QStringLiteral("No model loaded");
         } else if (definition.id == QStringLiteral("fit-timing")) {
-            state = hasConflict ? QStringLiteral("blocked") : (hasClips ? QStringLiteral("completed") : QStringLiteral("ready"));
+            state = !hasClips ? QStringLiteral("blocked") : (hasConflict ? QStringLiteral("blocked") : QStringLiteral("completed"));
             detail = hasConflict ? QStringLiteral("One or more clips exceed the fit tolerance") : QStringLiteral("Fit generated clips to segment timing");
         } else if (definition.id == QStringLiteral("review-conflicts")) {
-            state = hasConflict ? QStringLiteral("blocked") : (hasClips ? QStringLiteral("completed") : QStringLiteral("ready"));
+            state = hasConflict ? QStringLiteral("blocked") : (hasClips ? QStringLiteral("completed") : QStringLiteral("blocked"));
             detail = hasConflict ? QStringLiteral("Review timing conflicts") : QStringLiteral("No timing conflicts pending");
         } else if (definition.id == QStringLiteral("mix")) {
             state = hasClips && !hasConflict ? QStringLiteral("ready") : QStringLiteral("blocked");
@@ -201,6 +234,19 @@ QVariantList DubbingController::workflowNodes() const
         QVariantMap item = node(definition.id, definition.title, state, detail, provider).toMap();
         item.insert(QStringLiteral("typeId"), definition.typeId);
         item.insert(QStringLiteral("typeVersion"), definition.typeVersion);
+        if (definition.id == QStringLiteral("transcribe")) {
+            item.insert(QStringLiteral("configurable"), true);
+            item.insert(QStringLiteral("capabilityId"), QStringLiteral("stt"));
+        } else if (definition.id == QStringLiteral("synthesize")) {
+            item.insert(QStringLiteral("configurable"), true);
+            item.insert(QStringLiteral("capabilityId"), QStringLiteral("tts"));
+        }
+        const QVariantMap selected = m_workflowNodeConfigurations.value(definition.id).toMap();
+        if (!selected.isEmpty()) {
+            item.insert(QStringLiteral("providerName"), selected.value(QStringLiteral("modelName")));
+            item.insert(QStringLiteral("selectedFamilyId"), selected.value(QStringLiteral("familyId")));
+            item.insert(QStringLiteral("selectedRuntimeId"), selected.value(QStringLiteral("runtimeId")));
+        }
         result.append(item);
     }
     return result;
@@ -208,11 +254,92 @@ QVariantList DubbingController::workflowNodes() const
 
 bool DubbingController::workflowReady() const
 {
+    const bool sttReady = AppController::instance() && AppController::instance()->sessionRegistry()
+        && AppController::instance()->sessionRegistry()->sessionForCapability(QStringLiteral("stt"))
+        && AppController::instance()->sessionRegistry()->sessionForCapability(QStringLiteral("stt"))->canProcess();
     return workflowGraphValid()
         && !m_project.sourceMediaPath.isEmpty()
-        && !m_project.segments.isEmpty()
         && !m_project.targetLanguage.trimmed().isEmpty()
-        && m_tts && m_tts->isModelLoaded();
+        && m_tts && m_tts->isModelLoaded()
+        && sttReady;
+}
+
+bool DubbingController::setWorkflowNodeModel(const QString &nodeId,
+                                             const QString &familyId,
+                                             const QString &runtimeId,
+                                             const QString &runtimeVersion,
+                                             const QVariantMap &selectedFiles)
+{
+    QString capabilityId;
+    if (nodeId == QStringLiteral("transcribe")) capabilityId = QStringLiteral("stt");
+    else if (nodeId == QStringLiteral("synthesize")) capabilityId = QStringLiteral("tts");
+    else {
+        setError(QStringLiteral("This workflow node does not support model selection."));
+        return false;
+    }
+
+    AppController *app = AppController::instance();
+    if (!app || !app->registry() || !app->sessionRegistry()) return false;
+    const QVariantList families = capabilityId == QStringLiteral("stt")
+        ? app->registry()->sttFamilies() : app->registry()->ttsFamilies();
+    QVariantMap family;
+    for (const QVariant &entry : families) {
+        const QVariantMap candidate = entry.toMap();
+        if (candidate.value(QStringLiteral("id")).toString() == familyId) {
+            family = candidate;
+            break;
+        }
+    }
+    if (family.isEmpty()) {
+        setError(QStringLiteral("The selected model family is not available."));
+        return false;
+    }
+
+    QVariantMap runtime;
+    for (const QVariant &entry : family.value(QStringLiteral("runtimes")).toList()) {
+        const QVariantMap candidate = entry.toMap();
+        if (candidate.value(QStringLiteral("id")).toString() == runtimeId) {
+            runtime = candidate;
+            break;
+        }
+    }
+    if (runtime.isEmpty()) {
+        setError(QStringLiteral("The selected runtime is not compatible with this model."));
+        return false;
+    }
+
+    StudioConfiguration config;
+    config.capabilityId = capabilityId;
+    config.familyId = familyId;
+    config.runtimeId = runtimeId;
+    config.runtimeVersion = runtimeVersion.isEmpty()
+        ? runtime.value(QStringLiteral("version")).toString() : runtimeVersion;
+    for (const QVariant &entry : family.value(QStringLiteral("requiredFiles")).toList()) {
+        const QVariantMap file = entry.toMap();
+        const QString role = file.value(QStringLiteral("role")).toString();
+        config.selectedFiles.insert(role, selectedFiles.value(role, file.value(QStringLiteral("file"))).toString());
+    }
+    const auto resolved = StudioConfigurationResolver::resolve(config);
+    if (!resolved.isValid) {
+        setError(QStringLiteral("The selected model files or runtime are not installed."));
+        return false;
+    }
+
+    QVariantMap selected{{QStringLiteral("familyId"), familyId},
+                         {QStringLiteral("runtimeId"), config.runtimeId},
+                         {QStringLiteral("runtimeVersion"), config.runtimeVersion},
+                         {QStringLiteral("selectedFiles"), config.selectedFiles},
+                         {QStringLiteral("modelName"), family.value(QStringLiteral("title"))},
+                         {QStringLiteral("capabilityId"), capabilityId}};
+    m_workflowNodeConfigurations.insert(nodeId, selected);
+    if (IModelSession *session = app->sessionRegistry()->sessionForCapability(capabilityId)) {
+        session->requestLoad(capabilityId, config);
+    }
+    Logger::info(QStringLiteral("DubbingController"),
+                 QStringLiteral("Workflow node model changed node=%1 family=%2 runtime=%3")
+                     .arg(nodeId, familyId, config.runtimeId));
+    emit workflowChanged();
+    return true;
 }
 
 QString DubbingController::workflowStatusText() const
@@ -260,6 +387,56 @@ QVariantMap DubbingController::workflowReviewRequest() const
     return m_workflowReviewRequest;
 }
 
+QString DubbingController::currentStepId() const
+{
+    if (m_workflowRunner && m_workflowRunner->running()) {
+        const QString active = m_workflowRunner->activeNodeId();
+        if (active == QStringLiteral("media-input")) return QStringLiteral("import");
+        if (active == QStringLiteral("review-transcript")) return QStringLiteral("transcribe");
+        if (active == QStringLiteral("review-translation")) return QStringLiteral("translate");
+        if (active == QStringLiteral("assign-voices") || active == QStringLiteral("fit-timing")) return QStringLiteral("synthesize");
+        if (active == QStringLiteral("review-conflicts")) return QStringLiteral("mix");
+        return active;
+    }
+    return m_currentStepId;
+}
+
+QVariantMap DubbingController::currentStepOutput() const
+{
+    return stepOutput(currentStepId());
+}
+
+QVariantMap DubbingController::stepOutput(const QString &stepId) const
+{
+    return m_stepOutputs.value(stepId).toMap();
+}
+
+void DubbingController::setWorkflowMode(const QString &mode)
+{
+    if (m_workflowMode == mode) return;
+    m_workflowMode = mode;
+    emit workflowChanged();
+}
+
+void DubbingController::setCurrentStep(const QString &stepId)
+{
+    if (m_currentStepId == stepId) return;
+    m_currentStepId = stepId;
+    emit workflowChanged();
+}
+
+void DubbingController::advanceManualStep(const QString &completedStepId)
+{
+    static const QHash<QString, QString> next{{QStringLiteral("ingest"), QStringLiteral("source-separate")},
+                                              {QStringLiteral("source-separate"), QStringLiteral("transcribe")},
+                                              {QStringLiteral("transcribe"), QStringLiteral("translate")},
+                                              {QStringLiteral("translate"), QStringLiteral("synthesize")},
+                                              {QStringLiteral("synthesize"), QStringLiteral("mix")},
+                                              {QStringLiteral("mix"), QStringLiteral("export")},
+                                              {QStringLiteral("export"), QStringLiteral("completed")}};
+    if (next.contains(completedStepId)) setCurrentStep(next.value(completedStepId));
+}
+
 void DubbingController::prepareWorkflow()
 {
     if (!workflowGraphValid()) {
@@ -282,12 +459,22 @@ bool DubbingController::runWorkflow(const QString &outputPath)
     }
     WorkflowGraph graph = DubbingWorkflowDefinition::create();
     for (auto &node : graph.nodes) {
+        const QVariantMap modelConfig = m_workflowNodeConfigurations.value(node.id).toMap();
+        if (!modelConfig.isEmpty()) {
+            node.parameters.insert(QStringLiteral("familyId"), modelConfig.value(QStringLiteral("familyId")));
+            node.parameters.insert(QStringLiteral("runtimeId"), modelConfig.value(QStringLiteral("runtimeId")));
+            node.parameters.insert(QStringLiteral("runtimeVersion"), modelConfig.value(QStringLiteral("runtimeVersion")));
+            node.properties = node.parameters;
+        }
         if (node.id == QStringLiteral("media-input")) {
             node.parameters.insert(QStringLiteral("value"), m_project.sourceMediaPath);
             node.properties.insert(QStringLiteral("value"), m_project.sourceMediaPath);
         } else if (node.id == QStringLiteral("translate")) {
             node.parameters.insert(QStringLiteral("sourceLanguage"), m_project.sourceLanguage);
             node.parameters.insert(QStringLiteral("targetLanguage"), m_project.targetLanguage);
+            node.properties = node.parameters;
+        } else if (node.typeId == QStringLiteral("core.review-gate")) {
+            node.parameters.insert(QStringLiteral("mode"), QStringLiteral("never"));
             node.properties = node.parameters;
         } else if (node.id == QStringLiteral("synthesize") || node.id == QStringLiteral("mix")) {
             node.parameters.insert(QStringLiteral("projectPath"), m_project.projectPath);
@@ -301,6 +488,104 @@ bool DubbingController::runWorkflow(const QString &outputPath)
         QDir(QFileInfo(m_project.projectPath).absolutePath()).filePath(QStringLiteral(".workflow-artifacts")));
     m_workflowRunner->setJournal(m_workflowJournal.get());
     return m_workflowRunner->run(graph);
+}
+
+bool DubbingController::startAutomaticWorkflow(const QString &outputPath)
+{
+    setWorkflowMode(QStringLiteral("automatic"));
+    setCurrentStep(QStringLiteral("ingest"));
+    if (runWorkflow(outputPath)) return true;
+    setWorkflowMode(QStringLiteral("idle"));
+    return false;
+}
+
+void DubbingController::startStepByStep()
+{
+    if (m_project.sourceMediaPath.isEmpty()) {
+        setError(QStringLiteral("Import source media before starting the step-by-step workflow."));
+        return;
+    }
+    setWorkflowMode(QStringLiteral("step"));
+    if (m_project.masterAudioPath.isEmpty()) setCurrentStep(QStringLiteral("ingest"));
+    else if (m_project.backgroundAudioPath.isEmpty()) setCurrentStep(QStringLiteral("source-separate"));
+    else if (m_project.segments.isEmpty()) setCurrentStep(QStringLiteral("transcribe"));
+    else {
+        bool allTranslated = true;
+        bool allGenerated = true;
+        for (const QVariant &entry : m_project.segments) {
+            const QVariantMap segment = entry.toMap();
+            allTranslated = allTranslated && !segment.value(QStringLiteral("targetText")).toString().trimmed().isEmpty();
+            allGenerated = allGenerated && QFileInfo::exists(segment.value(QStringLiteral("clipPath")).toString());
+        }
+        if (!allTranslated) setCurrentStep(QStringLiteral("translate"));
+        else if (!allGenerated) setCurrentStep(QStringLiteral("synthesize"));
+        else if (previewPath().isEmpty() || !QFileInfo::exists(previewPath())) setCurrentStep(QStringLiteral("mix"));
+        else if (exportPath().isEmpty() || !QFileInfo::exists(exportPath())) setCurrentStep(QStringLiteral("export"));
+        else setCurrentStep(QStringLiteral("completed"));
+    }
+}
+
+bool DubbingController::runCurrentStep(const QString &outputPath)
+{
+    if (m_workflowMode != QStringLiteral("step")) startStepByStep();
+    if (processing()) return false;
+    const QString step = m_currentStepId;
+    Logger::info(QStringLiteral("DubbingController"),
+                 QStringLiteral("Run current step step=%1 mode=%2 output=%3 project=%4")
+                     .arg(step, m_workflowMode, outputPath, m_project.projectPath));
+    if (step == QStringLiteral("ingest")) {
+        m_runner->startIngest(m_project.sourceMediaPath);
+        return m_runner->processing();
+    }
+    if (step == QStringLiteral("source-separate")) {
+        m_runner->startSourceSeparation(m_project.masterAudioPath);
+        return m_runner->processing() || !m_project.masterAudioPath.isEmpty();
+    }
+    if (step == QStringLiteral("transcribe")) {
+        transcribeSource();
+        return m_runner->processing();
+    }
+    if (step == QStringLiteral("translate")) {
+        translateSource();
+        return m_runner->processing();
+    }
+    if (step == QStringLiteral("synthesize")) {
+        generateAudio();
+        return m_runner->processing();
+    }
+    if (step == QStringLiteral("mix")) return renderPreview();
+    if (step == QStringLiteral("export")) return exportMedia(outputPath);
+    return false;
+}
+
+bool DubbingController::rerunStep(const QString &stepId, const QString &outputPath)
+{
+    if (processing()) return false;
+
+    const QString step = stepId.trimmed();
+    const bool supported = step == QStringLiteral("ingest")
+        || step == QStringLiteral("source-separate")
+        || step == QStringLiteral("transcribe")
+        || step == QStringLiteral("translate")
+        || step == QStringLiteral("synthesize")
+        || step == QStringLiteral("mix")
+        || step == QStringLiteral("export");
+    if (!supported) {
+        Logger::warning(QStringLiteral("DubbingController"),
+                        QStringLiteral("Ignoring rerun request for unsupported step=%1").arg(step));
+        return false;
+    }
+    if (m_project.sourceMediaPath.isEmpty()) {
+        setError(QStringLiteral("Import source media before running this step again."));
+        return false;
+    }
+
+    setWorkflowMode(QStringLiteral("step"));
+    setCurrentStep(step);
+    Logger::info(QStringLiteral("DubbingController"),
+                 QStringLiteral("Rerun step step=%1 output=%2 project=%3")
+                     .arg(step, outputPath, m_project.projectPath));
+    return runCurrentStep(outputPath);
 }
 
 bool DubbingController::approveWorkflowReview(const QVariantMap &artifact)
@@ -353,6 +638,10 @@ bool DubbingController::ensureProject(const QString &path)
 bool DubbingController::newProject(const QString &path)
 {
     m_project = DubbingProject();
+    m_stepOutputs.clear();
+    m_lastCompletedStepId.clear();
+    setWorkflowMode(QStringLiteral("idle"));
+    setCurrentStep(QStringLiteral("import"));
     if (m_workflowRunner) m_workflowRunner->setJournal(nullptr);
     m_workflowJournal.reset();
     m_workflowReviewStore.reset();
@@ -381,6 +670,10 @@ bool DubbingController::openProject(const QString &path)
         return false;
     }
     m_project = std::move(loaded);
+    m_stepOutputs.clear();
+    m_lastCompletedStepId.clear();
+    setWorkflowMode(QStringLiteral("idle"));
+    setCurrentStep(m_project.sourceMediaPath.isEmpty() ? QStringLiteral("import") : QStringLiteral("ingest"));
     if (m_workflowRunner) m_workflowRunner->setJournal(nullptr);
     m_workflowJournal.reset();
     m_workflowReviewStore.reset();
@@ -411,6 +704,10 @@ bool DubbingController::saveProject()
 void DubbingController::closeProject()
 {
     m_project = DubbingProject();
+    m_stepOutputs.clear();
+    m_lastCompletedStepId.clear();
+    setWorkflowMode(QStringLiteral("idle"));
+    setCurrentStep(QStringLiteral("import"));
     m_runner->cancel();
     if (m_workflowRunner) m_workflowRunner->setJournal(nullptr);
     m_workflowJournal.reset();
@@ -436,8 +733,33 @@ bool DubbingController::importMedia(const QString &pathOrUrl)
         return false;
     }
     if (m_project.projectPath.isEmpty() && !newProject()) return false;
-    
-    m_runner->startIngest(path);
+
+    // Import is intentionally side-effect free: preview the selected media and
+    // reset downstream artifacts. Normalization and source separation only run
+    // after the user chooses automatic or step-by-step processing.
+    m_project.sourceMediaPath = path;
+    m_project.sourceHash.clear();
+    m_project.masterAudioPath.clear();
+    m_project.analysisAudioPath.clear();
+    m_project.backgroundAudioPath.clear();
+    m_project.sourceDurationMs = 0;
+    m_project.sourceSampleRate = 0;
+    m_project.sourceChannels = 0;
+    const QString suffix = fileInfo.suffix().toLower();
+    m_project.sourceIsVideo = suffix == QStringLiteral("mp4") || suffix == QStringLiteral("mkv")
+        || suffix == QStringLiteral("mov") || suffix == QStringLiteral("webm") || suffix == QStringLiteral("avi");
+    m_project.segments.clear();
+    m_stepOutputs.clear();
+    m_lastCompletedStepId.clear();
+    m_runner->setBackgroundAudioPath(QString());
+    m_runner->setPreviewPath(QString());
+    m_runner->setExportPath(QString());
+    setWorkflowMode(QStringLiteral("idle"));
+    setCurrentStep(QStringLiteral("ingest"));
+    emit projectChanged();
+    emit segmentsChanged();
+    emit workflowChanged();
+    persistAfterEdit();
     return true;
 }
 
@@ -470,7 +792,16 @@ void DubbingController::transcribeSource()
         setError(QStringLiteral("Import media before starting transcription."));
         return;
     }
-    m_runner->startTranscription(m_project.sourceLanguage, m_project.sourceMediaPath);
+    const QString audioPath = !m_project.analysisAudioPath.isEmpty() ? m_project.analysisAudioPath
+                                                                     : m_project.masterAudioPath;
+    if (audioPath.isEmpty()) {
+        setError(QStringLiteral("Normalize and separate the source audio before transcription."));
+        return;
+    }
+    Logger::info(QStringLiteral("DubbingController"),
+                 QStringLiteral("Starting dubbing transcription language=%1 audio=%2")
+                     .arg(m_project.sourceLanguage, audioPath));
+    m_runner->startTranscription(m_project.sourceLanguage, audioPath);
 }
 
 void DubbingController::translateSource()
@@ -530,6 +861,8 @@ void DubbingController::addSegment(qint64 startMs, qint64 endMs, const QString &
     segment.insert(QStringLiteral("startMs"), startMs);
     segment.insert(QStringLiteral("endMs"), endMs);
     segment.insert(QStringLiteral("sourceText"), sourceText);
+    segment.insert(QStringLiteral("timingSource"), QStringLiteral("manual"));
+    segment.insert(QStringLiteral("alignmentStatus"), QStringLiteral("pending"));
     segment.insert(QStringLiteral("targetText"), QString());
     segment.insert(QStringLiteral("speakerId"), QStringLiteral("speaker-1"));
     segment.insert(QStringLiteral("state"), QStringLiteral("draft"));
@@ -552,6 +885,18 @@ void DubbingController::updateSegment(int index, const QVariantMap &patch)
     for (auto it = patch.cbegin(); it != patch.cend(); ++it) segment.insert(it.key(), it.value());
     segment.insert(QStringLiteral("startMs"), startMs);
     segment.insert(QStringLiteral("endMs"), endMs);
+    if (patch.contains(QStringLiteral("sourceText"))) {
+        // Word timestamps are derived from the source transcript. Any source edit
+        // invalidates the previous alignment and forces the next refinement pass
+        // to treat this segment as an ASR/manual-timing fallback.
+        segment.remove(QStringLiteral("words"));
+        segment.remove(QStringLiteral("alignmentCoverage"));
+        segment.remove(QStringLiteral("alignmentMatchScore"));
+        segment.remove(QStringLiteral("alignmentModel"));
+        segment.remove(QStringLiteral("alignmentRuntime"));
+        segment.insert(QStringLiteral("timingSource"), QStringLiteral("asr"));
+        segment.insert(QStringLiteral("alignmentStatus"), QStringLiteral("pending"));
+    }
     if (patch.contains(QStringLiteral("targetText")) || patch.contains(QStringLiteral("speakerId"))) {
         segment.insert(QStringLiteral("state"), QStringLiteral("stale"));
     }

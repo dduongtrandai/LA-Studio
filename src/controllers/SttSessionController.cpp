@@ -39,6 +39,11 @@ SttSessionController::SttSessionController(QObject *parent)
         });
         connect(m_engine, &SttEngine::processingChanged, this, &SttSessionController::processingChanged);
         connect(m_engine, &SttEngine::transcriptionFinished, this, &SttSessionController::onEngineTranscriptionFinished);
+        connect(m_engine, &SttEngine::errorOccurred, this, [this](const QString &message) {
+            if (!m_activeJob.isValid) return;
+            m_activeJob.isValid = false;
+            emit transcriptionFailed(message);
+        });
     }
 
     if (m_recorder) {
@@ -158,6 +163,8 @@ void SttSessionController::selectFileInput(const QString &filePathOrUrl)
     if (filePathOrUrl.isEmpty()) return;
 
     m_inputPath = PathUtils::urlToLocalPath(filePathOrUrl);
+    Logger::info(QStringLiteral("SttSession"),
+                 QStringLiteral("Audio decode requested path=%1").arg(m_inputPath));
     m_inputUrl = QUrl::fromLocalFile(m_inputPath);
     emit inputPathChanged();
     emit inputUrlChanged();
@@ -212,7 +219,21 @@ void SttSessionController::stopRecording()
 
 void SttSessionController::transcribeInput()
 {
+    if (m_inputLoading) {
+        Logger::debug(QStringLiteral("SttSession"), QStringLiteral("Transcription deferred while audio decode is still running"));
+        return;
+    }
     if (!m_engine || m_decodedSamples.isEmpty()) {
+        Logger::warning(QStringLiteral("SttSession"),
+                        QStringLiteral("Transcription skipped: engine=%1 samples=%2 inputError=%3")
+                            .arg(m_engine ? QStringLiteral("available") : QStringLiteral("missing"))
+                            .arg(m_decodedSamples.size()).arg(m_inputError));
+        return;
+    }
+    if (!canTranscribe()) {
+        const QString message = QStringLiteral("The STT model is not ready. Wait for model loading to finish and try again.");
+        Logger::warning(QStringLiteral("SttSession"), message);
+        emit transcriptionFailed(message);
         return;
     }
 
@@ -234,6 +255,11 @@ void SttSessionController::transcribeInput()
     m_activeJob.isValid = true;
 
     m_engine->transcribeSamples(m_activeJob.samples, m_activeJob.language, m_activeJob.threads, m_activeJob.translate, m_dynamicSettings);
+}
+
+bool SttSessionController::canTranscribe() const
+{
+    return m_engine && m_engine->state() == SttEngine::Ready;
 }
 
 void SttSessionController::cancelProcessing()
@@ -299,6 +325,8 @@ void SttSessionController::stopPlayback()
 
 void SttSessionController::onDecoderFinished(const QVector<float> &samples)
 {
+    Logger::info(QStringLiteral("SttSession"),
+                 QStringLiteral("Audio decode finished samples=%1 path=%2").arg(samples.size()).arg(m_inputPath));
     m_decodedSamples = samples;
     m_inputLoading = false;
     m_inputError.clear();
@@ -317,6 +345,8 @@ void SttSessionController::onDecoderFinished(const QVector<float> &samples)
 
 void SttSessionController::onDecoderError(const QString &error)
 {
+    Logger::error(QStringLiteral("SttSession"),
+                  QStringLiteral("Audio decode failed path=%1 error=%2").arg(m_inputPath, error));
     m_inputLoading = false;
     m_inputError = error;
     m_decodedSamples.clear();

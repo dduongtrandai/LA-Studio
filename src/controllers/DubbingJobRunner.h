@@ -5,6 +5,9 @@
 #include <QVariantList>
 #include <QVariantMap>
 #include <QFutureWatcher>
+#include <QElapsedTimer>
+#include <QAtomicInteger>
+#include <memory>
 #include "separation/SeparationTypes.h"
 
 namespace LAStudio {
@@ -36,6 +39,7 @@ public:
     QString nodeRunId() const { return m_activeNodeRunId; }
 
     void startIngest(const QString &path);
+    void startSourceSeparation(const QString &audioPath);
     void startTranscription(const QString &sourceLanguage, const QString &sourceMediaPath);
     void startTranslation(const QString &sourceLanguage, const QString &targetLanguage, const QVariantList &segments);
     void startAudioGeneration(const QVariantList &segments, const QString &projectPath);
@@ -57,10 +61,12 @@ signals:
     void segmentUpdated(int index, const QVariantMap &patch);
     void errorOccurred(const QString &message);
     void ingestFinished(bool success, const QVariantMap &manifest);
+    void sourceSeparationFinished(const QVariantMap &outputs);
     void stageCompleted(const QString &nodeId, const QVariantMap &outputs);
 
 private slots:
     void onTranscriptionFinished(const QString &text, const QVariantList &segments);
+    void onAlignmentFinished();
     void onSynthesisFinished(const QByteArray &pcm16, int sampleRate);
     void onTtsError(const QString &message);
     void onMediaFinished(bool success, const QString &outputPath, const QString &error);
@@ -71,6 +77,8 @@ private slots:
 private:
     void setProcessing(bool value, const QString &stage, int progress);
     void setBusyError(const QString &message);
+    void startAlignmentRefinement(const QString &audioPath, const QString &language,
+                                  const QVariantList &segments);
 
     SttSessionController *m_sttSession = nullptr;
     TtsEngine *m_tts = nullptr;
@@ -93,12 +101,18 @@ private:
     QString m_runId;
     QString m_activeNodeRunId;
     QString m_backgroundAudioPath;
+    QString m_transcriptionAudioPath;
+    QString m_transcriptionLanguage;
 
     MediaToolService *m_mediaTools = nullptr;
     MediaIngestService *m_mediaIngest = nullptr;
     SourceSeparationService *m_sourceSeparation = nullptr;
-    QVariantMap m_pendingIngestManifest;
+    QString m_pendingSourceAudioPath;
+    bool m_waitingForTranscriptionInput = false;
+    QElapsedTimer m_stageTimer;
     QFutureWatcher<QVariantList> *m_translationWatcher = nullptr;
+    QFutureWatcher<QVariantMap> *m_alignmentWatcher = nullptr;
+    std::shared_ptr<QAtomicInteger<bool>> m_alignmentCancel;
     quint64 m_translationGeneration = 0;
 };
 
