@@ -20,7 +20,7 @@ StudioShell {
     families: studioController ? studioController.families : []
     capability: "translation"
     studioTitle: qsTr("Translation Studio")
-    studioIconName: "alignment"
+    studioIconName: "translate"
     studioReady: studioController ? studioController.studioReady : false
     selectedFamilyId: studioController ? studioController.selectedFamilyId : ""
     modalSelectionMode: true
@@ -117,7 +117,7 @@ StudioShell {
                     PrimaryButton { text: qsTr("Add segment"); iconName: "plus"; quiet: true; onClicked: translation.addSegment() }
                     Item { Layout.fillWidth: true }
                     Text { text: translation.statusText; color: translation.processing ? Theme.warning : Theme.textSecondary; font.pixelSize: Theme.fontSmall }
-                    PrimaryButton { text: translation.processing ? qsTr("Cancel") : qsTr("Translate all"); iconName: translation.processing ? "stop" : "alignment"; enabled: translation.processing || translation.segments.length > 0; onClicked: translation.processing ? translation.cancel() : translation.translateAll() }
+                    PrimaryButton { text: translation.processing ? qsTr("Cancel") : qsTr("Translate all"); iconName: translation.processing ? "stop" : "translate"; enabled: translation.processing || translation.segments.length > 0; onClicked: translation.processing ? translation.cancel() : translation.translateAll() }
                 }
                 Text { visible: translation.errorText !== ""; Layout.fillWidth: true; text: translation.errorText; color: Theme.danger; font.pixelSize: Theme.fontSmall; wrapMode: Text.WordWrap }
                 ListView {
@@ -142,7 +142,7 @@ StudioShell {
                             }
                             ColumnLayout {
                                 Layout.alignment: Qt.AlignTop; spacing: 4
-                                PrimaryButton { text: qsTr("Run"); iconName: "alignment"; quiet: true; implicitWidth: 58; enabled: !translation.processing && (modelData.sourceText || "").trim() !== ""; onClicked: translation.translateSegment(index) }
+                                PrimaryButton { text: qsTr("Run"); iconName: "translate"; quiet: true; implicitWidth: 58; enabled: !translation.processing && (modelData.sourceText || "").trim() !== ""; onClicked: translation.translateSegment(index) }
                                 PrimaryButton { text: qsTr("Remove"); quiet: true; implicitWidth: 58; onClicked: translation.removeSegment(index) }
                             }
                         }

@@ -31,7 +31,7 @@ QtObject {
         { id: "studio-voice-design", label: qsTr("Voice Design"), iconName: "waves" },
         { id: "studio-voice-isolator", label: qsTr("Voice Isolator"), iconName: "voice-isolator" },
         { id: "studio-alignment", label: qsTr("Alignment"), iconName: "alignment" },
-        { id: "studio-translation", label: qsTr("Translation"), iconName: "alignment" },
+        { id: "studio-translation", label: qsTr("Translation"), iconName: "translate" },
         { id: "studio-dubbing", label: qsTr("Dubbing"), iconName: "waves" },
         { id: "models", label: qsTr("Models"), iconName: "gallery" },
         { id: "my-models", label: qsTr("My Models"), iconName: "folder" },

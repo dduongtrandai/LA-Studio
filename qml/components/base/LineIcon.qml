@@ -206,6 +206,27 @@ Canvas {
             ctx.moveTo(cx - 6 * u, cy + 5 * u)
             ctx.quadraticCurveTo(cx, cy + 3 * u, cx + 6 * u, cy + 5 * u)
             ctx.stroke()
+        } else if (name === "translate") {
+            // Paired writing systems make translation distinct from audio
+            // alignment while remaining legible at compact sidebar sizes.
+            ctx.beginPath()
+            ctx.moveTo(cx - 10 * u, cy + 7 * u)
+            ctx.lineTo(cx - 6 * u, cy - 7 * u)
+            ctx.lineTo(cx - 2 * u, cy + 7 * u)
+            ctx.stroke()
+            line(ctx, cx - 8.5 * u, cy + 2 * u, cx - 3.5 * u, cy + 2 * u)
+
+            line(ctx, cx + 1 * u, cy - 5 * u, cx + 10 * u, cy - 5 * u)
+            line(ctx, cx + 5.5 * u, cy - 8 * u, cx + 5.5 * u, cy - 5 * u)
+            line(ctx, cx + 2 * u, cy - 1 * u, cx + 9 * u, cy - 1 * u)
+            ctx.beginPath()
+            ctx.moveTo(cx + 3 * u, cy - 1 * u)
+            ctx.quadraticCurveTo(cx + 5.5 * u, cy + 4 * u, cx + 10 * u, cy + 7 * u)
+            ctx.stroke()
+            ctx.beginPath()
+            ctx.moveTo(cx + 8.5 * u, cy - 1 * u)
+            ctx.quadraticCurveTo(cx + 6.5 * u, cy + 4 * u, cx + 1 * u, cy + 7 * u)
+            ctx.stroke()
         } else if (name === "download") {
             line(ctx, cx, cy - 8 * u, cx, cy + 4 * u)
             ctx.beginPath()

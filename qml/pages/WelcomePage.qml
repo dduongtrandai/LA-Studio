@@ -60,7 +60,7 @@ Rectangle {
             title: qsTr("Translation"),
             group: qsTr("Localization"),
             description: qsTr("Translate scripts and subtitles locally, then review each segment."),
-            iconName: "alignment",
+            iconName: "translate",
             routeId: "studio-translation",
             accent: "#64d8cb"
         },

@@ -204,7 +204,7 @@ Item {
                 Rectangle { Layout.preferredWidth: 16; Layout.preferredHeight: 1; color: Qt.rgba(1, 1, 1, 0.14) }
                 Step { stepId: "transcribe"; title: qsTr("Transcribe"); iconName: "mic"; complete: root.stepComplete(stepId); active: dubbing.currentStepId === stepId; onSelected: function(id) { root.reviewStepId = id } }
                 Rectangle { Layout.preferredWidth: 16; Layout.preferredHeight: 1; color: Qt.rgba(1, 1, 1, 0.14) }
-                Step { stepId: "translate"; title: qsTr("Translate"); iconName: "alignment"; complete: root.stepComplete(stepId); active: dubbing.currentStepId === stepId; onSelected: function(id) { root.reviewStepId = id } }
+                Step { stepId: "translate"; title: qsTr("Translate"); iconName: "translate"; complete: root.stepComplete(stepId); active: dubbing.currentStepId === stepId; onSelected: function(id) { root.reviewStepId = id } }
                 Rectangle { Layout.preferredWidth: 16; Layout.preferredHeight: 1; color: Qt.rgba(1, 1, 1, 0.14) }
                 Step { stepId: "synthesize"; title: qsTr("Voice"); iconName: "volume"; complete: root.stepComplete(stepId); active: dubbing.currentStepId === stepId; onSelected: function(id) { root.reviewStepId = id } }
                 Rectangle { Layout.preferredWidth: 16; Layout.preferredHeight: 1; color: Qt.rgba(1, 1, 1, 0.14) }
