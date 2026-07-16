@@ -570,6 +570,10 @@ bool DownloadInstallService::enqueueRuntime(const QVariantMap &family,
     QString runtimeType = QStringLiteral("tts");
     if (capability == QStringLiteral("stt")) {
         runtimeType = QStringLiteral("stt");
+    } else if (capability == QStringLiteral("translation")) {
+        // Translation is exposed through the STT/runtime registry domain;
+        // registry_schema.sql intentionally accepts only stt/tts/alignment types.
+        runtimeType = QStringLiteral("stt");
     } else if (capability == QStringLiteral("forced-alignment")) {
         runtimeType = QStringLiteral("alignment");
     }
@@ -944,7 +948,12 @@ void DownloadInstallService::onDownloadFinished(const QString &modelId,
                             !cleanEntrypoint.startsWith(QStringLiteral("../")) &&
                             !cleanEntrypoint.startsWith(QStringLiteral("..\\"));
                         const QString executablePath = safeEntrypoint ? dir.absoluteFilePath(cleanEntrypoint) : QString();
-                        if (!manifestWasValid || !safeEntrypoint || !QFileInfo(executablePath).isFile()) {
+                        // Official llama.cpp release archives do not ship our
+                        // backend-manifest.json; the catalog metadata is the
+                        // trusted source for their safe relative entrypoint.
+                        const bool hasTrustedCatalogEntrypoint = metadata.contains(QStringLiteral("entrypoint"));
+                        if ((!manifestWasValid && !hasTrustedCatalogEntrypoint) ||
+                            !safeEntrypoint || !QFileInfo(executablePath).isFile()) {
                             dir.removeRecursively();
                             Logger::error(QStringLiteral("DownloadInstallService"),
                                           QStringLiteral("Rejected process runtime package %1: manifest or entrypoint is invalid").arg(filename));

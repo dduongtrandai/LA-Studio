@@ -107,6 +107,8 @@ scripts/__pycache__/
 *.onnx
 *.gguf
 
+/draft/
+drafts/
 ref-projects/
 .github/
 !.github/

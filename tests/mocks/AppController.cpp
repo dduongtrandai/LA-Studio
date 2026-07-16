@@ -16,6 +16,7 @@ AppController::AppController(QObject *parent)
     m_models = new ModelManager(this);
     m_catalog = new CatalogManager(this);
     m_registry = new RegistryManager(this);
+    m_registry->initializeFromCatalog(m_catalog);
     m_runtimes = new RuntimeManager(nullptr, m_settings, this);
     m_logs = new LogViewService(this);
     m_stt = new SttEngine(this);

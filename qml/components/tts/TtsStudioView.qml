@@ -162,8 +162,7 @@ StudioShell {
 
             Item {
                 anchors.fill: parent
-                visible: opacity > 0
-                opacity: root.studioReady ? 0.0 : 1.0
+                visible: false
                 Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutQuad } }
                 ColumnLayout {
                     anchors.centerIn: parent
@@ -225,7 +224,7 @@ StudioShell {
                 id: editorScroll
                 anchors.fill: parent
                 visible: opacity > 0
-                opacity: root.studioReady ? 1.0 : 0.0
+                opacity: 1.0
                 clip: true
                 contentWidth: availableWidth
                 ScrollBar.vertical.policy: ScrollBar.AsNeeded
@@ -487,8 +486,7 @@ StudioShell {
 
             Item {
                 anchors.fill: parent
-                visible: opacity > 0
-                opacity: root.studioReady ? 0.0 : 1.0
+                visible: false
                 Behavior on opacity {
                     NumberAnimation { duration: 250; easing.type: Easing.OutQuad }
                 }
@@ -539,7 +537,7 @@ StudioShell {
                 id: settingsPanel
                 anchors.fill: parent
                 visible: opacity > 0
-                opacity: root.studioReady ? 1.0 : 0.0
+                opacity: 1.0
                 Behavior on opacity {
                     NumberAnimation { duration: 250; easing.type: Easing.OutQuad }
                 }

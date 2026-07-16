@@ -2,6 +2,8 @@
 
 #include <QString>
 #include <QVariantList>
+#include <atomic>
+#include <memory>
 
 namespace LAStudio {
 
@@ -17,7 +19,8 @@ struct TranslationRequest
     QString sourceLanguage;
     QString targetLanguage;
     bool useGpu = false;
-    int maxTokens = 256;
+    int maxTokens = 4096;
+    std::shared_ptr<std::atomic_bool> cancelToken;
 };
 
 // Shared local text translation adapter used by Translation Studio and Dubbing.

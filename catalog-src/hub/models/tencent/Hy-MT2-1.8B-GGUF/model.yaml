@@ -1,0 +1,69 @@
+model: tencent/Hy-MT2-1.8B-GGUF
+base:
+  - key: tencent/Hy-MT2-1.8B-GGUF
+    role: model
+    name: Hy-MT2 1.8B GGUF
+    purpose: Local multilingual text translation
+    defaultFile: Hy-MT2-1.8B-Q4_K_M.gguf
+    sources:
+      - type: huggingface
+        user: tencent
+        repo: Hy-MT2-1.8B-GGUF
+        files:
+          - name: Hy-MT2-1.8B-Q4_K_M.gguf
+            size: 1080 MiB
+          - name: Hy-MT2-1.8B-Q6_K.gguf
+            size: 1403 MiB
+          - name: Hy-MT2-1.8B-Q8_0.gguf
+            size: 1823 MiB
+metadataOverrides:
+  domain: stt
+  architectures:
+    - hunyuan-dense
+  compatibilityTypes:
+    - gguf
+  capabilities:
+    - translation
+laStudio:
+  id: hy-mt2-1.8b
+  type: stt
+  localDir: hy-mt2-1.8b
+  shortName: Hy-MT2
+  title: Tencent Hy-MT2 1.8B
+  subtitle: Local multilingual translation with llama.cpp
+  description: Tencent Hy-MT2 1.8B quantized GGUF model for offline text translation.
+  capabilities:
+    - translation
+  supportsStt: false
+  supportsTranslation: true
+  supportedLanguageSetId: hy-mt2-v1
+  tags:
+    - GGUF
+    - Translation
+    - Offline
+    - CPU
+  runtimes:
+    - id: llama-win-x86_64-cpu
+      engineFamily: llama
+      backend: llama
+      label: CPU
+      name: llama.cpp official CPU runtime (x64)
+      version: b10036
+      source: https://github.com/ggml-org/llama.cpp/releases/download/
+      asset: llama-b10036-bin-win-cpu-x64.zip
+      kind: dynamic-library
+      library: llama.dll
+      type: stt
+      capabilities:
+        - translation
+      modelFormats:
+        - gguf
+      protocolVersion: "llama-c-api-b10036"
+      sha256: 4d79dc585de38cdc2d516e5ce7ebbbc84eeb975f2c086570fa5de9d83d2ec8b9
+  studio:
+    translation:
+      layout: translation
+      action: translate
+      inputs:
+        - text
+        - language

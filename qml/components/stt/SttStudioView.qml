@@ -59,7 +59,7 @@ StudioShell {
     mainContent: [
         StackLayout {
             anchors.fill: parent
-            currentIndex: root.studioReady ? 1 : 0
+            currentIndex: 1
 
             Item {
                 Layout.fillWidth: true
@@ -148,7 +148,7 @@ StudioShell {
     settingsContent: [
         StackLayout {
             anchors.fill: parent
-            currentIndex: root.studioReady ? 1 : 0
+            currentIndex: 1
 
             Item {
                 Layout.fillWidth: true

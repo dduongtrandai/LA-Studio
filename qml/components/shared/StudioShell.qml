@@ -33,6 +33,11 @@ RowLayout {
     property string workflowTitle: qsTr("Workflow")
     property string workflowStatusText: ""
     property string workflowActionText: qsTr("Set up workflow")
+    // The work surface stays visible before a model is loaded.  This gate makes
+    // the required next step explicit while blocking model-dependent input.
+    readonly property bool modelConfigured: studioController ? studioController.selectionCommitted : root.activeFamily() !== null
+    readonly property string readinessState: studioController ? studioController.statusText : (root.studioReady ? "Ready" : "Unloaded")
+    readonly property bool readinessGateVisible: !root.studioReady
     readonly property bool isProcessingState: studioController ? studioController.statusText === "Processing" : false
     readonly property bool isLifecycleBusy: studioController
                                                     ? (studioController.statusText === "Loading" || studioController.statusText === "Unloading")
@@ -40,6 +45,8 @@ RowLayout {
     
     property bool showLeftPanel: false
     property bool isLeftPanelOpen: true
+    property int mainContentMinimumWidth: 900
+    property int mainContentMinimumHeight: 620
     
     property alias leftPanelContent: leftPanelItem.children
     property alias mainContent: mainContentItem.children
@@ -420,10 +427,138 @@ RowLayout {
         }
 
         Rectangle {
-            id: mainContentItem
+            id: mainContentFrame
             Layout.fillWidth: true
             Layout.fillHeight: true
             color: Qt.darker(Theme.background, 1.04)
+
+            ScrollView {
+                id: mainContentScrollView
+                anchors.fill: parent
+                clip: true
+                contentWidth: mainContentItem.width
+                contentHeight: mainContentItem.height
+
+                ScrollBar.horizontal.policy: ScrollBar.AsNeeded
+                ScrollBar.vertical.policy: ScrollBar.AsNeeded
+
+                Item {
+                    id: mainContentItem
+                    width: Math.max(root.mainContentMinimumWidth, mainContentScrollView.availableWidth)
+                    height: Math.max(root.mainContentMinimumHeight, mainContentScrollView.availableHeight)
+                }
+            }
+
+            // Keep the Studio layout discoverable, but prevent accidental input
+            // until its model session is ready. Header/model actions remain usable.
+            Rectangle {
+                id: readinessGate
+                anchors.fill: parent
+                visible: root.readinessGateVisible
+                color: Qt.rgba(0.07, 0.07, 0.11, 0.46)
+                z: 10
+
+                MouseArea { anchors.fill: parent }
+
+                ColumnLayout {
+                    anchors.centerIn: parent
+                    width: Math.min(520, parent.width - Theme.paddingXL * 2)
+                    spacing: Theme.paddingMedium
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        radius: Theme.radiusMedium
+                        color: Theme.surface
+                        border.color: root.readinessState === "Error"
+                                      ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.45)
+                                      : Qt.rgba(1, 1, 1, 0.12)
+                        border.width: 1
+                        implicitHeight: readinessContent.implicitHeight + Theme.paddingLarge * 2
+
+                        ColumnLayout {
+                            id: readinessContent
+                            anchors.fill: parent
+                            anchors.margins: Theme.paddingLarge
+                            spacing: Theme.paddingSmall
+
+                            LineIcon {
+                                Layout.alignment: Qt.AlignHCenter
+                                Layout.preferredWidth: 26
+                                Layout.preferredHeight: 26
+                                name: root.readinessState === "Error" ? "activity" : (root.readinessState === "Loading" ? "activity" : "settings")
+                                color: root.readinessState === "Error" ? Theme.danger : Theme.warning
+                                BusyIndicator {
+                                    anchors.centerIn: parent
+                                    visible: root.readinessState === "Loading"
+                                    running: visible
+                                    width: 24
+                                    height: 24
+                                }
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                horizontalAlignment: Text.AlignHCenter
+                                text: root.readinessState === "Loading"
+                                      ? qsTr("Loading model…")
+                                      : root.readinessState === "Error"
+                                      ? qsTr("Model could not be loaded")
+                                      : root.modelConfigured
+                                        ? qsTr("Load the model to use this Studio")
+                                        : qsTr("Choose a model to get started")
+                                color: Theme.textPrimary
+                                font.pixelSize: Theme.fontLarge
+                                font.bold: true
+                                wrapMode: Text.WordWrap
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                horizontalAlignment: Text.AlignHCenter
+                                text: root.readinessState === "Loading"
+                                      ? qsTr("The Studio will unlock when the model is ready.")
+                                      : root.readinessState === "Error"
+                                      ? (studioController && studioController.statusDetail !== ""
+                                         ? studioController.statusDetail : qsTr("Check the model files and runtime, then try again."))
+                                      : root.modelConfigured
+                                        ? qsTr("%1 is configured, but it is not resident in memory yet.").arg(root.modalSelectionValue)
+                                        : qsTr("Select a compatible model and runtime before entering data.")
+                                color: Theme.textSecondary
+                                font.pixelSize: Theme.fontSmall
+                                wrapMode: Text.WordWrap
+                            }
+
+                            RowLayout {
+                                Layout.alignment: Qt.AlignHCenter
+                                spacing: Theme.paddingSmall
+
+                                PrimaryButton {
+                                    visible: root.readinessState !== "Loading"
+                                    text: root.readinessState === "Error"
+                                          ? qsTr("Retry")
+                                          : root.modelConfigured ? qsTr("Load model") : qsTr("Choose model")
+                                    iconName: root.readinessState === "Error" ? "refresh" : (root.modelConfigured ? "download" : "gallery")
+                                    onClicked: {
+                                        if (root.readinessState === "Error" || root.modelConfigured) {
+                                            if (studioController) studioController.loadSelectedConfiguration()
+                                        } else {
+                                            root.requestConfigurationPicker()
+                                        }
+                                    }
+                                }
+
+                                PrimaryButton {
+                                    visible: root.modelConfigured
+                                    text: qsTr("Change configuration")
+                                    iconName: "settings"
+                                    quiet: true
+                                    onClicked: root.requestConfigurationPicker()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -452,6 +587,9 @@ RowLayout {
             anchors.fill: parent
             anchors.margins: root.isSettingsOpen ? Theme.paddingLarge : 0
             visible: root.isSettingsOpen
+            enabled: root.studioReady
+            opacity: root.studioReady ? 1.0 : 0.58
+            Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutQuad } }
         }
 
         Button {

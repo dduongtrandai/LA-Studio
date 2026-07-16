@@ -581,7 +581,7 @@ def generate_catalog(fetch_hf_stats=False):
     # Final catalog structure
     catalog = {
         "schemaVersion": "1.0.0",
-        "version": "0.1.9",
+        "version": "0.1.12",
         "modelPicks": model_picks,
         "modelCategories": model_categories,
         "ttsFamilies": tts_families,

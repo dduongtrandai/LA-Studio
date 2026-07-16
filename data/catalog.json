@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "version": "0.1.9",
+  "version": "0.1.12",
   "modelPicks": [
     {
       "id": "lastudio-picks",
@@ -10939,6 +10939,186 @@
         }
       },
       "modelPath": "Qwen/Qwen3-ForcedAligner-0.6B"
+    },
+    {
+      "id": "hy-mt2-1.8b",
+      "localDir": "hy-mt2-1.8b",
+      "shortName": "Hy-MT2",
+      "title": "Tencent Hy-MT2 1.8B",
+      "subtitle": "Local multilingual translation with llama.cpp",
+      "description": "Tencent Hy-MT2 1.8B quantized GGUF model for offline text translation.",
+      "capabilities": [
+        "translation"
+      ],
+      "supportsStt": false,
+      "supportsTranslation": true,
+      "supportedLanguageSetId": "hy-mt2-v1",
+      "tags": [
+        "GGUF",
+        "Translation",
+        "Offline",
+        "CPU"
+      ],
+      "runtimes": [
+        {
+          "id": "llama-win-x86_64-cpu",
+          "engineFamily": "llama",
+          "backend": "llama",
+          "label": "CPU",
+          "name": "llama.cpp official CPU runtime (x64)",
+          "version": "b10036",
+          "source": "https://github.com/ggml-org/llama.cpp/releases/download/",
+          "asset": "llama-b10036-bin-win-cpu-x64.zip",
+          "kind": "dynamic-library",
+          "library": "llama.dll",
+          "type": "stt",
+          "capabilities": [
+            "translation"
+          ],
+          "modelFormats": [
+            "gguf"
+          ],
+          "protocolVersion": "llama-c-api-b10036",
+          "sha256": "4d79dc585de38cdc2d516e5ce7ebbbc84eeb975f2c086570fa5de9d83d2ec8b9"
+        }
+      ],
+      "studio": {
+        "translation": {
+          "layout": "translation",
+          "action": "translate",
+          "inputs": [
+            "text",
+            "language"
+          ]
+        }
+      },
+      "modelId": "tencent/Hy-MT2-1.8B-GGUF",
+      "requiredFiles": [
+        {
+          "role": "model",
+          "name": "Hy-MT2 1.8B GGUF",
+          "purpose": "Local multilingual text translation",
+          "file": "Hy-MT2-1.8B-Q4_K_M.gguf",
+          "candidates": [
+            "Hy-MT2-1.8B-Q4_K_M.gguf",
+            "Hy-MT2-1.8B-Q6_K.gguf",
+            "Hy-MT2-1.8B-Q8_0.gguf"
+          ],
+          "modelKey": "tencent/Hy-MT2-1.8B-GGUF",
+          "size": "1080 MiB",
+          "variants": [
+            {
+              "name": "Hy-MT2-1.8B-Q4_K_M.gguf",
+              "size": "1080 MiB"
+            },
+            {
+              "name": "Hy-MT2-1.8B-Q6_K.gguf",
+              "size": "1403 MiB"
+            },
+            {
+              "name": "Hy-MT2-1.8B-Q8_0.gguf",
+              "size": "1823 MiB"
+            }
+          ],
+          "sources": [
+            {
+              "type": "huggingface",
+              "user": "tencent",
+              "repo": "Hy-MT2-1.8B-GGUF",
+              "files": [
+                {
+                  "name": "Hy-MT2-1.8B-Q4_K_M.gguf",
+                  "size": "1080 MiB"
+                },
+                {
+                  "name": "Hy-MT2-1.8B-Q6_K.gguf",
+                  "size": "1403 MiB"
+                },
+                {
+                  "name": "Hy-MT2-1.8B-Q8_0.gguf",
+                  "size": "1823 MiB"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "metadataOverrides": {
+        "domain": "stt",
+        "architectures": [
+          "hunyuan-dense"
+        ],
+        "compatibilityTypes": [
+          "gguf"
+        ],
+        "capabilities": [
+          "translation"
+        ]
+      },
+      "modelYaml": {
+        "model": "tencent/Hy-MT2-1.8B-GGUF",
+        "base": [
+          {
+            "key": "tencent/Hy-MT2-1.8B-GGUF",
+            "role": "model",
+            "name": "Hy-MT2 1.8B GGUF",
+            "purpose": "Local multilingual text translation",
+            "defaultFile": "Hy-MT2-1.8B-Q4_K_M.gguf",
+            "sources": [
+              {
+                "type": "huggingface",
+                "user": "tencent",
+                "repo": "Hy-MT2-1.8B-GGUF",
+                "files": [
+                  {
+                    "name": "Hy-MT2-1.8B-Q4_K_M.gguf",
+                    "size": "1080 MiB"
+                  },
+                  {
+                    "name": "Hy-MT2-1.8B-Q6_K.gguf",
+                    "size": "1403 MiB"
+                  },
+                  {
+                    "name": "Hy-MT2-1.8B-Q8_0.gguf",
+                    "size": "1823 MiB"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "metadataOverrides": {
+          "domain": "stt",
+          "architectures": [
+            "hunyuan-dense"
+          ],
+          "compatibilityTypes": [
+            "gguf"
+          ],
+          "capabilities": [
+            "translation"
+          ]
+        }
+      },
+      "stats": {
+        "upstreamModelId": "tencent/Hy-MT2-1.8B-GGUF",
+        "likesModelId": "tencent/Hy-MT2-1.8B-GGUF",
+        "downloadModelIds": [
+          "tencent/Hy-MT2-1.8B-GGUF"
+        ],
+        "policy": {
+          "downloads": "upstream-hf-model",
+          "likes": "upstream-hf-model"
+        }
+      },
+      "hubFiles": {
+        "thumbnail": {
+          "filename": "thumbnail.webp",
+          "mimeType": "image/webp",
+          "base64": "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"
+        }
+      },
+      "modelPath": "tencent/Hy-MT2-1.8B-GGUF"
     }
   ]
 }

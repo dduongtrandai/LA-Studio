@@ -4,6 +4,7 @@
 #include "core/ModelManager.h"
 #include "core/RuntimeManager.h"
 #include "runtimes/CrispTranslationInterface.h"
+#include "runtimes/LlamaTranslationInterface.h"
 
 #include <QDir>
 #include <QDirIterator>
@@ -34,11 +35,13 @@ QString backendForFamily(const QVariantMap &family)
     const QString id = family.value(QStringLiteral("id")).toString().toLower();
     if (id.contains(QStringLiteral("madlad"))) return QStringLiteral("madlad");
     if (id.contains(QStringLiteral("m2m"))) return QStringLiteral("m2m100");
+    if (id.contains(QStringLiteral("hy-mt2")) || id.contains(QStringLiteral("hunyuan"))) return QStringLiteral("llama");
     const QVariantList architectures = family.value(QStringLiteral("architectures")).toList();
     for (const QVariant &value : architectures) {
         const QString architecture = value.toString().toLower();
         if (architecture.contains(QStringLiteral("madlad"))) return QStringLiteral("madlad");
         if (architecture.contains(QStringLiteral("m2m"))) return QStringLiteral("m2m100");
+        if (architecture.contains(QStringLiteral("hunyuan"))) return QStringLiteral("llama");
     }
     return {};
 }
@@ -52,7 +55,7 @@ bool fillRequest(const QString &modelPath, const QString &runtimePath, const QSt
         return false;
     }
     if (runtimePath.isEmpty() || !QFileInfo::exists(runtimePath)) {
-        setError(error, QStringLiteral("Translation runtime library is missing."));
+        setError(error, QStringLiteral("Translation runtime executable or library is missing."));
         return false;
     }
     if (backend.isEmpty()) {
@@ -80,6 +83,7 @@ bool TranslationService::prepareFallback(const QString &sourceLanguage, const QS
         return false;
     }
     const QList<QPair<QString, QString>> candidates = {
+        {QStringLiteral("tencent/Hy-MT2-1.8B-GGUF"), QStringLiteral("llama")},
         {QStringLiteral("cstr/m2m100-418m-GGUF"), QStringLiteral("m2m100")},
         {QStringLiteral("cstr/madlad400-3b-mt-GGUF"), QStringLiteral("madlad")}
     };
@@ -88,8 +92,12 @@ bool TranslationService::prepareFallback(const QString &sourceLanguage, const QS
         if (modelPath.isEmpty()) continue;
         for (const QVariant &runtimeValue : m_runtimes->allRuntimes()) {
             const QVariantMap runtime = runtimeValue.toMap();
-            if (runtime.value(QStringLiteral("engineFamily")).toString() != QStringLiteral("crispasr")) continue;
-            const QString runtimePath = runtime.value(QStringLiteral("libraryPath")).toString();
+            const QString engine = runtime.value(QStringLiteral("engineFamily")).toString();
+            if ((candidate.second == QStringLiteral("llama") && engine != QStringLiteral("llama")) ||
+                (candidate.second != QStringLiteral("llama") && engine != QStringLiteral("crispasr"))) continue;
+            const QString runtimePath = runtime.value(QStringLiteral("kind")).toString() == QStringLiteral("process")
+                ? runtime.value(QStringLiteral("executablePath")).toString()
+                : runtime.value(QStringLiteral("libraryPath")).toString();
             if (!QFileInfo::exists(runtimePath)) continue;
             const QString id = runtime.value(QStringLiteral("id")).toString();
             return fillRequest(modelPath, runtimePath, candidate.second, sourceLanguage, targetLanguage,
@@ -97,7 +105,7 @@ bool TranslationService::prepareFallback(const QString &sourceLanguage, const QS
                                request, error);
         }
     }
-    setError(error, QStringLiteral("Install a Translation model and compatible CrispASR runtime first."));
+    setError(error, QStringLiteral("Install a Translation model and compatible runtime first."));
     return false;
 }
 
@@ -124,8 +132,6 @@ bool TranslationService::translate(const TranslationRequest &request, const QVar
         setError(error, QStringLiteral("Choose both source and target languages."));
         return false;
     }
-    CrispTranslationInterface translator;
-    if (!translator.load(request.runtimePath)) { setError(error, translator.errorString()); return false; }
     QStringList sourceTexts;
     QStringList segmentIds;
     for (const QVariant &entry : segments) {
@@ -139,8 +145,18 @@ bool TranslationService::translate(const TranslationRequest &request, const QVar
     }
     if (sourceTexts.isEmpty()) { setError(error, QStringLiteral("Add source text before translating.")); return false; }
     QString translationError;
-    const QStringList translated = translator.translateBatch(request.modelPath, request.backend, sourceTexts,
-        request.sourceLanguage, request.targetLanguage, 0, request.useGpu, request.maxTokens, &translationError);
+    QStringList translated;
+    if (request.backend == QStringLiteral("llama")) {
+        LlamaTranslationInterface translator;
+        if (!translator.load(request.runtimePath, request.modelPath, &translationError)) { setError(error, translationError); return false; }
+        translated = translator.translateBatch(sourceTexts, request.sourceLanguage, request.targetLanguage,
+                                               request.maxTokens, request.cancelToken, &translationError);
+    } else {
+        CrispTranslationInterface translator;
+        if (!translator.load(request.runtimePath)) { setError(error, translator.errorString()); return false; }
+        translated = translator.translateBatch(request.modelPath, request.backend, sourceTexts,
+            request.sourceLanguage, request.targetLanguage, 0, request.useGpu, request.maxTokens, &translationError);
+    }
     if (translated.size() != sourceTexts.size()) {
         setError(error, translationError.isEmpty() ? QStringLiteral("Translation returned mismatched segment count.") : translationError);
         return false;

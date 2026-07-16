@@ -39,6 +39,7 @@ set(TEST_SOURCES
     ../src/controllers/AlignmentTranscriptMatcher.cpp
     ../src/controllers/CrispAlignmentInterface.cpp
     ../src/translation/CrispTranslationInterface.cpp
+    ../src/translation/LlamaTranslationInterface.cpp
     ../src/controllers/ModelsPathMigrator.cpp
     ../src/controllers/ModelsPathMigrationService.cpp
     ../src/controllers/HistoryRepository.cpp
@@ -177,6 +178,8 @@ target_include_directories(LAStudioUnitTests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/separation
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/mocks
+    ${LLAMA_CPP_SOURCE_DIR}/include
+    ${LLAMA_CPP_SOURCE_DIR}/ggml/include
 )
 
 target_link_libraries(LAStudioUnitTests PRIVATE

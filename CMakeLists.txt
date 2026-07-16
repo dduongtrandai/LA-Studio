@@ -9,6 +9,13 @@ endif()
 
 project(LAStudio VERSION ${LASTUDIO_VERSION} LANGUAGES CXX)
 
+set(LLAMA_CPP_SOURCE_DIR "D:/code/llama.cpp" CACHE PATH
+    "llama.cpp checkout used only for public C API headers at build time")
+if(NOT EXISTS "${LLAMA_CPP_SOURCE_DIR}/include/llama.h")
+    message(FATAL_ERROR
+        "LLAMA_CPP_SOURCE_DIR must point to a llama.cpp checkout compatible with the packaged runtime")
+endif()
+
 set(LASTUDIO_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
 file(GLOB_RECURSE LASTUDIO_EXAMPLE_FILES CONFIGURE_DEPENDS
     RELATIVE "${CMAKE_SOURCE_DIR}"
@@ -107,6 +114,7 @@ set(LASTUDIO_SOURCES
     src/controllers/AlignmentTranscriptMatcher.cpp
     src/controllers/CrispAlignmentInterface.cpp
     src/translation/CrispTranslationInterface.cpp
+    src/translation/LlamaTranslationInterface.cpp
     src/controllers/ModelsPathMigrator.cpp
     src/controllers/ModelsPathMigrationService.cpp
     src/controllers/FileAccessService.cpp
@@ -224,6 +232,7 @@ set(LASTUDIO_HEADERS
     src/controllers/AlignmentTranscriptMatcher.h
     include/runtimes/CrispAlignmentInterface.h
     include/runtimes/CrispTranslationInterface.h
+    include/runtimes/LlamaTranslationInterface.h
     src/controllers/ModelsPathMigrator.h
     src/controllers/ModelsPathMigrationService.h
     src/controllers/FileAccessService.h
@@ -426,6 +435,8 @@ target_include_directories(LAStudio PRIVATE
     ${CMAKE_SOURCE_DIR}/src/separation
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/third_party/whisper/include
+    ${LLAMA_CPP_SOURCE_DIR}/include
+    ${LLAMA_CPP_SOURCE_DIR}/ggml/include
 )
 
 target_compile_definitions(LAStudio PRIVATE

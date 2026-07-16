@@ -412,6 +412,31 @@ RuntimeInfo RuntimeManager::processRuntimeDir(const QDir &dir,
         manifestChanged = true;
     }
 
+    // Migrate the short-lived llama.cpp process-runtime manifest to the public
+    // DLL ABI integration. The release version belongs in `version`, not in the
+    // runtime variant/id, and existing downloads already contain llama.dll.
+    if (info.engineFamily == QStringLiteral("llama") &&
+        QFileInfo(dir.absoluteFilePath(QStringLiteral("llama.dll"))).isFile()) {
+        const QString versionSuffix = QStringLiteral("-") + info.version;
+        if (!info.version.isEmpty() && info.variant.endsWith(versionSuffix)) {
+            info.variant.chop(versionSuffix.size());
+            manifestChanged = true;
+        }
+        if (info.kind != QStringLiteral("dynamic-library")) {
+            info.kind = QStringLiteral("dynamic-library");
+            manifestChanged = true;
+        }
+        if (info.type != QStringLiteral("stt")) {
+            info.type = QStringLiteral("stt");
+            manifestChanged = true;
+        }
+        obj[QStringLiteral("kind")] = info.kind;
+        obj[QStringLiteral("type")] = info.type;
+        obj[QStringLiteral("library")] = QStringLiteral("llama.dll");
+        obj[QStringLiteral("protocolVersion")] = QStringLiteral("llama-c-api-b10036");
+        obj.remove(QStringLiteral("entrypoint"));
+    }
+
     // Ensure the ID conforms to: {engineFamily}-{variant}
     QString expectedId = info.engineFamily + QStringLiteral("-") + info.variant;
     if (info.id != expectedId) {
@@ -422,6 +447,7 @@ RuntimeInfo RuntimeManager::processRuntimeDir(const QDir &dir,
     if (manifestChanged) {
         obj[QStringLiteral("engineFamily")] = info.engineFamily;
         obj[QStringLiteral("id")] = info.id;
+        obj[QStringLiteral("variant")] = info.variant;
 
         // Save corrected manifest file back to disk
         QFile outFile(manifestFile.fileName());
@@ -541,7 +567,12 @@ bool RuntimeManager::loadTtsRuntime(const QString &id)
 QString RuntimeManager::getRuntimePath(const QString &id) const
 {
     for (const auto &info : m_runtimes) {
-        if (info.id == id) return info.libraryPath;
+        if (info.id == id) {
+            // Process runtimes (for example the official llama.cpp release)
+            // have no shared library. Their executable is the runtime path
+            // consumed by studio configuration and backend adapters.
+            return info.kind == QStringLiteral("process") ? info.executablePath : info.libraryPath;
+        }
     }
     return QString();
 }
@@ -551,7 +582,9 @@ QString RuntimeManager::getRuntimePathForVersion(const QString &id, const QStrin
     if (version.isEmpty()) return getRuntimePath(id);
 
     for (const auto &info : m_runtimes) {
-        if (info.id == id && info.version == version) return info.libraryPath;
+        if (info.id == id && info.version == version) {
+            return info.kind == QStringLiteral("process") ? info.executablePath : info.libraryPath;
+        }
     }
     return QString();
 }
