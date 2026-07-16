@@ -4,10 +4,10 @@
 
 <h1>LA Studio</h1>
 
-<p><strong>Offline AI Audio Studio for Speech-to-Text, Text-to-Speech, Voice Cloning, and Voice Design</strong></p>
+<p><strong>Offline AI Audio Studio for Speech-to-Text, Text-to-Speech, Voice Cloning, Voice Design, and Translation</strong></p>
 
 <p>
-Run private AI audio workflows locally: speech recognition, voice generation, voice cloning, voice design, model downloads, and runtime management in one native C++/Qt desktop app.
+Run private AI audio workflows locally: speech recognition, voice generation, voice cloning, voice design, text and subtitle translation, model downloads, and runtime management in one native C++/Qt desktop app.
 </p>
 
 [Features](#features) |
@@ -42,6 +42,10 @@ Run private AI audio workflows locally: speech recognition, voice generation, vo
 
 ## Project Updates
 
+### 2026-07-16 - Version 0.1.10: Translation Studio
+
+LA Studio version 0.1.10 introduces **Translation Studio**, a fully local workspace for translating plain text and subtitle files. Import text, SRT, or VTT content; translate an entire project or individual segments; review and edit source and target text side by side; save project history; and export results as text, SRT, VTT, or JSON. The initial model lineup includes M2M-100 and MADLAD-400 through the CrispASR runtime, plus Tencent Hy-MT2 1.8B through llama.cpp, with all translation inference running offline on the user's machine.
+
 ### 2026-07-14 - Version 0.1.9: Voice Isolator Support
 
 LA Studio version 0.1.9 begins support for **Voice Isolator**, a local source-separation workflow for extracting vocal and background stems from audio or video files. The new studio supports sherpa-onnx separation models, including UVR-MDX-NET Vocals and Spleeter two-stem models, with progress reporting, waveform previews, playback, and stem export. Processing remains fully offline on the user's machine.
@@ -66,7 +70,7 @@ LA Studio now supports NVIDIA **Nemotron-3.5 ASR Streaming 0.6B** for local mult
 
 LA Studio, short for Local Audio Studio, is an offline AI audio workstation for creators, developers, researchers, and teams that need local speech AI without sending audio files, prompts, or generated voices to cloud APIs.
 
-The app brings together local speech-to-text, text-to-speech, voice cloning, voice design, model discovery, Hugging Face downloads, runtime installation, hardware checks, and audio preview tools behind a modern desktop interface. It is built with C++17, Qt 6/QML, CMake, and native AI runtime adapters for fast local inference.
+The app brings together local speech-to-text, text-to-speech, voice cloning, voice design, text and subtitle translation, model discovery, Hugging Face downloads, runtime installation, hardware checks, and audio preview tools behind a modern desktop interface. It is built with C++17, Qt 6/QML, CMake, and native AI runtime adapters for fast local inference.
 
 ## Features
 
@@ -77,6 +81,7 @@ The app brings together local speech-to-text, text-to-speech, voice cloning, voi
 | Voice Cloning | Create speech from a reference voice sample for local zero-shot voice cloning workflows. | GGUF and native runtime packages |
 | Voice Design | Generate or shape voices from descriptive text prompts when supported by the selected model. | VoxCPM2, Qwen3 voice design, OmniVoice-style workflows |
 | Voice Isolator | Separate vocals and background audio into two stems from local audio or video files. | sherpa-onnx UVR-MDX-NET and Spleeter models |
+| Translation Studio | Translate and edit plain text, SRT, and VTT projects segment by segment, with local history and multiple export formats. | M2M-100, MADLAD-400, Hy-MT2 through CrispASR or llama.cpp |
 | Models Gallery | Browse curated model families, inspect required files, download assets, and manage local model availability. | Integrated catalog and Hugging Face sources |
 | Runtime Management | Install, validate, and select compatible CPU, CUDA, Vulkan, or other runtime packages. | Dynamic runtime loading |
 | Offline Privacy | Keep audio, prompts, generated speech, and model inference on the user's machine. | No cloud API required for inference |
@@ -104,6 +109,7 @@ The app brings together local speech-to-text, text-to-speech, voice cloning, voi
 
 - Run private speech transcription locally for interviews, meetings, research recordings, podcasts, and voice notes.
 - Generate local voiceovers for video, learning content, prototypes, narration, and accessibility workflows.
+- Translate scripts and subtitles locally, review bilingual segments, and export results without sending content to a cloud service.
 - Test multiple open speech and audio models from a single desktop interface.
 - Build and validate model catalogs, runtime packages, and Hugging Face download flows.
 - Experiment with voice cloning and voice design without relying on external inference APIs.
@@ -115,14 +121,14 @@ The app brings together local speech-to-text, text-to-speech, voice cloning, voi
 flowchart LR
     A["Browse curated audio models"] --> B["Download model files and runtime packages"]
     B --> C["Validate local files and hardware compatibility"]
-    C --> D["Run STT, TTS, voice cloning, or voice design locally"]
+    C --> D["Run STT, TTS, voice, or translation workflows locally"]
     D --> E["Preview audio, review history, and manage settings"]
 ```
 
-1. Open the model gallery and choose an STT, TTS, voice cloning, or voice design model family.
+1. Open the model gallery and choose an STT, TTS, voice cloning, voice design, or translation model family.
 2. Download the required model files and runtime package from the app.
 3. LA Studio validates local files, runtime compatibility, and available hardware acceleration.
-4. Use the studio pages to transcribe audio, generate speech, clone voices, or design voices offline.
+4. Use the studio pages to transcribe audio, generate speech, clone or design voices, or translate text and subtitles offline.
 
 ## Supported Models and Runtimes
 
@@ -134,6 +140,7 @@ LA Studio is catalog-driven, so supported models can evolve without rewriting th
 | Text-to-Speech | Kokoro 82M, VibeVoice Realtime, VieNeu-TTS v2 Turbo, VieNeu-TTS v3 Turbo, Qwen3-TTS |
 | Voice Cloning | VoxCPM2, OmniVoice, Qwen3 custom voice packages |
 | Voice Design | VoxCPM2 voice design, Qwen3 voice design packages |
+| Translation | M2M-100 418M, MADLAD-400 3B, Tencent Hy-MT2 1.8B |
 
 Runtime support is handled through native adapters and dynamic libraries. Depending on model availability and platform support, LA Studio can use CPU, CUDA, Vulkan, and other runtime-specific acceleration paths.
 
@@ -277,6 +284,7 @@ LA Studio is designed for local inference. Audio recordings, prompts, generated 
 - [x] Runtime and hardware management
 - [x] Voice cloning workflow foundation
 - [x] Voice design workflow foundation
+- [x] Local text and subtitle translation studio
 - [ ] Broader cross-platform packaging
 - [ ] Expanded model validation and benchmark reporting
 - [ ] Advanced timeline-style audio editing
