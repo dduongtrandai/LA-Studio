@@ -1,0 +1,80 @@
+name: Windows Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  windows-installer:
+    name: Build Windows installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Keep build-time C API headers on the same revision as the runtime
+      # downloaded by the Hy-MT2 catalog entry.
+      - name: Checkout llama.cpp headers
+        uses: actions/checkout@v4
+        with:
+          repository: ggml-org/llama.cpp
+          ref: b10036
+          path: .deps/llama.cpp
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.9.3"
+          host: "windows"
+          target: "desktop"
+          arch: "win64_msvc2022_64"
+          dir: "C:\\Qt"
+          modules: "qtmultimedia qtimageformats"
+
+      - name: Configure vcpkg
+        shell: pwsh
+        run: |
+          "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+
+      - name: Install 7-Zip
+        shell: pwsh
+        run: choco install 7zip --yes --no-progress
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:QT_ROOT_DIR)) {
+            throw "QT_ROOT_DIR was not exported by install-qt-action."
+          }
+          $qtRoot = Split-Path -Parent $env:QT_ROOT_DIR
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          .\scripts\package.ps1 -Preset windows-msvc-release -QtRoot $qtRoot -VcpkgRoot $env:VCPKG_ROOT -LlamaCppSourceDir "$env:GITHUB_WORKSPACE\.deps\llama.cpp" -Version $version
+
+      - name: Rename installer
+        id: package
+        shell: pwsh
+        run: |
+          $tag = if ($env:GITHUB_REF_TYPE -eq "tag") { $env:GITHUB_REF_NAME } else { "manual" }
+          $artifact = "LA-Studio-$tag-windows-x64-setup.exe"
+          Move-Item -LiteralPath "out\LA-Studio-Setup.exe" -Destination "out\$artifact" -Force
+          "artifact=out/$artifact" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.package.outputs.artifact }}
+          generate_release_notes: true
