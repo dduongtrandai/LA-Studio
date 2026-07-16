@@ -106,13 +106,17 @@ set(LASTUDIO_SOURCES
     src/controllers/DubbingSegmentNormalizer.cpp
     src/controllers/AlignmentTranscriptMatcher.cpp
     src/controllers/CrispAlignmentInterface.cpp
-    src/controllers/CrispTranslationInterface.cpp
+    src/translation/CrispTranslationInterface.cpp
     src/controllers/ModelsPathMigrator.cpp
     src/controllers/ModelsPathMigrationService.cpp
     src/controllers/FileAccessService.cpp
     src/controllers/AppUpdateService.cpp
     src/controllers/ExampleManager.cpp
     src/controllers/AlignmentModelSession.cpp
+    src/controllers/TranslationModelSession.cpp
+    src/translation/TranslationProject.cpp
+    src/translation/TranslationService.cpp
+    src/controllers/TranslationController.cpp
     src/controllers/VoiceIsolatorModelSession.cpp
     src/controllers/StudioActions.cpp
     src/controllers/ModelLifecycleController.cpp
@@ -134,7 +138,7 @@ set(LASTUDIO_SOURCES
     src/separation/backends/sherpa/SherpaOnnxRuntime.cpp
     src/separation/backends/sherpa/SherpaOnnxSeparationBackend.cpp
     src/controllers/VoiceIsolatorController.cpp
-    src/controllers/DubbingTranslationService.cpp
+    src/translation/DubbingTranslationService.cpp
     src/controllers/MediaToolService.cpp
     src/controllers/MediaIngestService.cpp
     src/controllers/WorkflowActivityManager.cpp
@@ -226,6 +230,10 @@ set(LASTUDIO_HEADERS
     src/controllers/AppUpdateService.h
     src/controllers/ExampleManager.h
     src/controllers/AlignmentModelSession.h
+    src/controllers/TranslationModelSession.h
+    src/translation/TranslationProject.h
+    src/translation/TranslationService.h
+    src/controllers/TranslationController.h
     src/controllers/VoiceIsolatorModelSession.h
     src/controllers/IStudioAction.h
     src/controllers/StudioActions.h
@@ -251,7 +259,7 @@ set(LASTUDIO_HEADERS
     src/separation/backends/sherpa/SherpaOnnxRuntime.h
     src/separation/backends/sherpa/SherpaOnnxSeparationBackend.h
     src/controllers/VoiceIsolatorController.h
-    src/controllers/DubbingTranslationService.h
+    src/translation/DubbingTranslationService.h
     src/controllers/MediaToolService.h
     src/controllers/MediaIngestService.h
     src/controllers/WorkflowActivityManager.h
@@ -296,6 +304,7 @@ qt_add_qml_module(LAStudio
         qml/pages/MyModelsPage.qml
         qml/pages/SettingsPage.qml
         qml/pages/AlignmentPage.qml
+        qml/pages/TranslationPage.qml
         qml/pages/SttPage.qml
         qml/pages/TtsPage.qml
         qml/pages/VoiceCloningPage.qml
@@ -331,6 +340,7 @@ qt_add_qml_module(LAStudio
         qml/components/CommunityDialog.qml
         qml/components/BottomLogPanel.qml
         qml/components/alignment/AlignmentStudioView.qml
+        qml/components/translation/TranslationStudioView.qml
         qml/components/alignment/AlignmentSectionHeader.qml
         qml/components/alignment/AlignmentOptionField.qml
         qml/components/alignment/AlignmentStatusStrip.qml

@@ -74,6 +74,15 @@ StudioCapabilityRegistry::StudioCapabilityRegistry(QObject *parent)
         QStringLiteral("Voice Isolator Studio"),
         QStringLiteral("Voice Isolation Model Setup")
     });
+    registerCapability(StudioCapabilityDescriptor{
+        QStringLiteral("translation"),
+        QStringLiteral("Translation"),
+        QStringLiteral("studio-translation"),
+        QStringLiteral("translation"),
+        QStringLiteral("translation"),
+        QStringLiteral("Translation Studio"),
+        QStringLiteral("Translation Model Gallery")
+    });
 }
 
 void StudioCapabilityRegistry::registerCapability(const StudioCapabilityDescriptor &descriptor)
@@ -122,6 +131,7 @@ bool StudioCapabilityRegistry::familySupportsCapability(const QVariantMap &famil
     if (capabilityId == QStringLiteral("voice-cloning")) {
         return family.value(QStringLiteral("supportsCloning")).toBool();
     }
+    if (capabilityId == QStringLiteral("translation")) return family.value(QStringLiteral("supportsTranslation")).toBool();
     return false;
 }
 
@@ -140,6 +150,7 @@ QString StudioCapabilityRegistry::familyDomain(const QString &capabilityId) cons
         // be a TTS family.
         return QStringLiteral("stt");
     }
+    if (capabilityId == QStringLiteral("translation")) return QStringLiteral("stt");
     // TTS-shared studios resolve from the TTS family pool.
     return QStringLiteral("tts");
 }

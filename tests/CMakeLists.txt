@@ -14,6 +14,7 @@ set(TEST_SOURCES
     test_AlignmentTranscriptMatcher.cpp
     test_AlignmentWorkflow.cpp
     test_DubbingProject.cpp
+    test_TranslationProject.cpp
     test_WorkflowGraph.cpp
     test_SourceSeparation.cpp
     mocks/SttEngine.cpp
@@ -37,7 +38,7 @@ set(TEST_SOURCES
     ../src/controllers/DubbingSegmentNormalizer.cpp
     ../src/controllers/AlignmentTranscriptMatcher.cpp
     ../src/controllers/CrispAlignmentInterface.cpp
-    ../src/controllers/CrispTranslationInterface.cpp
+    ../src/translation/CrispTranslationInterface.cpp
     ../src/controllers/ModelsPathMigrator.cpp
     ../src/controllers/ModelsPathMigrationService.cpp
     ../src/controllers/HistoryRepository.cpp
@@ -47,6 +48,10 @@ set(TEST_SOURCES
     ../src/controllers/VoiceClonePresetService.cpp
     ../src/controllers/VoiceDesignPresetService.cpp
     ../src/controllers/AlignmentModelSession.cpp
+    ../src/controllers/TranslationModelSession.cpp
+    ../src/translation/TranslationProject.cpp
+    ../src/translation/TranslationService.cpp
+    ../src/controllers/TranslationController.cpp
     ../src/controllers/VoiceIsolatorModelSession.cpp
     ../src/controllers/ModelLifecycleController.cpp
     ../src/controllers/SttModelSession.cpp
@@ -59,7 +64,7 @@ set(TEST_SOURCES
     ../src/controllers/DubbingController.cpp
     ../src/controllers/AudioTimelineMixer.cpp
     ../src/controllers/DubbingJobRunner.cpp
-    ../src/controllers/DubbingTranslationService.cpp
+    ../src/translation/DubbingTranslationService.cpp
     ../src/controllers/MediaToolService.cpp
     ../src/controllers/MediaIngestService.cpp
     ../src/separation/SeparationAudioIO.cpp
@@ -120,6 +125,10 @@ set(TEST_SOURCES
     ../src/controllers/SttModelSession.h
     ../src/controllers/TtsSharedModelSession.h
     ../src/controllers/AlignmentModelSession.h
+    ../src/controllers/TranslationModelSession.h
+    ../src/translation/TranslationProject.h
+    ../src/translation/TranslationService.h
+    ../src/controllers/TranslationController.h
     ../src/controllers/VoiceIsolatorModelSession.h
     ../src/controllers/ModelSessionRegistry.h
     ../src/controllers/WorkflowActivityManager.h
@@ -148,6 +157,7 @@ set(TEST_SOURCES
     ../src/separation/backends/sherpa/SherpaOnnxRuntime.h
     ../src/separation/backends/sherpa/SherpaOnnxSeparationBackend.h
     test_SourceSeparation.h
+    test_TranslationProject.h
     ../src/controllers/VoiceIsolatorController.h
 )
 

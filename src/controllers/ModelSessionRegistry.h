@@ -18,6 +18,7 @@ class SttEngine;
 class TtsEngine;
 class AlignmentExecutionService;
 class VoiceIsolatorController;
+class TranslationModelSession;
 
 class ModelSessionRegistry : public QObject {
     Q_OBJECT
@@ -42,6 +43,7 @@ private:
     IModelSession *m_ttsSession = nullptr;
     IModelSession *m_alignmentSession = nullptr;
     IModelSession *m_voiceIsolatorSession = nullptr;
+    IModelSession *m_translationSession = nullptr;
 };
 
 } // namespace LAStudio

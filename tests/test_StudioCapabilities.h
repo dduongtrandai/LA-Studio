@@ -11,6 +11,7 @@ private slots:
     void testForcedAlignmentDescriptor();
     void testForcedAlignmentFamilyMatching();
     void testVoiceIsolationSessionRegistered();
+    void testTranslationDescriptorAndSession();
 };
 
 } // namespace LAStudio

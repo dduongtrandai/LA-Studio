@@ -4,6 +4,7 @@
 #include "controllers/ModelSessionRegistry.h"
 #include "core/StudioSelectionRepository.h"
 #include "controllers/WorkflowActivityManager.h"
+#include "controllers/TranslationModelSession.h"
 #include "core/HFHubClient.h"
 #include "core/DownloadManager.h"
 #include "core/ModelManager.h"
@@ -50,6 +51,8 @@ AppController::AppController(QObject *parent)
     m_alignment = new AlignmentExecutionService(m_runtimes, m_models, this);
     m_voiceIsolator = new VoiceIsolatorController(this);
     m_sessionRegistry = new ModelSessionRegistry(m_stt, m_tts, m_alignment, m_voiceIsolator, this);
+    m_translation = new TranslationController(m_models, m_runtimes,
+        qobject_cast<TranslationModelSession*>(m_sessionRegistry->sessionForCapability(QStringLiteral("translation"))), this);
     m_recorder  = new AudioRecorder(this);
     m_player    = new AudioPlayer(this);
     m_waveformProvider = new WaveformProvider();
@@ -73,6 +76,9 @@ AppController::AppController(QObject *parent)
     connect(m_downloadInstall, &DownloadInstallService::errorOccurred, this, &AppController::onError);
     connect(m_alignment, &AlignmentExecutionService::failed, this,
             [this](const QString &, const QString &message) { onError(message); });
+    connect(m_translation, &TranslationController::errorTextChanged, this, [this]() {
+        if (m_translation && !m_translation->errorText().isEmpty()) onError(m_translation->errorText());
+    });
     connect(m_voiceClonePresets, &VoiceClonePresetService::errorOccurred, this, &AppController::onError);
     connect(m_voiceDesignPresets, &VoiceDesignPresetService::errorOccurred, this, &AppController::onError);
     connect(m_updates, &AppUpdateService::errorOccurred, this, &AppController::onError);

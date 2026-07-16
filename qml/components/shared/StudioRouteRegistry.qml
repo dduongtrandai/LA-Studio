@@ -13,11 +13,12 @@ QtObject {
         "studio-voice-design": 4,
         "studio-voice-isolator": 5,
         "studio-alignment": 6,
-        "studio-dubbing": 7,
-        "models": 8,
-        "my-models": 9,
-        "developer": 10,
-        "settings": 11,
+        "studio-translation": 7,
+        "studio-dubbing": 8,
+        "models": 9,
+        "my-models": 10,
+        "developer": 11,
+        "settings": 12,
         "tools-alignment": 6
     }
 
@@ -30,6 +31,7 @@ QtObject {
         { id: "studio-voice-design", label: qsTr("Voice Design"), iconName: "waves" },
         { id: "studio-voice-isolator", label: qsTr("Voice Isolator"), iconName: "voice-isolator" },
         { id: "studio-alignment", label: qsTr("Alignment"), iconName: "alignment" },
+        { id: "studio-translation", label: qsTr("Translation"), iconName: "alignment" },
         { id: "studio-dubbing", label: qsTr("Dubbing"), iconName: "waves" },
         { id: "models", label: qsTr("Models"), iconName: "gallery" },
         { id: "my-models", label: qsTr("My Models"), iconName: "folder" },
@@ -43,6 +45,7 @@ QtObject {
         "voice-cloning": "studio-voice-cloning",
         "voice-design": "studio-voice-design",
         "forced-alignment": "studio-alignment",
+        "translation": "studio-translation",
         "dubbing": "studio-dubbing",
         "voice-isolation": "studio-voice-isolator"
     }

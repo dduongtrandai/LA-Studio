@@ -1,6 +1,6 @@
 #include "DubbingJobRunner.h"
 #include "DubbingProject.h"
-#include "DubbingTranslationService.h"
+#include "translation/DubbingTranslationService.h"
 #include "AlignmentRefinementService.h"
 #include "DubbingSegmentNormalizer.h"
 #include "workflows/WorkflowArtifact.h"

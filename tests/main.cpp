@@ -13,6 +13,7 @@
 #include "test_AlignmentTranscriptMatcher.h"
 #include "test_AlignmentWorkflow.h"
 #include "test_DubbingProject.h"
+#include "test_TranslationProject.h"
 #include "test_WorkflowGraph.h"
 #include "test_SourceSeparation.h"
 
@@ -114,6 +115,11 @@ int main(int argc, char *argv[])
     {
         LAStudio::TestDubbingProject suite;
         runSuite(&suite, "TestDubbingProject");
+    }
+
+    {
+        LAStudio::TestTranslationProject suite;
+        runSuite(&suite, "TestTranslationProject");
     }
 
     {

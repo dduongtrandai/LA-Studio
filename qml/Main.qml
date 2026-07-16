@@ -419,10 +419,22 @@ ApplicationWindow {
                     }
                 }
                 Loader {
+                    id: translationLoader
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    active: stack.currentIndex === 7 || pendingFamilyId !== ""
+                    property string pendingFamilyId: ""
+                    sourceComponent: TranslationPage {}
+                    function openConfig(familyId) {
+                        if (item) item.openConfiguration(familyId)
+                        else pendingFamilyId = familyId
+                    }
+                }
+                Loader {
                     id: dubbingLoader
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    active: stack.currentIndex === 7
+                    active: stack.currentIndex === 8
                     sourceComponent: DubbingPage {}
                 }
                 ModelsPage {
@@ -439,6 +451,8 @@ ApplicationWindow {
                             voiceDesignLoader.openConfig(familyId)
                         } else if (routeId === "studio-alignment") {
                             alignmentLoader.openConfig(familyId)
+                        } else if (routeId === "studio-translation") {
+                            translationLoader.openConfig(familyId)
                         }
                     }
                 }
@@ -456,6 +470,8 @@ ApplicationWindow {
                             voiceDesignLoader.openConfig(familyId)
                         } else if (routeId === "studio-alignment") {
                             alignmentLoader.openConfig(familyId)
+                        } else if (routeId === "studio-translation") {
+                            translationLoader.openConfig(familyId)
                         }
                     }
                 }
@@ -463,14 +479,14 @@ ApplicationWindow {
                     id: developerLoader
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    active: stack.currentIndex === 10
+                    active: stack.currentIndex === 11
                     sourceComponent: DeveloperPage {}
                 }
                 Loader {
                     id: settingsLoader
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    active: stack.currentIndex === 11
+                    active: stack.currentIndex === 12
                     sourceComponent: SettingsPage {}
                 }
                 }

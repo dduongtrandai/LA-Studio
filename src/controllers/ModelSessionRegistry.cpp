@@ -3,6 +3,7 @@
 #include "SttModelSession.h"
 #include "TtsSharedModelSession.h"
 #include "VoiceIsolatorModelSession.h"
+#include "TranslationModelSession.h"
 #include "core/StudioCapabilityRegistry.h"
 #include "core/Logger.h"
 
@@ -21,6 +22,7 @@ ModelSessionRegistry::ModelSessionRegistry(SttEngine *sttEngine,
     m_ttsSession = new TtsSharedModelSession(ttsEngine, this);
     m_alignmentSession = new AlignmentModelSession(alignment, this);
     m_voiceIsolatorSession = new VoiceIsolatorModelSession(voiceIsolator, this);
+    m_translationSession = new TranslationModelSession(this);
 }
 
 IModelSession *ModelSessionRegistry::sessionForCapability(const QString &capabilityId) const
@@ -38,6 +40,7 @@ IModelSession *ModelSessionRegistry::sessionForCapability(const QString &capabil
     if (desc.sharedEngineGroup == QStringLiteral("voice-isolation")) {
         return m_voiceIsolatorSession;
     }
+    if (desc.sharedEngineGroup == QStringLiteral("translation")) return m_translationSession;
     return nullptr;
 }
 
@@ -56,6 +59,7 @@ QList<IModelSession *> ModelSessionRegistry::sessions() const
     if (m_voiceIsolatorSession) {
         out.append(m_voiceIsolatorSession);
     }
+    if (m_translationSession) out.append(m_translationSession);
     return out;
 }
 
@@ -65,7 +69,7 @@ ResourceReleaseResult ModelSessionRegistry::prepareRuntimeRemoval(const QString 
     Logger::info(QStringLiteral("ModelSessionRegistry"),
                  QStringLiteral("prepareRuntimeRemoval: %1 %2").arg(runtimeId, runtimeVersion));
 
-    QList<IModelSession*> sessions = { m_sttSession, m_ttsSession, m_alignmentSession, m_voiceIsolatorSession };
+    QList<IModelSession*> sessions = { m_sttSession, m_ttsSession, m_alignmentSession, m_voiceIsolatorSession, m_translationSession };
     ResourceReleaseResult overallResult = ResourceReleaseResult::NotInUse;
 
     for (IModelSession *session : sessions) {
@@ -99,7 +103,7 @@ ResourceReleaseResult ModelSessionRegistry::prepareModelRemoval(const QString &m
     Logger::info(QStringLiteral("ModelSessionRegistry"),
                  QStringLiteral("prepareModelRemoval: %1").arg(modelPath));
 
-    QList<IModelSession*> sessions = { m_sttSession, m_ttsSession, m_alignmentSession, m_voiceIsolatorSession };
+    QList<IModelSession*> sessions = { m_sttSession, m_ttsSession, m_alignmentSession, m_voiceIsolatorSession, m_translationSession };
     ResourceReleaseResult overallResult = ResourceReleaseResult::NotInUse;
 
     for (IModelSession *session : sessions) {

@@ -1,35 +1,25 @@
 #pragma once
 
-#include <QString>
-#include <QVariantList>
+#include "TranslationService.h"
 
 namespace LAStudio {
 
 class ModelManager;
 class RuntimeManager;
 
-struct DubbingTranslationRequest
-{
-    QString modelPath;
-    QString backend;
-    QString runtimePath;
-    QString sourceLanguage;
-    QString targetLanguage;
-    bool useGpu = false;
-};
+using DubbingTranslationRequest = TranslationRequest;
 
 class DubbingTranslationService final
 {
 public:
-    DubbingTranslationService(ModelManager *models, RuntimeManager *runtimes);
+    DubbingTranslationService(ModelManager *models, RuntimeManager *runtimes) : m_service(models, runtimes) {}
     bool prepare(const QString &sourceLanguage, const QString &targetLanguage,
                  DubbingTranslationRequest &request, QString *error = nullptr) const;
     static bool translate(const DubbingTranslationRequest &request, const QVariantList &segments,
                           QVariantList &patches, QString *error = nullptr);
 
 private:
-    ModelManager *m_models = nullptr;
-    RuntimeManager *m_runtimes = nullptr;
+    TranslationService m_service;
 };
 
 } // namespace LAStudio

@@ -17,7 +17,7 @@ metadataOverrides:
   domain: stt
   architectures: [madlad]
   compatibilityTypes: [gguf]
-  capabilities: [stt]
+  capabilities: [translation]
 laStudio:
   id: madlad400-3b-mt
   type: stt
@@ -27,8 +27,9 @@ laStudio:
   subtitle: Offline 419-language translation for dubbing
   description: Local text-to-text translation through the CrispASR MADLAD backend, with target-language tags and coverage for 419 languages.
   accent: "#d98b2b"
-  capabilities: [stt]
-  supportsStt: true
+  capabilities: [translation]
+  supportsStt: false
+  supportsTranslation: true
   tags: [GGUF, Offline, Translation, Dubbing]
   strengths:
     - Broad 419-language coverage
@@ -59,8 +60,8 @@ laStudio:
       backend: madlad
       type: stt
   studio:
-    stt:
-      layout: stt
+    translation:
+      layout: translation
       action: translate
       inputs:
         - text

@@ -57,6 +57,14 @@ Rectangle {
             accent: "#ffa726"
         },
         {
+            title: qsTr("Translation"),
+            group: qsTr("Localization"),
+            description: qsTr("Translate scripts and subtitles locally, then review each segment."),
+            iconName: "alignment",
+            routeId: "studio-translation",
+            accent: "#64d8cb"
+        },
+        {
             title: qsTr("Dubbing"),
             group: qsTr("Localization"),
             description: qsTr("Create timestamped translated speech tracks from local audio or video."),
