@@ -9,11 +9,29 @@ endif()
 
 project(LAStudio VERSION ${LASTUDIO_VERSION} LANGUAGES CXX)
 
-set(LLAMA_CPP_SOURCE_DIR "D:/code/llama.cpp" CACHE PATH
+set(LLAMA_CPP_SOURCE_DIR "" CACHE PATH
     "llama.cpp checkout used only for public C API headers at build time")
-if(NOT EXISTS "${LLAMA_CPP_SOURCE_DIR}/include/llama.h")
+if(NOT LLAMA_CPP_SOURCE_DIR)
+    set(_llama_cpp_candidates
+        "$ENV{LLAMA_CPP_SOURCE_DIR}"
+        "${CMAKE_SOURCE_DIR}/.deps/llama.cpp"
+        "${CMAKE_SOURCE_DIR}/../llama.cpp"
+    )
+    foreach(_candidate IN LISTS _llama_cpp_candidates)
+        if(EXISTS "${_candidate}/include/llama.h" AND EXISTS "${_candidate}/ggml/include/ggml.h")
+            set(LLAMA_CPP_SOURCE_DIR "${_candidate}" CACHE PATH
+                "llama.cpp checkout used only for public C API headers at build time" FORCE)
+            break()
+        endif()
+    endforeach()
+    unset(_llama_cpp_candidates)
+    unset(_candidate)
+endif()
+if(NOT EXISTS "${LLAMA_CPP_SOURCE_DIR}/include/llama.h" OR
+   NOT EXISTS "${LLAMA_CPP_SOURCE_DIR}/ggml/include/ggml.h")
     message(FATAL_ERROR
-        "LLAMA_CPP_SOURCE_DIR must point to a llama.cpp checkout compatible with the packaged runtime")
+        "LLAMA_CPP_SOURCE_DIR must point to a llama.cpp b10036 checkout compatible with the packaged runtime. "
+        "Pass -DLLAMA_CPP_SOURCE_DIR=<path> or set the LLAMA_CPP_SOURCE_DIR environment variable.")
 endif()
 
 set(LASTUDIO_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
