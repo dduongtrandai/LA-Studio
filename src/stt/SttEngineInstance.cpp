@@ -2,7 +2,6 @@
 #include "SttWorker.h"
 #include "audio/WavIO.h"
 
-#include <QThread>
 #include <QThreadPool>
 #include <variant>
 
@@ -16,22 +15,18 @@ SttEngineInstance::SttEngineInstance(QObject *parent)
     : QObject(parent)
 {
     m_worker = new SttWorker;
-    m_thread = new QThread(this);
-    m_worker->moveToThread(m_thread);
-
-    connect(m_thread, &QThread::finished, m_worker, &QObject::deleteLater);
+    m_thread = new WorkerThreadHost(this);
+    m_thread->start(m_worker);
     connect(m_worker, &SttWorker::modelLoaded, this, &SttEngineInstance::onWorkerModelLoaded);
     connect(m_worker, &SttWorker::progress, this, &SttEngineInstance::onWorkerProgress);
     connect(m_worker, &SttWorker::finished, this, &SttEngineInstance::onWorkerFinished);
     connect(m_worker, &SttWorker::errorOccurred, this, &SttEngineInstance::onWorkerError);
 
-    m_thread->start();
 }
 
 SttEngineInstance::~SttEngineInstance()
 {
-    m_thread->quit();
-    m_thread->wait();
+    m_thread->stop();
 }
 
 SttEngineInstance::State SttEngineInstance::state() const

@@ -6,6 +6,7 @@
 #include <QVariantMap>
 #include <QVector>
 #include <QtQml/qqml.h>
+#include "inference/WorkerThreadHost.h"
 #include <variant>
 
 namespace LAStudio {
@@ -101,7 +102,7 @@ private:
     void applyState(const EngineState &newState);
 
     SttWorker *m_worker = nullptr;
-    QThread *m_thread = nullptr;
+    WorkerThreadHost *m_thread = nullptr;
     EngineState m_state = StateUnloaded{};
     int m_progress = 0;
     QString m_transcript;

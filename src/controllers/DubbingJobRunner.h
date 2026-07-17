@@ -16,6 +16,8 @@ class SttSessionController;
 class TtsEngine;
 class ModelManager;
 class RuntimeManager;
+class TranslationEngine;
+class TranslationEngineInstance;
 class MediaToolService;
 class MediaIngestService;
 class SourceSeparationService;
@@ -25,8 +27,12 @@ class DubbingJobRunner : public QObject
     Q_OBJECT
 public:
     explicit DubbingJobRunner(SttSessionController *sttSession, TtsEngine *tts,
+                              TranslationEngine *translation,
                               ModelManager *models = nullptr, RuntimeManager *runtimes = nullptr,
                               QObject *parent = nullptr);
+    DubbingJobRunner(SttSessionController *sttSession, TtsEngine *tts,
+                     ModelManager *models = nullptr, RuntimeManager *runtimes = nullptr,
+                     QObject *parent = nullptr);
     ~DubbingJobRunner() override;
 
     bool processing() const { return m_processing; }
@@ -82,6 +88,7 @@ private:
 
     SttSessionController *m_sttSession = nullptr;
     TtsEngine *m_tts = nullptr;
+    TranslationEngine *m_translation = nullptr;
     ModelManager *m_models = nullptr;
     RuntimeManager *m_runtimes = nullptr;
 
@@ -110,7 +117,11 @@ private:
     QString m_pendingSourceAudioPath;
     bool m_waitingForTranscriptionInput = false;
     QElapsedTimer m_stageTimer;
-    QFutureWatcher<QVariantList> *m_translationWatcher = nullptr;
+    TranslationEngineInstance *m_translationInstance = nullptr;
+    QVariantList m_translationResult;
+    QMetaObject::Connection m_translationFinishedConnection;
+    QMetaObject::Connection m_translationErrorConnection;
+    QMetaObject::Connection m_translationLoadedConnection;
     QFutureWatcher<QVariantMap> *m_alignmentWatcher = nullptr;
     std::shared_ptr<QAtomicInteger<bool>> m_alignmentCancel;
     quint64 m_translationGeneration = 0;

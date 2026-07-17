@@ -8,6 +8,7 @@
 #include <QHash>
 #include <QtQml/qqml.h>
 #include "controllers/IModelSession.h"
+#include "inference/InstanceRegistry.h"
 #include "SttEngineInstance.h"
 
 namespace LAStudio {
@@ -74,7 +75,7 @@ private:
     void connectInstance(SttEngineInstance *inst);
     void emitActiveForwardSignals();
 
-    QHash<QString, SttEngineInstance*> m_instances;
+    InstanceRegistry<SttEngineInstance> m_instances;
     QString m_activeSignature;
 };
 

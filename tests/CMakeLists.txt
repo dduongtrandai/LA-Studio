@@ -51,6 +51,12 @@ set(TEST_SOURCES
     ../src/controllers/AlignmentModelSession.cpp
     ../src/controllers/TranslationModelSession.cpp
     ../src/translation/TranslationProject.cpp
+    ../src/translation/TranslationEngine.cpp
+    ../src/translation/TranslationEngineInstance.cpp
+    ../src/translation/TranslationWorker.cpp
+    ../src/translation/backends/TranslationBackendFactory.cpp
+    ../src/translation/backends/CrispTranslationBackend.cpp
+    ../src/translation/backends/LlamaTranslationBackend.cpp
     ../src/translation/TranslationService.cpp
     ../src/controllers/TranslationController.cpp
     ../src/controllers/VoiceIsolatorModelSession.cpp
@@ -93,6 +99,7 @@ set(TEST_SOURCES
     ../src/core/PathUtils.cpp
     ../src/core/Logger.cpp
     ../src/core/InferenceThreadPolicy.cpp
+    ../src/inference/WorkerThreadHost.cpp
     ../src/core/CapabilityFamilyModel.cpp
     ../src/core/HardwareManager.cpp
     ../src/core/StudioCapabilityRegistry.cpp
@@ -122,12 +129,20 @@ set(TEST_SOURCES
     ../src/controllers/IStudioAction.h
     ../src/controllers/StudioActions.h
     ../src/controllers/IModelSession.h
+    ../src/inference/WorkerThreadHost.h
     ../src/controllers/ModelLifecycleController.h
     ../src/controllers/SttModelSession.h
     ../src/controllers/TtsSharedModelSession.h
     ../src/controllers/AlignmentModelSession.h
     ../src/controllers/TranslationModelSession.h
     ../src/translation/TranslationProject.h
+    ../src/translation/TranslationEngine.h
+    ../src/translation/TranslationEngineInstance.h
+    ../src/translation/TranslationWorker.h
+    ../src/translation/backends/TranslationBackend.h
+    ../src/translation/backends/TranslationBackendFactory.h
+    ../src/translation/backends/CrispTranslationBackend.h
+    ../src/translation/backends/LlamaTranslationBackend.h
     ../src/translation/TranslationService.h
     ../src/controllers/TranslationController.h
     ../src/controllers/VoiceIsolatorModelSession.h

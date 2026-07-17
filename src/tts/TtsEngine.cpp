@@ -12,13 +12,13 @@ TtsEngine::TtsEngine(QObject *parent)
 
 TtsEngine::~TtsEngine()
 {
-    qDeleteAll(m_instances);
+    qDeleteAll(m_instances.values());
     m_instances.clear();
 }
 
 TtsEngineInstance *TtsEngine::activeInstance() const
 {
-    return m_instances.value(m_activeSignature, nullptr);
+    return m_instances.value(m_activeSignature);
 }
 
 TtsEngine::State TtsEngine::state() const
@@ -268,7 +268,7 @@ void TtsEngine::cancelProcessing()
 TtsEngineInstance *TtsEngine::loadInstance(const SessionConfiguration &config)
 {
 #ifdef Q_OS_WIN
-    const QStringList signatures = m_instances.keys();
+    const QStringList signatures = m_instances.signatures();
     for (const QString &signature : signatures) {
         if (signature == config.signature) {
             continue;
@@ -326,7 +326,7 @@ void TtsEngine::unloadInstance(const QString &signature)
     inst->deleteLater();
 
     if (wasActive) {
-        m_activeSignature = m_instances.isEmpty() ? QString() : m_instances.keys().last();
+        m_activeSignature = m_instances.size() == 0 ? QString() : m_instances.signatures().last();
         emit activeSignatureChanged();
         emitActiveForwardSignals();
     }
@@ -335,7 +335,7 @@ void TtsEngine::unloadInstance(const QString &signature)
 
 TtsEngineInstance *TtsEngine::instance(const QString &signature) const
 {
-    return m_instances.value(signature, nullptr);
+    return m_instances.value(signature);
 }
 
 QList<TtsEngineInstance *> TtsEngine::loadedInstances() const
@@ -345,13 +345,13 @@ QList<TtsEngineInstance *> TtsEngine::loadedInstances() const
 
 QStringList TtsEngine::loadedSignatures() const
 {
-    return m_instances.keys();
+    return m_instances.signatures();
 }
 
 TtsEngineInstance *TtsEngine::ensureInstance(const QString &signature)
 {
     const QString key = signature.isEmpty() ? QStringLiteral("default") : signature;
-    if (TtsEngineInstance *existing = m_instances.value(key, nullptr)) {
+    if (TtsEngineInstance *existing = m_instances.value(key)) {
         return existing;
     }
 

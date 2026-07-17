@@ -15,6 +15,7 @@
 #include "core/LogViewService.h"
 #include "stt/SttEngine.h"
 #include "tts/TtsEngine.h"
+#include "translation/TranslationEngine.h"
 #include "audio/AudioRecorder.h"
 #include "audio/AudioPlayer.h"
 #include "audio/WaveformProvider.h"
@@ -55,6 +56,7 @@ class AppController : public QObject {
     Q_PROPERTY(LogViewService*  logs      READ logs      CONSTANT)
     Q_PROPERTY(SttEngine*       stt       READ stt       CONSTANT)
     Q_PROPERTY(TtsEngine*       tts       READ tts       CONSTANT)
+    Q_PROPERTY(TranslationEngine* translationEngine READ translationEngine CONSTANT)
     Q_PROPERTY(AudioRecorder*   recorder  READ recorder  CONSTANT)
     Q_PROPERTY(AudioPlayer*     player    READ player    CONSTANT)
     Q_PROPERTY(AudioPreviewService* preview READ preview CONSTANT)
@@ -97,6 +99,7 @@ public:
     LogViewService*  logs()      const { return m_logs; }
     SttEngine*       stt()       const { return m_stt; }
     TtsEngine*       tts()       const { return m_tts; }
+    TranslationEngine* translationEngine() const { return m_translationEngine; }
     AudioRecorder*   recorder()  const { return m_recorder; }
     AudioPlayer*     player()    const { return m_player; }
     AudioPreviewService* preview() const { return m_preview; }
@@ -146,6 +149,7 @@ private:
     LogViewService*  m_logs = nullptr;
     SttEngine*       m_stt = nullptr;
     TtsEngine*       m_tts = nullptr;
+    TranslationEngine* m_translationEngine = nullptr;
     AudioRecorder*   m_recorder = nullptr;
     AudioPlayer*     m_player = nullptr;
     WaveformProvider* m_waveformProvider = nullptr;

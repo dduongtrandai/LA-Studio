@@ -36,10 +36,4 @@ bool DubbingTranslationService::prepare(const QString &sourceLanguage, const QSt
     return m_service.prepareFallback(sourceLanguage, targetLanguage, request, error);
 }
 
-bool DubbingTranslationService::translate(const DubbingTranslationRequest &request,
-                                          const QVariantList &segments, QVariantList &patches, QString *error)
-{
-    return TranslationService::translate(request, segments, patches, error);
-}
-
 } // namespace LAStudio

@@ -19,15 +19,22 @@ class TtsEngine;
 class AlignmentExecutionService;
 class VoiceIsolatorController;
 class TranslationModelSession;
+class TranslationEngine;
 
 class ModelSessionRegistry : public QObject {
     Q_OBJECT
 public:
     explicit ModelSessionRegistry(SttEngine *sttEngine,
                                   TtsEngine *ttsEngine,
+                                  TranslationEngine *translationEngine,
                                   AlignmentExecutionService *alignment,
                                   VoiceIsolatorController *voiceIsolator,
                                   QObject *parent = nullptr);
+    ModelSessionRegistry(SttEngine *sttEngine,
+                         TtsEngine *ttsEngine,
+                         AlignmentExecutionService *alignment,
+                         VoiceIsolatorController *voiceIsolator,
+                         QObject *parent = nullptr);
     ~ModelSessionRegistry() override = default;
 
     IModelSession *sessionForCapability(const QString &capabilityId) const;

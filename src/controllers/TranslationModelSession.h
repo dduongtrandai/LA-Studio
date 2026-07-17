@@ -4,10 +4,11 @@
 #include <QHash>
 
 namespace LAStudio {
+class TranslationEngine;
 class TranslationModelSession final : public IModelSession {
     Q_OBJECT
 public:
-    explicit TranslationModelSession(QObject *parent = nullptr);
+    explicit TranslationModelSession(TranslationEngine *engine, QObject *parent = nullptr);
     ModelSessionState state() const override;
     bool modelActive() const override;
     bool canProcess() const override;
@@ -27,6 +28,8 @@ public:
     void clearError();
 private:
     std::optional<SessionConfiguration> resolveConfig(const StudioConfiguration &configuration) const;
+    void onEngineStateChanged();
+    TranslationEngine *m_engine = nullptr;
     QHash<QString, SessionConfiguration> m_loaded;
     QString m_activeSignature;
     QString m_error;

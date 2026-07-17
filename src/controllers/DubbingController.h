@@ -18,6 +18,7 @@ class SttSessionController;
 class TtsEngine;
 class ModelManager;
 class RuntimeManager;
+class TranslationEngine;
 class DubbingJobRunner;
 
 class DubbingController : public QObject
@@ -60,8 +61,12 @@ class DubbingController : public QObject
 
 public:
     explicit DubbingController(SttSessionController *sttSession, TtsEngine *tts,
+                               TranslationEngine *translation,
                                ModelManager *models = nullptr, RuntimeManager *runtimes = nullptr,
                                QObject *parent = nullptr);
+    DubbingController(SttSessionController *sttSession, TtsEngine *tts,
+                      ModelManager *models = nullptr, RuntimeManager *runtimes = nullptr,
+                      QObject *parent = nullptr);
 
     bool hasProject() const { return !m_project.projectPath.isEmpty(); }
     QString projectPath() const { return m_project.projectPath; }
@@ -169,6 +174,7 @@ private:
     QVariantMap m_workflowNodeConfigurations;
     SttSessionController *m_sttSession = nullptr;
     TtsEngine *m_tts = nullptr;
+    TranslationEngine *m_translation = nullptr;
 };
 
 } // namespace LAStudio

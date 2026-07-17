@@ -85,6 +85,13 @@ set(LASTUDIO_SOURCES
     src/core/PathUtils.cpp
     src/core/VoiceCloningUtils.cpp
     src/core/InferenceThreadPolicy.cpp
+    src/inference/WorkerThreadHost.cpp
+    src/translation/TranslationEngine.cpp
+    src/translation/TranslationEngineInstance.cpp
+    src/translation/TranslationWorker.cpp
+    src/translation/backends/TranslationBackendFactory.cpp
+    src/translation/backends/CrispTranslationBackend.cpp
+    src/translation/backends/LlamaTranslationBackend.cpp
     src/core/Settings.cpp
     src/api/ApiServerService.cpp
     src/core/HFHubClient.cpp
@@ -193,6 +200,10 @@ set(LASTUDIO_HEADERS
     src/core/PathUtils.h
     src/core/VoiceCloningUtils.h
     src/core/InferenceThreadPolicy.h
+    src/inference/InferenceTypes.h
+    src/inference/InstanceRegistry.h
+    src/inference/InferenceCancellation.h
+    src/inference/WorkerThreadHost.h
     src/core/Settings.h
     src/core/HFHubClient.h
     src/core/DownloadManager.h
@@ -263,6 +274,13 @@ set(LASTUDIO_HEADERS
     src/controllers/AlignmentModelSession.h
     src/controllers/TranslationModelSession.h
     src/translation/TranslationProject.h
+    src/translation/TranslationEngine.h
+    src/translation/TranslationEngineInstance.h
+    src/translation/TranslationWorker.h
+    src/translation/backends/TranslationBackend.h
+    src/translation/backends/TranslationBackendFactory.h
+    src/translation/backends/CrispTranslationBackend.h
+    src/translation/backends/LlamaTranslationBackend.h
     src/translation/TranslationService.h
     src/controllers/TranslationController.h
     src/controllers/VoiceIsolatorModelSession.h

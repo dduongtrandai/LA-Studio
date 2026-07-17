@@ -40,8 +40,38 @@ bool CrispTranslationInterface::load(const QString &libraryPath)
     return true;
 }
 
+bool CrispTranslationInterface::load(const QString &libraryPath, const QString &modelPath,
+                                     const QString &backend, int threads, bool useGpu, QString *error)
+{
+    if (!load(libraryPath)) {
+        if (error) *error = m_error;
+        return false;
+    }
+    crispasr_open_params_v1 params{};
+    params.abi_version = 1;
+    params.n_threads = qMax(1, threads);
+    params.use_gpu = useGpu ? 1 : 0;
+    params.verbosity = 0;
+    params.flash_attn = 1;
+    params.n_gpu_layers = -1;
+    const QByteArray model = PathUtils::toNativeShortPath(modelPath).toUtf8();
+    const QByteArray backendBytes = backend.toUtf8();
+    m_session = m_sessionOpen(model.constData(), backendBytes.constData(), &params);
+    if (!m_session) {
+        m_error = QStringLiteral("Failed to open CrispASR %1 translation session.").arg(backend);
+        if (error) *error = m_error;
+        unload();
+        return false;
+    }
+    return true;
+}
+
 void CrispTranslationInterface::unload()
 {
+    if (m_session && m_sessionClose) {
+        m_sessionClose(m_session);
+        m_session = nullptr;
+    }
     m_sessionOpen = nullptr;
     m_sessionClose = nullptr;
     m_translateText = nullptr;
@@ -51,6 +81,24 @@ void CrispTranslationInterface::unload()
 #else
     if (m_library.isLoaded()) m_library.unload();
 #endif
+}
+
+QString CrispTranslationInterface::translateLoaded(const QString &text, const QString &sourceLanguage,
+                                                    const QString &targetLanguage, int maxTokens,
+                                                    QString *error) const
+{
+    if (!m_session || !m_translateText || text.trimmed().isEmpty()) return {};
+    const QByteArray input = text.toUtf8();
+    const QByteArray source = sourceLanguage.toUtf8();
+    const QByteArray target = targetLanguage.toUtf8();
+    char *translated = m_translateText(m_session, input.constData(), source.constData(), target.constData(), maxTokens);
+    if (!translated) {
+        if (error) *error = QStringLiteral("CrispASR returned no translation output.");
+        return {};
+    }
+    const QString result = QString::fromUtf8(translated).trimmed();
+    m_translateTextFree(translated);
+    return result;
 }
 
 QString CrispTranslationInterface::translate(const QString &modelPath, const QString &backend,

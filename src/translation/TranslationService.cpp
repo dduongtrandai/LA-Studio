@@ -3,8 +3,6 @@
 #include "IModelSession.h"
 #include "core/ModelManager.h"
 #include "core/RuntimeManager.h"
-#include "runtimes/CrispTranslationInterface.h"
-#include "runtimes/LlamaTranslationInterface.h"
 
 #include <QDir>
 #include <QDirIterator>
@@ -124,47 +122,4 @@ bool TranslationService::prepareConfiguration(const SessionConfiguration &config
                        request, error);
 }
 
-bool TranslationService::translate(const TranslationRequest &request, const QVariantList &segments,
-                                   QVariantList &patches, QString *error)
-{
-    patches.clear();
-    if (request.sourceLanguage.isEmpty() || request.targetLanguage.isEmpty()) {
-        setError(error, QStringLiteral("Choose both source and target languages."));
-        return false;
-    }
-    QStringList sourceTexts;
-    QStringList segmentIds;
-    for (const QVariant &entry : segments) {
-        const QVariantMap segment = entry.toMap();
-        const QString sourceText = segment.value(QStringLiteral("sourceText")).toString().trimmed();
-        if (sourceText.isEmpty()) continue;
-        const QString id = segment.value(QStringLiteral("id")).toString();
-        if (id.isEmpty()) { setError(error, QStringLiteral("Cannot translate a segment without a stable id.")); return false; }
-        sourceTexts.append(sourceText);
-        segmentIds.append(id);
-    }
-    if (sourceTexts.isEmpty()) { setError(error, QStringLiteral("Add source text before translating.")); return false; }
-    QString translationError;
-    QStringList translated;
-    if (request.backend == QStringLiteral("llama")) {
-        LlamaTranslationInterface translator;
-        if (!translator.load(request.runtimePath, request.modelPath, &translationError)) { setError(error, translationError); return false; }
-        translated = translator.translateBatch(sourceTexts, request.sourceLanguage, request.targetLanguage,
-                                               request.maxTokens, request.cancelToken, &translationError);
-    } else {
-        CrispTranslationInterface translator;
-        if (!translator.load(request.runtimePath)) { setError(error, translator.errorString()); return false; }
-        translated = translator.translateBatch(request.modelPath, request.backend, sourceTexts,
-            request.sourceLanguage, request.targetLanguage, 0, request.useGpu, request.maxTokens, &translationError);
-    }
-    if (translated.size() != sourceTexts.size()) {
-        setError(error, translationError.isEmpty() ? QStringLiteral("Translation returned mismatched segment count.") : translationError);
-        return false;
-    }
-    for (qsizetype i = 0; i < translated.size(); ++i) {
-        patches.append(QVariantMap{{QStringLiteral("id"), segmentIds.at(i)},
-            {QStringLiteral("targetText"), translated.at(i)}, {QStringLiteral("state"), QStringLiteral("translated")}});
-    }
-    return true;
-}
 } // namespace LAStudio

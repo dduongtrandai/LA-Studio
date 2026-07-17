@@ -10,13 +10,13 @@ SttEngine::SttEngine(QObject *parent)
 
 SttEngine::~SttEngine()
 {
-    qDeleteAll(m_instances);
+    qDeleteAll(m_instances.values());
     m_instances.clear();
 }
 
 SttEngineInstance *SttEngine::activeInstance() const
 {
-    return m_instances.value(m_activeSignature, nullptr);
+    return m_instances.value(m_activeSignature);
 }
 
 SttEngine::State SttEngine::state() const
@@ -122,7 +122,7 @@ void SttEngine::unloadInstance(const QString &signature)
     inst->deleteLater();
 
     if (wasActive) {
-        m_activeSignature = m_instances.isEmpty() ? QString() : m_instances.keys().last();
+        m_activeSignature = m_instances.size() == 0 ? QString() : m_instances.signatures().last();
         emit activeSignatureChanged();
         emitActiveForwardSignals();
     }
@@ -131,7 +131,7 @@ void SttEngine::unloadInstance(const QString &signature)
 
 SttEngineInstance *SttEngine::instance(const QString &signature) const
 {
-    return m_instances.value(signature, nullptr);
+    return m_instances.value(signature);
 }
 
 QList<SttEngineInstance *> SttEngine::loadedInstances() const
@@ -141,13 +141,13 @@ QList<SttEngineInstance *> SttEngine::loadedInstances() const
 
 QStringList SttEngine::loadedSignatures() const
 {
-    return m_instances.keys();
+    return m_instances.signatures();
 }
 
 SttEngineInstance *SttEngine::ensureInstance(const QString &signature)
 {
     const QString key = signature.isEmpty() ? QStringLiteral("default") : signature;
-    if (SttEngineInstance *existing = m_instances.value(key, nullptr)) {
+    if (SttEngineInstance *existing = m_instances.value(key)) {
         return existing;
     }
 

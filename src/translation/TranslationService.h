@@ -1,7 +1,6 @@
 #pragma once
 
 #include <QString>
-#include <QVariantList>
 #include <atomic>
 #include <memory>
 
@@ -34,8 +33,6 @@ public:
     static bool prepareConfiguration(const SessionConfiguration &configuration,
                                      const QString &sourceLanguage, const QString &targetLanguage,
                                      TranslationRequest &request, QString *error = nullptr);
-    static bool translate(const TranslationRequest &request, const QVariantList &segments,
-                          QVariantList &patches, QString *error = nullptr);
 
 private:
     ModelManager *m_models = nullptr;

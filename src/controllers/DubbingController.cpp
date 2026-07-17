@@ -25,9 +25,17 @@ namespace LAStudio {
 
 DubbingController::DubbingController(SttSessionController *sttSession, TtsEngine *tts,
                                      ModelManager *models, RuntimeManager *runtimes, QObject *parent)
+    : DubbingController(sttSession, tts, nullptr, models, runtimes, parent)
+{
+}
+
+DubbingController::DubbingController(SttSessionController *sttSession, TtsEngine *tts,
+                                     TranslationEngine *translation,
+                                     ModelManager *models, RuntimeManager *runtimes, QObject *parent)
     : QObject(parent), m_sttSession(sttSession), m_tts(tts)
 {
-    m_runner = new DubbingJobRunner(sttSession, tts, models, runtimes, this);
+    m_translation = translation;
+    m_runner = new DubbingJobRunner(sttSession, tts, translation, models, runtimes, this);
     m_workflowRegistry = new NodeRegistry(this);
     registerDubbingWorkflowNodes(*m_workflowRegistry, m_runner);
     m_workflowRunner = new WorkflowGraphRunner(m_workflowRegistry, this);

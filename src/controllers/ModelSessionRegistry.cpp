@@ -4,6 +4,7 @@
 #include "TtsSharedModelSession.h"
 #include "VoiceIsolatorModelSession.h"
 #include "TranslationModelSession.h"
+#include "translation/TranslationEngine.h"
 #include "core/StudioCapabilityRegistry.h"
 #include "core/Logger.h"
 
@@ -16,13 +17,23 @@ ModelSessionRegistry::ModelSessionRegistry(SttEngine *sttEngine,
                                            AlignmentExecutionService *alignment,
                                            VoiceIsolatorController *voiceIsolator,
                                            QObject *parent)
+    : ModelSessionRegistry(sttEngine, ttsEngine, nullptr, alignment, voiceIsolator, parent)
+{
+}
+
+ModelSessionRegistry::ModelSessionRegistry(SttEngine *sttEngine,
+                                           TtsEngine *ttsEngine,
+                                           TranslationEngine *translationEngine,
+                                           AlignmentExecutionService *alignment,
+                                           VoiceIsolatorController *voiceIsolator,
+                                           QObject *parent)
     : QObject(parent)
 {
     m_sttSession = new SttModelSession(sttEngine, this);
     m_ttsSession = new TtsSharedModelSession(ttsEngine, this);
     m_alignmentSession = new AlignmentModelSession(alignment, this);
     m_voiceIsolatorSession = new VoiceIsolatorModelSession(voiceIsolator, this);
-    m_translationSession = new TranslationModelSession(this);
+    m_translationSession = new TranslationModelSession(translationEngine, this);
 }
 
 IModelSession *ModelSessionRegistry::sessionForCapability(const QString &capabilityId) const

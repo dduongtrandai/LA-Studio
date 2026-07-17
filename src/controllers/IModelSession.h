@@ -6,28 +6,11 @@
 #include <QVariantMap>
 #include <optional>
 #include "core/StudioSelectionRepository.h"
+#include "inference/InferenceTypes.h"
 
 namespace LAStudio {
 
-enum class ModelSessionState {
-    Unconfigured,
-    Unloaded,
-    Loading,
-    Ready,
-    Processing,
-    Unloading,
-    Error
-};
-
-struct SessionConfiguration {
-    QString capabilityId;
-    StudioConfiguration selection;
-    QString runtimePath;
-    QVariantMap familyConfig;
-    QStringList resolvedModelPaths;
-    QVariantMap resolvedPathsByRole;
-    QString signature;
-};
+using ModelSessionState = InferenceLifecycleState;
 
 class IModelSession : public QObject {
     Q_OBJECT

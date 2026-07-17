@@ -13,6 +13,8 @@ public:
     ~CrispTranslationInterface() { unload(); }
 
     bool load(const QString &libraryPath);
+    bool load(const QString &libraryPath, const QString &modelPath, const QString &backend,
+              int threads, bool useGpu, QString *error = nullptr);
     void unload();
     bool isLoaded() const { return m_library.isLoaded(); }
     QString errorString() const { return m_error; }
@@ -25,6 +27,9 @@ public:
                                const QStringList &texts, const QString &sourceLanguage,
                                const QString &targetLanguage, int threads, bool useGpu,
                                int maxTokens, QString *error = nullptr) const;
+    QString translateLoaded(const QString &text, const QString &sourceLanguage,
+                            const QString &targetLanguage, int maxTokens,
+                            QString *error = nullptr) const;
 
 private:
     using session_open_fn = crispasr_session *(*)(const char *, const char *, const crispasr_open_params_v1 *);
@@ -41,6 +46,7 @@ private:
     session_close_fn m_sessionClose = nullptr;
     translate_text_fn m_translateText = nullptr;
     translate_text_free_fn m_translateTextFree = nullptr;
+    crispasr_session *m_session = nullptr;
 };
 
 } // namespace LAStudio

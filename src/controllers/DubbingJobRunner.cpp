@@ -1,6 +1,7 @@
 #include "DubbingJobRunner.h"
 #include "DubbingProject.h"
 #include "translation/DubbingTranslationService.h"
+#include "translation/TranslationEngine.h"
 #include "AlignmentRefinementService.h"
 #include "DubbingSegmentNormalizer.h"
 #include "workflows/WorkflowArtifact.h"
@@ -32,6 +33,12 @@
 
 namespace LAStudio {
 
+DubbingJobRunner::DubbingJobRunner(SttSessionController *sttSession, TtsEngine *tts,
+                                   ModelManager *models, RuntimeManager *runtimes, QObject *parent)
+    : DubbingJobRunner(sttSession, tts, nullptr, models, runtimes, parent)
+{
+}
+
 namespace {
 QString synthesisFingerprint(const QVariantMap &segment, const QString &ttsSignature)
 {
@@ -47,12 +54,10 @@ QString synthesisFingerprint(const QVariantMap &segment, const QString &ttsSigna
 }
 
 DubbingJobRunner::DubbingJobRunner(SttSessionController *sttSession, TtsEngine *tts,
+                                   TranslationEngine *translation,
                                    ModelManager *models, RuntimeManager *runtimes, QObject *parent)
-    : QObject(parent), m_sttSession(sttSession), m_tts(tts), m_models(models), m_runtimes(runtimes)
+    : QObject(parent), m_sttSession(sttSession), m_tts(tts), m_translation(translation), m_models(models), m_runtimes(runtimes)
 {
-    m_translationWatcher = new QFutureWatcher<QVariantList>(this);
-    connect(m_translationWatcher, &QFutureWatcher<QVariantList>::finished,
-            this, &DubbingJobRunner::onTranslationFinished);
     m_alignmentWatcher = new QFutureWatcher<QVariantMap>(this);
     connect(m_alignmentWatcher, &QFutureWatcher<QVariantMap>::finished,
             this, &DubbingJobRunner::onAlignmentFinished);
@@ -257,8 +262,12 @@ void DubbingJobRunner::startTranscription(const QString &sourceLanguage, const Q
 
 void DubbingJobRunner::startTranslation(const QString &sourceLanguage, const QString &targetLanguage, const QVariantList &segments)
 {
-    if (m_processing || m_translationWatcher->isRunning()) {
+    if (m_processing || (m_translationInstance && m_translationInstance->isProcessing())) {
         setBusyError(QStringLiteral("A translation request is already running."));
+        return;
+    }
+    if (!m_translation) {
+        setError(QStringLiteral("Translation engine is unavailable."));
         return;
     }
     DubbingTranslationService translationService(m_models, m_runtimes);
@@ -277,17 +286,65 @@ void DubbingJobRunner::startTranslation(const QString &sourceLanguage, const QSt
                  QStringLiteral("[translation] start run=%1 node=%2 source=%3 target=%4 segments=%5")
                      .arg(m_runId, m_activeNodeRunId, sourceLanguage, targetLanguage).arg(segments.size()));
     setProcessing(true, QStringLiteral("translation"), 0);
-    m_translationWatcher->setFuture(QtConcurrent::run([segments, request, generation]() {
-        QVariantList result;
-        result.append(QVariantMap{{QStringLiteral("__workflowGeneration"), QString::number(generation)}});
-        QString error;
-        QVariantList patches;
-        if (!DubbingTranslationService::translate(request, segments, patches, &error))
-            result.append(QVariantMap{{QStringLiteral("error"), error}});
-        else
-            result.append(patches);
-        return result;
-    }));
+
+    SessionConfiguration configuration;
+    configuration.capabilityId = QStringLiteral("translation");
+    configuration.selection.capabilityId = configuration.capabilityId;
+    configuration.selection.familyId = request.backend;
+    configuration.selection.runtimeId = request.useGpu ? QStringLiteral("translation-cuda") : QStringLiteral("translation-cpu");
+    configuration.familyConfig = QVariantMap{{QStringLiteral("id"), request.backend},
+                                             {QStringLiteral("backend"), request.backend}};
+    configuration.runtimePath = request.runtimePath;
+    configuration.resolvedModelPaths = {request.modelPath};
+    configuration.resolvedPathsByRole.insert(QStringLiteral("model"), request.modelPath);
+    configuration.signature = QStringLiteral("dubbing|%1|%2|%3")
+        .arg(request.backend, request.modelPath, request.runtimePath);
+
+    m_translationInstance = m_translation->instance(configuration.signature);
+    if (!m_translationInstance) {
+        m_translationInstance = m_translation->loadInstance(configuration, false);
+    }
+    if (!m_translationInstance) {
+        setError(QStringLiteral("Failed to create Translation instance."));
+        return;
+    }
+
+    TranslationInferenceRequest inferenceRequest;
+    inferenceRequest.segments = segments;
+    inferenceRequest.sourceLanguage = sourceLanguage;
+    inferenceRequest.targetLanguage = targetLanguage;
+    inferenceRequest.maxTokens = request.maxTokens;
+    inferenceRequest.cancellation = InferenceCancellationToken();
+    m_translationResult.clear();
+
+    QObject::disconnect(m_translationFinishedConnection);
+    QObject::disconnect(m_translationErrorConnection);
+    QObject::disconnect(m_translationLoadedConnection);
+    m_translationFinishedConnection = connect(m_translationInstance, &TranslationEngineInstance::translationFinished,
+        this, [this, generation](const QVariantList &patches) {
+            if (generation != m_translationGeneration || m_stage != QStringLiteral("translation")) return;
+            m_translationResult = {QVariantMap{{QStringLiteral("__workflowGeneration"), QString::number(generation)}}};
+            for (const QVariant &patch : patches) m_translationResult.append(patch);
+            onTranslationFinished();
+        });
+    m_translationErrorConnection = connect(m_translationInstance, &TranslationEngineInstance::errorOccurred,
+        this, [this, generation](const QString &error) {
+            if (generation == m_translationGeneration && m_stage == QStringLiteral("translation")) setError(error);
+        });
+    auto startWhenReady = [this, inferenceRequest, generation]() {
+        if (!m_translationInstance || generation != m_translationGeneration) return;
+        if (m_translationInstance->state() == TranslationEngineInstance::Ready) {
+            m_translationInstance->translate(inferenceRequest);
+        } else if (m_translationInstance->state() == TranslationEngineInstance::Error) {
+            setError(QStringLiteral("Translation model failed to load."));
+        }
+    };
+    if (m_translationInstance->isModelLoaded()) {
+        startWhenReady();
+    } else {
+        m_translationLoadedConnection = connect(m_translationInstance, &TranslationEngineInstance::modelLoadedChanged,
+                                                this, startWhenReady);
+    }
 }
 
 void DubbingJobRunner::startAudioGeneration(const QVariantList &segments, const QString &projectPath)
@@ -344,7 +401,9 @@ void DubbingJobRunner::cancel()
     if (m_stage == QStringLiteral("export") && m_mediaTools) m_mediaTools->cancel();
     if (m_stage == QStringLiteral("import") && m_mediaIngest) m_mediaIngest->cancel();
     if (m_sourceSeparation) m_sourceSeparation->cancel();
-    if (m_stage == QStringLiteral("translation") && m_translationWatcher->isRunning()) m_translationWatcher->cancel();
+    if (m_stage == QStringLiteral("translation") && m_translationInstance && m_translationInstance->isProcessing()) {
+        m_translationInstance->cancelProcessing();
+    }
     Logger::warning(QStringLiteral("DubbingPipeline"),
                     QStringLiteral("[%1] cancelled at %2%%").arg(m_stage).arg(m_progress));
     m_waitingForTranscriptionInput = false;
@@ -578,7 +637,7 @@ void DubbingJobRunner::onAlignmentFinished()
 void DubbingJobRunner::onTranslationFinished()
 {
     if (m_stage != QStringLiteral("translation")) return;
-    const QVariantList rawResult = m_translationWatcher->result();
+    const QVariantList rawResult = m_translationResult;
     Logger::info(QStringLiteral("DubbingPipeline"),
                  QStringLiteral("[translation] worker finished resultItems=%1 elapsedMs=%2")
                      .arg(rawResult.size()).arg(m_stageTimer.isValid() ? m_stageTimer.elapsed() : -1));

@@ -9,6 +9,7 @@
 #include <QHash>
 #include <QtQml/qqml.h>
 #include "controllers/IModelSession.h"
+#include "inference/InstanceRegistry.h"
 #include "TtsEngineInstance.h"
 
 namespace LAStudio {
@@ -125,7 +126,7 @@ private:
     void connectInstance(TtsEngineInstance *inst);
     void emitActiveForwardSignals();
 
-    QHash<QString, TtsEngineInstance*> m_instances;
+    InstanceRegistry<TtsEngineInstance> m_instances;
     QString m_activeSignature;
     QVariantMap m_familyConfig;
     QString m_runtimePath;

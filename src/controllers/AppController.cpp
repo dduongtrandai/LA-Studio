@@ -46,11 +46,12 @@ AppController::AppController(QObject *parent)
     m_logs      = new LogViewService(this);
     m_stt       = new SttEngine(this);
     m_tts       = new TtsEngine(this);
+    m_translationEngine = new TranslationEngine({}, this);
     m_runtimes  = new RuntimeManager(m_catalog, m_settings, this);
     m_alignment = new AlignmentExecutionService(m_runtimes, m_models, this);
     m_voiceIsolator = new VoiceIsolatorController(this);
-    m_sessionRegistry = new ModelSessionRegistry(m_stt, m_tts, m_alignment, m_voiceIsolator, this);
-    m_translation = new TranslationController(m_models, m_runtimes,
+    m_sessionRegistry = new ModelSessionRegistry(m_stt, m_tts, m_translationEngine, m_alignment, m_voiceIsolator, this);
+    m_translation = new TranslationController(m_translationEngine,
         qobject_cast<TranslationModelSession*>(m_sessionRegistry->sessionForCapability(QStringLiteral("translation"))), this);
     m_recorder  = new AudioRecorder(this);
     m_player    = new AudioPlayer(this);
@@ -64,7 +65,7 @@ AppController::AppController(QObject *parent)
     m_voiceClonePresets = new VoiceClonePresetService(this);
     m_voiceDesignPresets = new VoiceDesignPresetService(this);
     m_sttSession = new SttSessionController(this);
-    m_dubbing = new DubbingController(m_sttSession, m_tts, m_models, m_runtimes, this);
+    m_dubbing = new DubbingController(m_sttSession, m_tts, m_translationEngine, m_models, m_runtimes, this);
     m_updates = new AppUpdateService(m_downloads, this);
     m_examples = new ExampleManager(this);
     m_workflows = new WorkflowActivityManager(m_sessionRegistry, m_tts, m_sttSession, m_alignment, m_dubbing, this);
