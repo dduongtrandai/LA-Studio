@@ -58,6 +58,7 @@ class DubbingController : public QObject
     Q_PROPERTY(QString currentStepId READ currentStepId NOTIFY workflowChanged)
     Q_PROPERTY(QVariantMap currentStepOutput READ currentStepOutput NOTIFY workflowChanged)
     Q_PROPERTY(QString lastCompletedStepId READ lastCompletedStepId NOTIFY workflowChanged)
+    Q_PROPERTY(QVariantList history READ history NOTIFY historyChanged)
 
 public:
     explicit DubbingController(SttSessionController *sttSession, TtsEngine *tts,
@@ -103,6 +104,7 @@ public:
     QString currentStepId() const;
     QVariantMap currentStepOutput() const;
     QString lastCompletedStepId() const { return m_lastCompletedStepId; }
+    QVariantList history() const { return m_history; }
 
     void setSourceLanguage(const QString &value);
     void setTargetLanguage(const QString &value);
@@ -110,6 +112,8 @@ public:
     Q_INVOKABLE bool newProject(const QString &path = QString());
     Q_INVOKABLE bool openProject(const QString &path);
     Q_INVOKABLE bool saveProject();
+    Q_INVOKABLE bool deleteHistoryItem(const QString &id);
+    Q_INVOKABLE void clearHistory();
     Q_INVOKABLE void closeProject();
     Q_INVOKABLE bool importMedia(const QString &pathOrUrl);
     Q_INVOKABLE void transcribeSource();
@@ -147,6 +151,7 @@ signals:
     void previewChanged();
     void exportChanged();
     void workflowChanged();
+    void historyChanged();
 
 private slots:
     void onIngestFinished(bool success, const QVariantMap &manifest);
@@ -158,6 +163,9 @@ private:
     void setWorkflowMode(const QString &mode);
     void setCurrentStep(const QString &stepId);
     void advanceManualStep(const QString &completedStepId);
+    void loadHistory();
+    void recordHistoryEntry();
+    QString historyPath() const;
 
     DubbingProject m_project;
     DubbingJobRunner *m_runner = nullptr;
@@ -171,6 +179,7 @@ private:
     QString m_currentStepId = QStringLiteral("import");
     QVariantMap m_stepOutputs;
     QString m_lastCompletedStepId;
+    QVariantList m_history;
     QVariantMap m_workflowNodeConfigurations;
     SttSessionController *m_sttSession = nullptr;
     TtsEngine *m_tts = nullptr;

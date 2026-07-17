@@ -20,6 +20,10 @@
 #include <QDir>
 #include <QDateTime>
 #include <QHash>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QSaveFile>
+#include <QStandardPaths>
 
 namespace LAStudio {
 
@@ -38,6 +42,7 @@ DubbingController::DubbingController(SttSessionController *sttSession, TtsEngine
     m_runner = new DubbingJobRunner(sttSession, tts, translation, models, runtimes, this);
     m_workflowRegistry = new NodeRegistry(this);
     registerDubbingWorkflowNodes(*m_workflowRegistry, m_runner);
+    loadHistory();
     m_workflowRunner = new WorkflowGraphRunner(m_workflowRegistry, this);
     connect(m_workflowRunner, &WorkflowGraphRunner::stateChanged, this, [this]() {
         emit processingChanged();
@@ -706,7 +711,84 @@ bool DubbingController::saveProject()
         setError(error);
         return false;
     }
+    recordHistoryEntry();
     return true;
+}
+
+QString DubbingController::historyPath() const
+{
+    const QString base = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+                         + QStringLiteral("/history");
+    QDir().mkpath(base);
+    return base + QStringLiteral("/dubbing_history.json");
+}
+
+void DubbingController::loadHistory()
+{
+    QFile file(historyPath());
+    if (!file.open(QIODevice::ReadOnly)) return;
+    const QJsonDocument document = QJsonDocument::fromJson(file.readAll());
+    if (document.isArray()) {
+        m_history = document.array().toVariantList();
+        emit historyChanged();
+    }
+}
+
+void DubbingController::recordHistoryEntry()
+{
+    if (m_project.projectPath.isEmpty()) return;
+    const QFileInfo projectInfo(m_project.projectPath);
+    QVariantList updated;
+    for (const QVariant &value : std::as_const(m_history)) {
+        if (value.toMap().value(QStringLiteral("projectPath")).toString()
+            != projectInfo.absoluteFilePath())
+            updated.append(value);
+    }
+    updated.prepend(QVariantMap{
+        {QStringLiteral("id"), projectInfo.absoluteFilePath()},
+        {QStringLiteral("projectPath"), projectInfo.absoluteFilePath()},
+        {QStringLiteral("projectName"), projectInfo.completeBaseName()},
+        {QStringLiteral("sourceMediaPath"), m_project.sourceMediaPath},
+        {QStringLiteral("sourceName"), QFileInfo(m_project.sourceMediaPath).fileName()},
+        {QStringLiteral("sourceLanguage"), m_project.sourceLanguage},
+        {QStringLiteral("targetLanguage"), m_project.targetLanguage},
+        {QStringLiteral("segmentCount"), m_project.segments.size()},
+        {QStringLiteral("timestamp"), QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd hh:mm:ss"))}
+    });
+    while (updated.size() > 30) updated.removeLast();
+    QSaveFile file(historyPath());
+    if (file.open(QIODevice::WriteOnly)) {
+        file.write(QJsonDocument::fromVariant(updated).toJson());
+        if (file.commit()) {
+            m_history = std::move(updated);
+            emit historyChanged();
+        }
+    }
+}
+
+bool DubbingController::deleteHistoryItem(const QString &id)
+{
+    if (id.isEmpty()) return false;
+    for (int i = 0; i < m_history.size(); ++i) {
+        if (m_history.at(i).toMap().value(QStringLiteral("id")).toString() != id) continue;
+        QVariantList updated = m_history;
+        updated.removeAt(i);
+        QSaveFile file(historyPath());
+        if (!file.open(QIODevice::WriteOnly)) return false;
+        file.write(QJsonDocument::fromVariant(updated).toJson());
+        if (!file.commit()) return false;
+        m_history = std::move(updated);
+        emit historyChanged();
+        return true;
+    }
+    return false;
+}
+
+void DubbingController::clearHistory()
+{
+    m_history.clear();
+    QFile::remove(historyPath());
+    emit historyChanged();
 }
 
 void DubbingController::closeProject()

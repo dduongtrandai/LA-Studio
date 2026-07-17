@@ -19,6 +19,8 @@ Item {
     property string observedCompletedStep: ""
     property string playingSeparationStem: ""
     property string playingVoiceClipPath: ""
+    property bool isHistoryOpen: true
+    property string pendingHistoryDeleteId: ""
     readonly property var languageCatalog: AppController.catalog.languageSet("default")
 
     Connections {
@@ -146,6 +148,11 @@ Item {
         return Theme.success
     }
 
+    function historySourceLabel(item) {
+        if (!item) return qsTr("No source media")
+        return item.sourceName || item.sourceMediaPath || qsTr("No source media")
+    }
+
     component Field: TextField {
         color: Theme.textPrimary
         placeholderTextColor: Theme.textSecondary
@@ -233,7 +240,7 @@ Item {
                 Item { Layout.fillWidth: true }
                 PrimaryButton {
                     text: qsTr("Workflow")
-                    iconName: "alignment"
+                    iconName: "workflow"
                     quiet: true
                     onClicked: root.openWorkflowCanvas()
                     AppToolTip {
@@ -254,6 +261,80 @@ Item {
         RowLayout {
             Layout.fillWidth: true; Layout.fillHeight: true
             Layout.margins: Theme.paddingMedium; spacing: Theme.paddingMedium
+
+            Rectangle {
+                id: leftHistoryRail
+                Layout.preferredWidth: root.isHistoryOpen ? 300 : 42
+                Layout.fillHeight: true
+                color: Theme.surface
+                radius: Theme.radiusMedium
+                border.color: Qt.rgba(1, 1, 1, 0.08)
+                border.width: 1
+                clip: true
+                Behavior on Layout.preferredWidth { NumberAnimation { duration: 180; easing.type: Easing.InOutQuad } }
+
+                Item {
+                    anchors.fill: parent
+                    anchors.margins: root.isHistoryOpen ? Theme.paddingMedium : 0
+                    visible: root.isHistoryOpen
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        spacing: Theme.paddingSmall
+                        RowLayout {
+                            Layout.fillWidth: true
+                            LineIcon { name: "history"; color: Theme.accent; Layout.preferredWidth: 18; Layout.preferredHeight: 18 }
+                            Text { text: qsTr("Dubbing History"); color: Theme.textPrimary; font.pixelSize: Theme.fontMedium; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
+                            PrimaryButton { visible: dubbing.history.length > 0; text: qsTr("Clear"); iconName: "trash"; quiet: true; textColor: Theme.danger; borderColor: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.38); implicitWidth: 72; implicitHeight: 30; onClicked: clearHistoryDialog.open() }
+                            Button {
+                                implicitWidth: 30; implicitHeight: 30; flat: true
+                                contentItem: LineIcon { name: "chevron-left"; color: parent.hovered ? Theme.accent : Theme.textSecondary; width: 16; height: 16 }
+                                background: Rectangle { radius: 7; color: parent.hovered ? Qt.rgba(1,1,1,0.05) : "transparent" }
+                                onClicked: root.isHistoryOpen = false
+                            }
+                        }
+                        Rectangle { Layout.fillWidth: true; height: 1; color: Qt.rgba(1, 1, 1, 0.07) }
+                        Item {
+                            Layout.fillWidth: true; Layout.fillHeight: true
+                            ColumnLayout {
+                                anchors.centerIn: parent; width: parent.width - Theme.paddingLarge * 2; spacing: Theme.paddingSmall
+                                visible: dubbing.history.length === 0
+                                LineIcon { name: "history"; color: Theme.textSecondary; opacity: 0.6; Layout.alignment: Qt.AlignHCenter; Layout.preferredWidth: 30; Layout.preferredHeight: 30 }
+                                Text { Layout.fillWidth: true; text: qsTr("No saved projects"); color: Theme.textPrimary; font.pixelSize: Theme.fontMedium; font.bold: true; horizontalAlignment: Text.AlignHCenter }
+                                Text { Layout.fillWidth: true; text: qsTr("Saved dubbing projects will appear here."); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall; wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter }
+                            }
+                            ListView {
+                                anchors.fill: parent; visible: dubbing.history.length > 0; model: dubbing.history; spacing: Theme.paddingSmall; clip: true
+                                delegate: Rectangle {
+                                    required property var modelData
+                                    width: ListView.view.width; height: historyEntry.implicitHeight + Theme.paddingMedium * 2
+                                    radius: Theme.radiusSmall; color: Qt.rgba(1, 1, 1, 0.025); border.color: Qt.rgba(1, 1, 1, 0.07); border.width: 1
+                                    ColumnLayout {
+                                        id: historyEntry; anchors.fill: parent; anchors.margins: Theme.paddingMedium; spacing: 3
+                                        Text { Layout.fillWidth: true; text: modelData.projectName || qsTr("Untitled project"); color: Theme.textPrimary; font.pixelSize: Theme.fontSmall; font.bold: true; elide: Text.ElideRight }
+                                        Text { Layout.fillWidth: true; text: root.historySourceLabel(modelData); color: Theme.textSecondary; font.pixelSize: 10; elide: Text.ElideMiddle }
+                                        Text { Layout.fillWidth: true; text: (modelData.sourceLanguage || "") + " → " + (modelData.targetLanguage || "") + " · " + (modelData.segmentCount || 0) + qsTr(" segments"); color: Theme.textSecondary; font.pixelSize: 10; elide: Text.ElideRight }
+                                        Text { Layout.fillWidth: true; text: modelData.timestamp || ""; color: Theme.textSecondary; font.pixelSize: 10; elide: Text.ElideRight }
+                                        RowLayout {
+                                            Layout.fillWidth: true; Item { Layout.fillWidth: true }
+                                            PrimaryButton { text: qsTr("Open"); iconName: "edit"; quiet: true; textColor: Theme.accentLight; borderColor: Qt.rgba(Theme.accentLight.r, Theme.accentLight.g, Theme.accentLight.b, 0.42); implicitWidth: 82; implicitHeight: 30; enabled: !dubbing.processing; onClicked: { if (dubbing.openProject(modelData.projectPath || "")) root.isHistoryOpen = false } }
+                                            PrimaryButton { text: qsTr("Delete"); iconName: "trash"; quiet: true; textColor: Theme.danger; borderColor: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.42); implicitWidth: 82; implicitHeight: 30; onClicked: { root.pendingHistoryDeleteId = modelData.id || ""; deleteHistoryDialog.open() } }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Button {
+                    anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; anchors.topMargin: Theme.paddingMedium
+                    visible: !root.isHistoryOpen; implicitWidth: 30; implicitHeight: 34; flat: true
+                    contentItem: LineIcon { name: "history"; color: parent.hovered ? Theme.accent : Theme.textSecondary; width: 18; height: 18 }
+                    background: Rectangle { radius: 7; color: parent.hovered ? Qt.rgba(1,1,1,0.05) : "transparent" }
+                    onClicked: root.isHistoryOpen = true
+                }
+            }
 
             ColumnLayout {
                 Layout.fillWidth: true; Layout.fillHeight: true; Layout.preferredWidth: 500; spacing: Theme.paddingMedium
@@ -908,9 +989,109 @@ Item {
                     Text { text: dubbing.workflowMode === "automatic" ? qsTr("Automatic A-Z") : (dubbing.workflowMode === "step" ? qsTr("Step-by-step") : qsTr("Choose a processing mode")); color: dubbing.workflowMode === "idle" ? Theme.textSecondary : Theme.accentLight; font.pixelSize: Theme.fontSmall; font.bold: true }
                     Text { Layout.fillWidth: true; text: qsTr("Current: %1").arg(root.stepTitle(dubbing.currentStepId)); color: dubbing.processing ? Theme.warning : Theme.textSecondary; font.pixelSize: Theme.fontSmall; elide: Text.ElideRight }
                     Text { Layout.fillWidth: true; text: dubbing.exportPath.length > 0 ? dubbing.exportPath : (dubbing.previewPath.length > 0 ? dubbing.previewPath : qsTr("Final output has not been created.")); color: dubbing.exportPath.length > 0 ? Theme.success : Theme.textSecondary; font.pixelSize: 10; elide: Text.ElideMiddle }
-                    PrimaryButton { text: qsTr("Cancel processing"); visible: dubbing.processing; buttonColor: Theme.danger; onClicked: dubbing.cancelProcessing() }
+                     PrimaryButton { text: qsTr("Cancel processing"); visible: dubbing.processing; buttonColor: Theme.danger; onClicked: dubbing.cancelProcessing() }
+                 }
+
+                Rectangle {
+                    id: historyRail
+                    visible: false
+                    Layout.preferredWidth: root.isHistoryOpen ? 318 : 42
+                    Layout.fillHeight: true
+                    color: Theme.surface
+                    radius: Theme.radiusMedium
+                    border.color: Qt.rgba(1, 1, 1, 0.08)
+                    border.width: 1
+                    clip: true
+                    Behavior on Layout.preferredWidth { NumberAnimation { duration: 180; easing.type: Easing.InOutQuad } }
+
+                    Item {
+                        anchors.fill: parent
+                        anchors.margins: root.isHistoryOpen ? Theme.paddingMedium : 0
+                        visible: root.isHistoryOpen
+
+                        ColumnLayout {
+                            anchors.fill: parent
+                            spacing: Theme.paddingSmall
+                            RowLayout {
+                                Layout.fillWidth: true
+                                LineIcon { name: "history"; color: Theme.accent; Layout.preferredWidth: 18; Layout.preferredHeight: 18 }
+                                Text { text: qsTr("Dubbing History"); color: Theme.textPrimary; font.pixelSize: Theme.fontMedium; font.bold: true; Layout.fillWidth: true }
+                                PrimaryButton {
+                                    visible: dubbing.history.length > 0
+                                    text: qsTr("Clear")
+                                    iconName: "trash"
+                                    quiet: true
+                                    textColor: Theme.danger
+                                    borderColor: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.38)
+                                    implicitWidth: 70
+                                    implicitHeight: 30
+                                    onClicked: clearHistoryDialog.open()
+                                }
+                                Button {
+                                    implicitWidth: 30; implicitHeight: 30; flat: true
+                                    contentItem: LineIcon { name: "chevron-right"; color: parent.hovered ? Theme.accent : Theme.textSecondary; width: 16; height: 16 }
+                                    background: Rectangle { radius: 7; color: parent.hovered ? Qt.rgba(1,1,1,0.05) : "transparent" }
+                                    onClicked: root.isHistoryOpen = false
+                                }
+                            }
+                            Rectangle { Layout.fillWidth: true; height: 1; color: Qt.rgba(1, 1, 1, 0.07) }
+                            Item {
+                                Layout.fillWidth: true; Layout.fillHeight: true
+                                ColumnLayout {
+                                    anchors.centerIn: parent
+                                    width: parent.width - Theme.paddingLarge * 2
+                                    spacing: Theme.paddingSmall
+                                    visible: dubbing.history.length === 0
+                                    LineIcon { name: "history"; color: Theme.textSecondary; opacity: 0.6; Layout.alignment: Qt.AlignHCenter; Layout.preferredWidth: 30; Layout.preferredHeight: 30 }
+                                    Text { Layout.fillWidth: true; text: qsTr("No saved projects"); color: Theme.textPrimary; font.pixelSize: Theme.fontMedium; font.bold: true; horizontalAlignment: Text.AlignHCenter }
+                                    Text { Layout.fillWidth: true; text: qsTr("Saved dubbing projects will appear here."); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall; wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter }
+                                }
+                                ListView {
+                                    anchors.fill: parent
+                                    visible: dubbing.history.length > 0
+                                    model: dubbing.history
+                                    spacing: Theme.paddingSmall
+                                    clip: true
+                                    delegate: Rectangle {
+                                        required property var modelData
+                                        width: ListView.view.width
+                                        height: entry.implicitHeight + Theme.paddingMedium * 2
+                                        radius: Theme.radiusSmall
+                                        color: Qt.rgba(1, 1, 1, 0.025)
+                                        border.color: Qt.rgba(1, 1, 1, 0.07)
+                                        border.width: 1
+                                        ColumnLayout {
+                                            id: entry
+                                            anchors.fill: parent
+                                            anchors.margins: Theme.paddingMedium
+                                            spacing: 3
+                                            Text { Layout.fillWidth: true; text: modelData.projectName || qsTr("Untitled project"); color: Theme.textPrimary; font.pixelSize: Theme.fontSmall; font.bold: true; elide: Text.ElideRight }
+                                            Text { Layout.fillWidth: true; text: root.historySourceLabel(modelData); color: Theme.textSecondary; font.pixelSize: 10; elide: Text.ElideMiddle }
+                                            Text { Layout.fillWidth: true; text: (modelData.sourceLanguage || "") + " → " + (modelData.targetLanguage || "") + " · " + (modelData.segmentCount || 0) + qsTr(" segments"); color: Theme.textSecondary; font.pixelSize: 10; elide: Text.ElideRight }
+                                            Text { Layout.fillWidth: true; text: modelData.timestamp || ""; color: Theme.textSecondary; font.pixelSize: 10; elide: Text.ElideRight }
+                                            RowLayout {
+                                                Layout.fillWidth: true
+                                                Item { Layout.fillWidth: true }
+                                    PrimaryButton { text: qsTr("Open"); iconName: "edit"; quiet: true; textColor: Theme.accentLight; borderColor: Qt.rgba(Theme.accentLight.r, Theme.accentLight.g, Theme.accentLight.b, 0.42); implicitWidth: 82; implicitHeight: 30; enabled: !dubbing.processing; onClicked: { if (dubbing.openProject(modelData.projectPath || "")) root.isHistoryOpen = false } }
+                                    PrimaryButton { text: qsTr("Delete"); iconName: "trash"; quiet: true; textColor: Theme.danger; borderColor: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.42); implicitWidth: 82; implicitHeight: 30; onClicked: { root.pendingHistoryDeleteId = modelData.id || ""; deleteHistoryDialog.open() } }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Button {
+                        anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; anchors.topMargin: Theme.paddingMedium
+                        visible: !root.isHistoryOpen
+                        implicitWidth: 30; implicitHeight: 34; flat: true
+                        contentItem: LineIcon { name: "history"; color: parent.hovered ? Theme.accent : Theme.textSecondary; width: 18; height: 18 }
+                        background: Rectangle { radius: 7; color: parent.hovered ? Qt.rgba(1,1,1,0.05) : "transparent" }
+                        onClicked: root.isHistoryOpen = true
+                    }
                 }
-            }
+             }
         }
     }
 
@@ -923,6 +1104,27 @@ Item {
             var path = AppController.files.urlToLocalPath(selectedFile.toString())
             dubbing.importMedia(path)
         }
+    }
+
+    ConfirmationDialog {
+        id: deleteHistoryDialog
+        parent: Overlay.overlay
+        titleText: qsTr("Delete project from history")
+        messageText: qsTr("The project file will not be deleted; only its history entry will be removed.")
+        confirmText: qsTr("Delete")
+        isDestructive: true
+        onConfirmed: { dubbing.deleteHistoryItem(root.pendingHistoryDeleteId); root.pendingHistoryDeleteId = "" }
+        onRejected: root.pendingHistoryDeleteId = ""
+    }
+
+    ConfirmationDialog {
+        id: clearHistoryDialog
+        parent: Overlay.overlay
+        titleText: qsTr("Clear dubbing history")
+        messageText: qsTr("All saved dubbing project entries will be removed from history.")
+        confirmText: qsTr("Clear all")
+        isDestructive: true
+        onConfirmed: dubbing.clearHistory()
     }
 
     WorkflowPipelineDialog {

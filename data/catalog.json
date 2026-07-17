@@ -7517,8 +7517,7 @@
       "description": "Fast local two-stem source separation using the sherpa-onnx Spleeter FP16 vocals and accompaniment models.",
       "accent": "#7c4dff",
       "capabilities": [
-        "voice-isolation",
-        "stt"
+        "voice-isolation"
       ],
       "tags": [
         "ONNX",
@@ -7640,7 +7639,7 @@
         }
       ],
       "metadataOverrides": {
-        "domain": "stt",
+        "domain": "voice-isolation",
         "architectures": [
           "spleeter"
         ],
@@ -7652,8 +7651,7 @@
           "FP16"
         ],
         "capabilities": [
-          "voice-isolation",
-          "stt"
+          "voice-isolation"
         ],
         "vision": false
       },
@@ -7698,7 +7696,7 @@
           }
         ],
         "metadataOverrides": {
-          "domain": "stt",
+          "domain": "voice-isolation",
           "architectures": [
             "spleeter"
           ],
@@ -7710,8 +7708,7 @@
             "FP16"
           ],
           "capabilities": [
-            "voice-isolation",
-            "stt"
+            "voice-isolation"
           ],
           "vision": false
         }
@@ -7754,8 +7751,7 @@
       "description": "Local two-stem source separation using the sherpa-onnx UVR/MDX-Net Vocals FT model.",
       "accent": "#7c4dff",
       "capabilities": [
-        "voice-isolation",
-        "stt"
+        "voice-isolation"
       ],
       "tags": [
         "ONNX",
@@ -7853,7 +7849,7 @@
         }
       ],
       "metadataOverrides": {
-        "domain": "stt",
+        "domain": "voice-isolation",
         "architectures": [
           "uvr-mdx-net"
         ],
@@ -7864,8 +7860,7 @@
           "2-stem"
         ],
         "capabilities": [
-          "voice-isolation",
-          "stt"
+          "voice-isolation"
         ],
         "vision": false
       },
@@ -7893,7 +7888,7 @@
           }
         ],
         "metadataOverrides": {
-          "domain": "stt",
+          "domain": "voice-isolation",
           "architectures": [
             "uvr-mdx-net"
           ],
@@ -7904,8 +7899,7 @@
             "2-stem"
           ],
           "capabilities": [
-            "voice-isolation",
-            "stt"
+            "voice-isolation"
           ],
           "vision": false
         }

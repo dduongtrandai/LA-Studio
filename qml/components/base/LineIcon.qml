@@ -165,6 +165,15 @@ Canvas {
             line(ctx, cx + 8 * u, cy - 2 * u, cx + 8 * u, cy + 2 * u)
             line(ctx, cx - 9 * u, cy + 8 * u, cx + 9 * u, cy + 8 * u)
             line(ctx, cx, cy + 4 * u, cx, cy + 10 * u)
+        } else if (name === "workflow") {
+            // Three connected stages: a compact pipeline/workflow glyph.
+            line(ctx, cx - 6 * u, cy, cx - 1 * u, cy)
+            line(ctx, cx + 1 * u, cy, cx + 6 * u, cy)
+            circle(ctx, cx - 8 * u, cy, 2 * u)
+            circle(ctx, cx, cy, 2 * u)
+            circle(ctx, cx + 8 * u, cy, 2 * u)
+            line(ctx, cx, cy - 2 * u, cx, cy - 6 * u)
+            circle(ctx, cx, cy - 8 * u, 2 * u)
         } else if (name === "play") {
             ctx.beginPath()
             ctx.moveTo(cx - 5 * u, cy - 8 * u)

@@ -21,7 +21,7 @@ base:
         files:
           - name: accompaniment.fp16.onnx
 metadataOverrides:
-  domain: stt
+  domain: voice-isolation
   architectures:
     - spleeter
   compatibilityTypes:
@@ -31,7 +31,6 @@ metadataOverrides:
     - FP16
   capabilities:
     - voice-isolation
-    - stt
   vision: false
 laStudio:
   id: sherpa-onnx-spleeter-2stems-fp16
@@ -44,7 +43,6 @@ laStudio:
   accent: "#7c4dff"
   capabilities:
     - voice-isolation
-    - stt
   tags:
     - ONNX
     - Offline
