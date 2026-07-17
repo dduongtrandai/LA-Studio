@@ -34,7 +34,7 @@ laStudio:
   shortName: N35
   title: Nemotron-3.5 ASR Streaming 0.6B
   subtitle: Cache-aware multilingual streaming ASR
-  description: NVIDIA's 0.6B FastConformer RNN-T ASR model, run locally through CrispASR v0.8.6 or later.
+  description: NVIDIA's 0.6B FastConformer RNN-T ASR model, run locally through CrispASR v0.8.13 or later.
   accent: "#76b900"
   capabilities:
     - stt
@@ -63,7 +63,7 @@ laStudio:
       label: CPU
       name: CPU CrispASR (x64)
       asset: libcrispasr-windows-x86_64.tar.gz
-      version: v0.8.6
+      version: v0.8.13
       source: https://github.com/CrispStrobe/CrispASR/releases/download/
       library: bin/crispasr.dll
       backend: nemotron
@@ -72,7 +72,7 @@ laStudio:
       label: CUDA
       name: CUDA CrispASR (x64)
       asset: libcrispasr-windows-x86_64-cuda.tar.gz
-      version: v0.8.6
+      version: v0.8.13
       source: https://github.com/CrispStrobe/CrispASR/releases/download/
       library: bin/crispasr.dll
       backend: nemotron
@@ -81,7 +81,7 @@ laStudio:
       label: Vulkan
       name: Vulkan CrispASR (x64)
       asset: libcrispasr-windows-x86_64-vulkan.tar.gz
-      version: v0.8.6
+      version: v0.8.13
       source: https://github.com/CrispStrobe/CrispASR/releases/download/
       library: bin/crispasr.dll
       backend: nemotron

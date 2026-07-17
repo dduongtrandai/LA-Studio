@@ -5,7 +5,7 @@ Nemotron-3.5 ASR Streaming 0.6B is NVIDIA's multilingual, cache-aware streaming 
 ## Links
 
 - Upstream model card: https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b
-- CrispASR backend: https://github.com/CrispStrobe/CrispASR/releases/tag/v0.8.6
+- CrispASR backend: https://github.com/CrispStrobe/CrispASR/releases/tag/v0.8.13
 
 ## Model Facts
 
@@ -17,7 +17,7 @@ Nemotron-3.5 ASR Streaming 0.6B is NVIDIA's multilingual, cache-aware streaming 
 
 ## LA Studio Notes
 
-LA Studio runs this model locally with the `nemotron` backend in CrispASR v0.8.6 or later. The app downloads GGUF artifacts from `cstr/nemotron-3.5-asr-streaming-0.6b-GGUF`:
+LA Studio runs this model locally with the `nemotron` backend in CrispASR v0.8.13 or later. The app downloads GGUF artifacts from `cstr/nemotron-3.5-asr-streaming-0.6b-GGUF`:
 
 - `nemotron-3.5-asr-streaming-0.6b-q4_k.gguf` (recommended, 479 MB)
 - `nemotron-3.5-asr-streaming-0.6b-f16.gguf` (1.3 GB)

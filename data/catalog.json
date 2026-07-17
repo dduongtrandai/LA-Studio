@@ -60,7 +60,7 @@
         {
           "familyId": "voxcpm2",
           "modelId": "openbmb/VoxCPM2",
-          "reason": "30-language VoxCPM2 TTS, voice design, and zero-shot voice cloning through CrispASR v0.8.6."
+          "reason": "30-language VoxCPM2 TTS, voice design, and zero-shot voice cloning through CrispASR v0.8.13."
         },
         {
           "familyId": "whisper.cpp",
@@ -229,7 +229,7 @@
           "readme": {
             "filename": "README.md",
             "source": "https://huggingface.co/openbmb/VoxCPM2/raw/main/README.md",
-            "content": "# VoxCPM2\n\nVoxCPM2 is an open-weight multilingual text-to-speech model from OpenBMB. The upstream model card describes it as a tokenizer-free, diffusion-autoregressive 2B parameter TTS model with 48 kHz audio output, natural-language voice design, and reference-audio voice cloning.\n\nLA Studio installs VoxCPM2 through the CrispASR GGUF conversion repository:\n\n- Upstream model: https://huggingface.co/openbmb/VoxCPM2\n- GGUF artifacts: https://huggingface.co/cstr/voxcpm2-GGUF\n- Runtime: https://github.com/CrispStrobe/CrispASR/releases/tag/v0.8.6\n\n## Supported Languages\n\nArabic, Burmese, Chinese, Danish, Dutch, English, Finnish, French, German, Greek, Hebrew, Hindi, Indonesian, Italian, Japanese, Khmer, Korean, Lao, Malay, Norwegian, Polish, Portuguese, Russian, Spanish, Swahili, Swedish, Tagalog, Thai, Turkish, Vietnamese.\n\n## LA Studio Notes\n\nVoxCPM2 requires a CrispASR runtime with the `voxcpm2-tts` backend. LA Studio uses CrispASR v0.8.6 or newer for this model.\n\nVoice design is applied by prepending the voice description to the synthesis text in the upstream VoxCPM2 parenthesized prompt style, for example `(A warm, clear voice)Hello.`. CrispASR's current session API does not expose a separate VoxCPM2 `set_instruct` call; LA Studio encodes the instruction in the text passed to `voxcpm2_synthesize`. Voice cloning uses a reference WAV through CrispASR's unified `crispasr_session_set_voice` API.\n"
+            "content": "# VoxCPM2\n\nVoxCPM2 is an open-weight multilingual text-to-speech model from OpenBMB. The upstream model card describes it as a tokenizer-free, diffusion-autoregressive 2B parameter TTS model with 48 kHz audio output, natural-language voice design, and reference-audio voice cloning.\n\nLA Studio installs VoxCPM2 through the CrispASR GGUF conversion repository:\n\n- Upstream model: https://huggingface.co/openbmb/VoxCPM2\n- GGUF artifacts: https://huggingface.co/cstr/voxcpm2-GGUF\n- Runtime: https://github.com/CrispStrobe/CrispASR/releases/tag/v0.8.13\n\n## Supported Languages\n\nArabic, Burmese, Chinese, Danish, Dutch, English, Finnish, French, German, Greek, Hebrew, Hindi, Indonesian, Italian, Japanese, Khmer, Korean, Lao, Malay, Norwegian, Polish, Portuguese, Russian, Spanish, Swahili, Swedish, Tagalog, Thai, Turkish, Vietnamese.\n\n## LA Studio Notes\n\nVoxCPM2 requires a CrispASR runtime with the `voxcpm2-tts` backend. LA Studio uses CrispASR v0.8.13 or newer for this model.\n\nVoice design is applied by prepending the voice description to the synthesis text in the upstream VoxCPM2 parenthesized prompt style, for example `(A warm, clear voice)Hello.`. CrispASR's current session API does not expose a separate VoxCPM2 `set_instruct` call; LA Studio encodes the instruction in the text passed to `voxcpm2_synthesize`. Voice cloning uses a reference WAV through CrispASR's unified `crispasr_session_set_voice` API.\n"
           },
           "localDir": "voxcpm2",
           "task": "tts",
@@ -285,7 +285,7 @@
             },
             "readme": {
               "filename": "README.md",
-              "content": "# VoxCPM2\n\nVoxCPM2 is an open-weight multilingual text-to-speech model from OpenBMB. The upstream model card describes it as a tokenizer-free, diffusion-autoregressive 2B parameter TTS model with 48 kHz audio output, natural-language voice design, and reference-audio voice cloning.\n\nLA Studio installs VoxCPM2 through the CrispASR GGUF conversion repository:\n\n- Upstream model: https://huggingface.co/openbmb/VoxCPM2\n- GGUF artifacts: https://huggingface.co/cstr/voxcpm2-GGUF\n- Runtime: https://github.com/CrispStrobe/CrispASR/releases/tag/v0.8.6\n\n## Supported Languages\n\nArabic, Burmese, Chinese, Danish, Dutch, English, Finnish, French, German, Greek, Hebrew, Hindi, Indonesian, Italian, Japanese, Khmer, Korean, Lao, Malay, Norwegian, Polish, Portuguese, Russian, Spanish, Swahili, Swedish, Tagalog, Thai, Turkish, Vietnamese.\n\n## LA Studio Notes\n\nVoxCPM2 requires a CrispASR runtime with the `voxcpm2-tts` backend. LA Studio uses CrispASR v0.8.6 or newer for this model.\n\nVoice design is applied by prepending the voice description to the synthesis text in the upstream VoxCPM2 parenthesized prompt style, for example `(A warm, clear voice)Hello.`. CrispASR's current session API does not expose a separate VoxCPM2 `set_instruct` call; LA Studio encodes the instruction in the text passed to `voxcpm2_synthesize`. Voice cloning uses a reference WAV through CrispASR's unified `crispasr_session_set_voice` API.\n"
+              "content": "# VoxCPM2\n\nVoxCPM2 is an open-weight multilingual text-to-speech model from OpenBMB. The upstream model card describes it as a tokenizer-free, diffusion-autoregressive 2B parameter TTS model with 48 kHz audio output, natural-language voice design, and reference-audio voice cloning.\n\nLA Studio installs VoxCPM2 through the CrispASR GGUF conversion repository:\n\n- Upstream model: https://huggingface.co/openbmb/VoxCPM2\n- GGUF artifacts: https://huggingface.co/cstr/voxcpm2-GGUF\n- Runtime: https://github.com/CrispStrobe/CrispASR/releases/tag/v0.8.13\n\n## Supported Languages\n\nArabic, Burmese, Chinese, Danish, Dutch, English, Finnish, French, German, Greek, Hebrew, Hindi, Indonesian, Italian, Japanese, Khmer, Korean, Lao, Malay, Norwegian, Polish, Portuguese, Russian, Spanish, Swahili, Swedish, Tagalog, Thai, Turkish, Vietnamese.\n\n## LA Studio Notes\n\nVoxCPM2 requires a CrispASR runtime with the `voxcpm2-tts` backend. LA Studio uses CrispASR v0.8.13 or newer for this model.\n\nVoice design is applied by prepending the voice description to the synthesis text in the upstream VoxCPM2 parenthesized prompt style, for example `(A warm, clear voice)Hello.`. CrispASR's current session API does not expose a separate VoxCPM2 `set_instruct` call; LA Studio encodes the instruction in the text passed to `voxcpm2_synthesize`. Voice cloning uses a reference WAV through CrispASR's unified `crispasr_session_set_voice` API.\n"
             },
             "thumbnail": {
               "filename": "thumbnail.webp",
@@ -455,7 +455,7 @@
             },
             "readme": {
               "filename": "README.md",
-              "content": "# VoxCPM2\n\nVoxCPM2 is an open-weight multilingual text-to-speech model from OpenBMB. The upstream model card describes it as a tokenizer-free, diffusion-autoregressive 2B parameter TTS model with 48 kHz audio output, natural-language voice design, and reference-audio voice cloning.\n\nLA Studio installs VoxCPM2 through the CrispASR GGUF conversion repository:\n\n- Upstream model: https://huggingface.co/openbmb/VoxCPM2\n- GGUF artifacts: https://huggingface.co/cstr/voxcpm2-GGUF\n- Runtime: https://github.com/CrispStrobe/CrispASR/releases/tag/v0.8.6\n\n## Supported Languages\n\nArabic, Burmese, Chinese, Danish, Dutch, English, Finnish, French, German, Greek, Hebrew, Hindi, Indonesian, Italian, Japanese, Khmer, Korean, Lao, Malay, Norwegian, Polish, Portuguese, Russian, Spanish, Swahili, Swedish, Tagalog, Thai, Turkish, Vietnamese.\n\n## LA Studio Notes\n\nVoxCPM2 requires a CrispASR runtime with the `voxcpm2-tts` backend. LA Studio uses CrispASR v0.8.6 or newer for this model.\n\nVoice design is applied by prepending the voice description to the synthesis text in the upstream VoxCPM2 parenthesized prompt style, for example `(A warm, clear voice)Hello.`. CrispASR's current session API does not expose a separate VoxCPM2 `set_instruct` call; LA Studio encodes the instruction in the text passed to `voxcpm2_synthesize`. Voice cloning uses a reference WAV through CrispASR's unified `crispasr_session_set_voice` API.\n"
+              "content": "# VoxCPM2\n\nVoxCPM2 is an open-weight multilingual text-to-speech model from OpenBMB. The upstream model card describes it as a tokenizer-free, diffusion-autoregressive 2B parameter TTS model with 48 kHz audio output, natural-language voice design, and reference-audio voice cloning.\n\nLA Studio installs VoxCPM2 through the CrispASR GGUF conversion repository:\n\n- Upstream model: https://huggingface.co/openbmb/VoxCPM2\n- GGUF artifacts: https://huggingface.co/cstr/voxcpm2-GGUF\n- Runtime: https://github.com/CrispStrobe/CrispASR/releases/tag/v0.8.13\n\n## Supported Languages\n\nArabic, Burmese, Chinese, Danish, Dutch, English, Finnish, French, German, Greek, Hebrew, Hindi, Indonesian, Italian, Japanese, Khmer, Korean, Lao, Malay, Norwegian, Polish, Portuguese, Russian, Spanish, Swahili, Swedish, Tagalog, Thai, Turkish, Vietnamese.\n\n## LA Studio Notes\n\nVoxCPM2 requires a CrispASR runtime with the `voxcpm2-tts` backend. LA Studio uses CrispASR v0.8.13 or newer for this model.\n\nVoice design is applied by prepending the voice description to the synthesis text in the upstream VoxCPM2 parenthesized prompt style, for example `(A warm, clear voice)Hello.`. CrispASR's current session API does not expose a separate VoxCPM2 `set_instruct` call; LA Studio encodes the instruction in the text passed to `voxcpm2_synthesize`. Voice cloning uses a reference WAV through CrispASR's unified `crispasr_session_set_voice` API.\n"
             },
             "thumbnail": {
               "filename": "thumbnail.webp",
@@ -465,7 +465,7 @@
           },
           "readme": {
             "filename": "README.md",
-            "content": "# VoxCPM2\n\nVoxCPM2 is an open-weight multilingual text-to-speech model from OpenBMB. The upstream model card describes it as a tokenizer-free, diffusion-autoregressive 2B parameter TTS model with 48 kHz audio output, natural-language voice design, and reference-audio voice cloning.\n\nLA Studio installs VoxCPM2 through the CrispASR GGUF conversion repository:\n\n- Upstream model: https://huggingface.co/openbmb/VoxCPM2\n- GGUF artifacts: https://huggingface.co/cstr/voxcpm2-GGUF\n- Runtime: https://github.com/CrispStrobe/CrispASR/releases/tag/v0.8.6\n\n## Supported Languages\n\nArabic, Burmese, Chinese, Danish, Dutch, English, Finnish, French, German, Greek, Hebrew, Hindi, Indonesian, Italian, Japanese, Khmer, Korean, Lao, Malay, Norwegian, Polish, Portuguese, Russian, Spanish, Swahili, Swedish, Tagalog, Thai, Turkish, Vietnamese.\n\n## LA Studio Notes\n\nVoxCPM2 requires a CrispASR runtime with the `voxcpm2-tts` backend. LA Studio uses CrispASR v0.8.6 or newer for this model.\n\nVoice design is applied by prepending the voice description to the synthesis text in the upstream VoxCPM2 parenthesized prompt style, for example `(A warm, clear voice)Hello.`. CrispASR's current session API does not expose a separate VoxCPM2 `set_instruct` call; LA Studio encodes the instruction in the text passed to `voxcpm2_synthesize`. Voice cloning uses a reference WAV through CrispASR's unified `crispasr_session_set_voice` API.\n"
+            "content": "# VoxCPM2\n\nVoxCPM2 is an open-weight multilingual text-to-speech model from OpenBMB. The upstream model card describes it as a tokenizer-free, diffusion-autoregressive 2B parameter TTS model with 48 kHz audio output, natural-language voice design, and reference-audio voice cloning.\n\nLA Studio installs VoxCPM2 through the CrispASR GGUF conversion repository:\n\n- Upstream model: https://huggingface.co/openbmb/VoxCPM2\n- GGUF artifacts: https://huggingface.co/cstr/voxcpm2-GGUF\n- Runtime: https://github.com/CrispStrobe/CrispASR/releases/tag/v0.8.13\n\n## Supported Languages\n\nArabic, Burmese, Chinese, Danish, Dutch, English, Finnish, French, German, Greek, Hebrew, Hindi, Indonesian, Italian, Japanese, Khmer, Korean, Lao, Malay, Norwegian, Polish, Portuguese, Russian, Spanish, Swahili, Swedish, Tagalog, Thai, Turkish, Vietnamese.\n\n## LA Studio Notes\n\nVoxCPM2 requires a CrispASR runtime with the `voxcpm2-tts` backend. LA Studio uses CrispASR v0.8.13 or newer for this model.\n\nVoice design is applied by prepending the voice description to the synthesis text in the upstream VoxCPM2 parenthesized prompt style, for example `(A warm, clear voice)Hello.`. CrispASR's current session API does not expose a separate VoxCPM2 `set_instruct` call; LA Studio encodes the instruction in the text passed to `voxcpm2_synthesize`. Voice cloning uses a reference WAV through CrispASR's unified `crispasr_session_set_voice` API.\n"
           }
         },
         {
@@ -1088,7 +1088,7 @@
             },
             "readme": {
               "filename": "README.md",
-              "content": "# VoxCPM2\n\nVoxCPM2 is an open-weight multilingual text-to-speech model from OpenBMB. The upstream model card describes it as a tokenizer-free, diffusion-autoregressive 2B parameter TTS model with 48 kHz audio output, natural-language voice design, and reference-audio voice cloning.\n\nLA Studio installs VoxCPM2 through the CrispASR GGUF conversion repository:\n\n- Upstream model: https://huggingface.co/openbmb/VoxCPM2\n- GGUF artifacts: https://huggingface.co/cstr/voxcpm2-GGUF\n- Runtime: https://github.com/CrispStrobe/CrispASR/releases/tag/v0.8.6\n\n## Supported Languages\n\nArabic, Burmese, Chinese, Danish, Dutch, English, Finnish, French, German, Greek, Hebrew, Hindi, Indonesian, Italian, Japanese, Khmer, Korean, Lao, Malay, Norwegian, Polish, Portuguese, Russian, Spanish, Swahili, Swedish, Tagalog, Thai, Turkish, Vietnamese.\n\n## LA Studio Notes\n\nVoxCPM2 requires a CrispASR runtime with the `voxcpm2-tts` backend. LA Studio uses CrispASR v0.8.6 or newer for this model.\n\nVoice design is applied by prepending the voice description to the synthesis text in the upstream VoxCPM2 parenthesized prompt style, for example `(A warm, clear voice)Hello.`. CrispASR's current session API does not expose a separate VoxCPM2 `set_instruct` call; LA Studio encodes the instruction in the text passed to `voxcpm2_synthesize`. Voice cloning uses a reference WAV through CrispASR's unified `crispasr_session_set_voice` API.\n"
+              "content": "# VoxCPM2\n\nVoxCPM2 is an open-weight multilingual text-to-speech model from OpenBMB. The upstream model card describes it as a tokenizer-free, diffusion-autoregressive 2B parameter TTS model with 48 kHz audio output, natural-language voice design, and reference-audio voice cloning.\n\nLA Studio installs VoxCPM2 through the CrispASR GGUF conversion repository:\n\n- Upstream model: https://huggingface.co/openbmb/VoxCPM2\n- GGUF artifacts: https://huggingface.co/cstr/voxcpm2-GGUF\n- Runtime: https://github.com/CrispStrobe/CrispASR/releases/tag/v0.8.13\n\n## Supported Languages\n\nArabic, Burmese, Chinese, Danish, Dutch, English, Finnish, French, German, Greek, Hebrew, Hindi, Indonesian, Italian, Japanese, Khmer, Korean, Lao, Malay, Norwegian, Polish, Portuguese, Russian, Spanish, Swahili, Swedish, Tagalog, Thai, Turkish, Vietnamese.\n\n## LA Studio Notes\n\nVoxCPM2 requires a CrispASR runtime with the `voxcpm2-tts` backend. LA Studio uses CrispASR v0.8.13 or newer for this model.\n\nVoice design is applied by prepending the voice description to the synthesis text in the upstream VoxCPM2 parenthesized prompt style, for example `(A warm, clear voice)Hello.`. CrispASR's current session API does not expose a separate VoxCPM2 `set_instruct` call; LA Studio encodes the instruction in the text passed to `voxcpm2_synthesize`. Voice cloning uses a reference WAV through CrispASR's unified `crispasr_session_set_voice` API.\n"
             },
             "thumbnail": {
               "filename": "thumbnail.webp",
@@ -1098,7 +1098,7 @@
           },
           "readme": {
             "filename": "README.md",
-            "content": "# VoxCPM2\n\nVoxCPM2 is an open-weight multilingual text-to-speech model from OpenBMB. The upstream model card describes it as a tokenizer-free, diffusion-autoregressive 2B parameter TTS model with 48 kHz audio output, natural-language voice design, and reference-audio voice cloning.\n\nLA Studio installs VoxCPM2 through the CrispASR GGUF conversion repository:\n\n- Upstream model: https://huggingface.co/openbmb/VoxCPM2\n- GGUF artifacts: https://huggingface.co/cstr/voxcpm2-GGUF\n- Runtime: https://github.com/CrispStrobe/CrispASR/releases/tag/v0.8.6\n\n## Supported Languages\n\nArabic, Burmese, Chinese, Danish, Dutch, English, Finnish, French, German, Greek, Hebrew, Hindi, Indonesian, Italian, Japanese, Khmer, Korean, Lao, Malay, Norwegian, Polish, Portuguese, Russian, Spanish, Swahili, Swedish, Tagalog, Thai, Turkish, Vietnamese.\n\n## LA Studio Notes\n\nVoxCPM2 requires a CrispASR runtime with the `voxcpm2-tts` backend. LA Studio uses CrispASR v0.8.6 or newer for this model.\n\nVoice design is applied by prepending the voice description to the synthesis text in the upstream VoxCPM2 parenthesized prompt style, for example `(A warm, clear voice)Hello.`. CrispASR's current session API does not expose a separate VoxCPM2 `set_instruct` call; LA Studio encodes the instruction in the text passed to `voxcpm2_synthesize`. Voice cloning uses a reference WAV through CrispASR's unified `crispasr_session_set_voice` API.\n"
+            "content": "# VoxCPM2\n\nVoxCPM2 is an open-weight multilingual text-to-speech model from OpenBMB. The upstream model card describes it as a tokenizer-free, diffusion-autoregressive 2B parameter TTS model with 48 kHz audio output, natural-language voice design, and reference-audio voice cloning.\n\nLA Studio installs VoxCPM2 through the CrispASR GGUF conversion repository:\n\n- Upstream model: https://huggingface.co/openbmb/VoxCPM2\n- GGUF artifacts: https://huggingface.co/cstr/voxcpm2-GGUF\n- Runtime: https://github.com/CrispStrobe/CrispASR/releases/tag/v0.8.13\n\n## Supported Languages\n\nArabic, Burmese, Chinese, Danish, Dutch, English, Finnish, French, German, Greek, Hebrew, Hindi, Indonesian, Italian, Japanese, Khmer, Korean, Lao, Malay, Norwegian, Polish, Portuguese, Russian, Spanish, Swahili, Swedish, Tagalog, Thai, Turkish, Vietnamese.\n\n## LA Studio Notes\n\nVoxCPM2 requires a CrispASR runtime with the `voxcpm2-tts` backend. LA Studio uses CrispASR v0.8.13 or newer for this model.\n\nVoice design is applied by prepending the voice description to the synthesis text in the upstream VoxCPM2 parenthesized prompt style, for example `(A warm, clear voice)Hello.`. CrispASR's current session API does not expose a separate VoxCPM2 `set_instruct` call; LA Studio encodes the instruction in the text passed to `voxcpm2_synthesize`. Voice cloning uses a reference WAV through CrispASR's unified `crispasr_session_set_voice` API.\n"
           }
         },
         {
@@ -1833,7 +1833,7 @@
           "label": "CPU",
           "name": "CPU CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "dependencyDownloads": [
@@ -1852,7 +1852,7 @@
           "label": "CUDA",
           "name": "CUDA CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-cuda.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "dependencyDownloads": [
@@ -1871,7 +1871,7 @@
           "label": "Vulkan",
           "name": "Vulkan CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-vulkan.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "dependencyDownloads": [
@@ -1890,7 +1890,7 @@
           "label": "CPU Legacy",
           "name": "Legacy CPU CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-cpu-legacy.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "dependencyDownloads": [
@@ -3201,7 +3201,7 @@
           "label": "CPU",
           "name": "CPU CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "vibevoice-tts",
@@ -3213,7 +3213,7 @@
           "label": "CUDA",
           "name": "CUDA CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-cuda.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "vibevoice-tts",
@@ -3225,7 +3225,7 @@
           "label": "Vulkan",
           "name": "Vulkan CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-vulkan.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "vibevoice-tts",
@@ -3237,7 +3237,7 @@
           "label": "CPU Legacy",
           "name": "Legacy CPU CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-cpu-legacy.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "vibevoice-tts",
@@ -3868,7 +3868,7 @@
         },
         "readme": {
           "filename": "README.md",
-          "content": "# VibeVoice\n\nVibeVoice Realtime 0.5B is Microsoft's low-latency text-to-speech model. LA Studio installs the CrispASR GGUF build for local synthesis through the shared CrispASR runtime.\n\n## Links\n\n- Upstream model card: https://huggingface.co/microsoft/VibeVoice-Realtime-0.5B\n- CrispASR GGUF artifacts: https://huggingface.co/cstr/vibevoice-realtime-0.5b-GGUF\n- Runtime: https://github.com/CrispStrobe/CrispASR/releases/tag/v0.8.6\n\n## Model Facts\n\n- **Task:** Text-to-Speech\n- **Parameters:** 500M (0.5B)\n- **License:** MIT\n- **Architecture:** VibeVoice Realtime GGUF\n- **CrispASR backend:** `vibevoice-tts`\n\n## LA Studio Notes\n\nLA Studio downloads the recommended Q4_K talker and a required voice prompt GGUF from `cstr/vibevoice-realtime-0.5b-GGUF`:\n\n- Talker: `vibevoice-realtime-0.5b-q4_k.gguf`\n- Default voice: `vibevoice-voice-emma.gguf`\n- Optional voices: `vibevoice-voice-en-Carter_man.gguf`, `vibevoice-voice-en-Emma_woman.gguf`, and other language voice packs\n\nThe realtime 0.5B model uses preset GGUF voice packs. It does not support dynamic WAV reference cloning in CrispASR; use a larger VibeVoice variant when runtime WAV cloning is required.\n"
+          "content": "# VibeVoice\n\nVibeVoice Realtime 0.5B is Microsoft's low-latency text-to-speech model. LA Studio installs the CrispASR GGUF build for local synthesis through the shared CrispASR runtime.\n\n## Links\n\n- Upstream model card: https://huggingface.co/microsoft/VibeVoice-Realtime-0.5B\n- CrispASR GGUF artifacts: https://huggingface.co/cstr/vibevoice-realtime-0.5b-GGUF\n- Runtime: https://github.com/CrispStrobe/CrispASR/releases/tag/v0.8.13\n\n## Model Facts\n\n- **Task:** Text-to-Speech\n- **Parameters:** 500M (0.5B)\n- **License:** MIT\n- **Architecture:** VibeVoice Realtime GGUF\n- **CrispASR backend:** `vibevoice-tts`\n\n## LA Studio Notes\n\nLA Studio downloads the recommended Q4_K talker and a required voice prompt GGUF from `cstr/vibevoice-realtime-0.5b-GGUF`:\n\n- Talker: `vibevoice-realtime-0.5b-q4_k.gguf`\n- Default voice: `vibevoice-voice-emma.gguf`\n- Optional voices: `vibevoice-voice-en-Carter_man.gguf`, `vibevoice-voice-en-Emma_woman.gguf`, and other language voice packs\n\nThe realtime 0.5B model uses preset GGUF voice packs. It does not support dynamic WAV reference cloning in CrispASR; use a larger VibeVoice variant when runtime WAV cloning is required.\n"
         },
         "thumbnail": {
           "filename": "thumbnail.webp",
@@ -4032,7 +4032,7 @@
       ],
       "weaknesses": [
         "Large 2B model footprint",
-        "VoxCPM2 support requires CrispASR v0.8.6 or newer",
+        "VoxCPM2 support requires CrispASR v0.8.13 or newer",
         "CrispASR does not expose a separate VoxCPM2 instruct API; voice design is encoded in the synthesis text"
       ],
       "parameterDefinitions": {
@@ -4058,7 +4058,7 @@
           "label": "CPU",
           "name": "CPU CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "voxcpm2-tts",
@@ -4070,7 +4070,7 @@
           "label": "CUDA",
           "name": "CUDA CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-cuda.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "voxcpm2-tts",
@@ -4082,7 +4082,7 @@
           "label": "Vulkan",
           "name": "Vulkan CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-vulkan.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "voxcpm2-tts",
@@ -4094,7 +4094,7 @@
           "label": "CPU Legacy",
           "name": "Legacy CPU CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-cpu-legacy.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "voxcpm2-tts",
@@ -4303,7 +4303,7 @@
         },
         "readme": {
           "filename": "README.md",
-          "content": "# VoxCPM2\n\nVoxCPM2 is an open-weight multilingual text-to-speech model from OpenBMB. The upstream model card describes it as a tokenizer-free, diffusion-autoregressive 2B parameter TTS model with 48 kHz audio output, natural-language voice design, and reference-audio voice cloning.\n\nLA Studio installs VoxCPM2 through the CrispASR GGUF conversion repository:\n\n- Upstream model: https://huggingface.co/openbmb/VoxCPM2\n- GGUF artifacts: https://huggingface.co/cstr/voxcpm2-GGUF\n- Runtime: https://github.com/CrispStrobe/CrispASR/releases/tag/v0.8.6\n\n## Supported Languages\n\nArabic, Burmese, Chinese, Danish, Dutch, English, Finnish, French, German, Greek, Hebrew, Hindi, Indonesian, Italian, Japanese, Khmer, Korean, Lao, Malay, Norwegian, Polish, Portuguese, Russian, Spanish, Swahili, Swedish, Tagalog, Thai, Turkish, Vietnamese.\n\n## LA Studio Notes\n\nVoxCPM2 requires a CrispASR runtime with the `voxcpm2-tts` backend. LA Studio uses CrispASR v0.8.6 or newer for this model.\n\nVoice design is applied by prepending the voice description to the synthesis text in the upstream VoxCPM2 parenthesized prompt style, for example `(A warm, clear voice)Hello.`. CrispASR's current session API does not expose a separate VoxCPM2 `set_instruct` call; LA Studio encodes the instruction in the text passed to `voxcpm2_synthesize`. Voice cloning uses a reference WAV through CrispASR's unified `crispasr_session_set_voice` API.\n"
+          "content": "# VoxCPM2\n\nVoxCPM2 is an open-weight multilingual text-to-speech model from OpenBMB. The upstream model card describes it as a tokenizer-free, diffusion-autoregressive 2B parameter TTS model with 48 kHz audio output, natural-language voice design, and reference-audio voice cloning.\n\nLA Studio installs VoxCPM2 through the CrispASR GGUF conversion repository:\n\n- Upstream model: https://huggingface.co/openbmb/VoxCPM2\n- GGUF artifacts: https://huggingface.co/cstr/voxcpm2-GGUF\n- Runtime: https://github.com/CrispStrobe/CrispASR/releases/tag/v0.8.13\n\n## Supported Languages\n\nArabic, Burmese, Chinese, Danish, Dutch, English, Finnish, French, German, Greek, Hebrew, Hindi, Indonesian, Italian, Japanese, Khmer, Korean, Lao, Malay, Norwegian, Polish, Portuguese, Russian, Spanish, Swahili, Swedish, Tagalog, Thai, Turkish, Vietnamese.\n\n## LA Studio Notes\n\nVoxCPM2 requires a CrispASR runtime with the `voxcpm2-tts` backend. LA Studio uses CrispASR v0.8.13 or newer for this model.\n\nVoice design is applied by prepending the voice description to the synthesis text in the upstream VoxCPM2 parenthesized prompt style, for example `(A warm, clear voice)Hello.`. CrispASR's current session API does not expose a separate VoxCPM2 `set_instruct` call; LA Studio encodes the instruction in the text passed to `voxcpm2_synthesize`. Voice cloning uses a reference WAV through CrispASR's unified `crispasr_session_set_voice` API.\n"
         },
         "thumbnail": {
           "filename": "thumbnail.webp",
@@ -5691,7 +5691,7 @@
           "label": "CPU",
           "name": "CPU CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "qwen3-tts"
@@ -5702,7 +5702,7 @@
           "label": "CUDA",
           "name": "CUDA CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-cuda.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "qwen3-tts"
@@ -5713,7 +5713,7 @@
           "label": "Vulkan",
           "name": "Vulkan CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-vulkan.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "qwen3-tts"
@@ -6028,7 +6028,7 @@
           "label": "CPU",
           "name": "CPU CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "qwen3-tts"
@@ -6039,7 +6039,7 @@
           "label": "CUDA",
           "name": "CUDA CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-cuda.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "qwen3-tts"
@@ -6050,7 +6050,7 @@
           "label": "Vulkan",
           "name": "Vulkan CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-vulkan.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "qwen3-tts"
@@ -6402,7 +6402,7 @@
           "label": "CPU",
           "name": "CPU CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "qwen3-tts"
@@ -6413,7 +6413,7 @@
           "label": "CUDA",
           "name": "CUDA CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-cuda.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "qwen3-tts"
@@ -6424,7 +6424,7 @@
           "label": "Vulkan",
           "name": "Vulkan CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-vulkan.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "qwen3-tts"
@@ -6733,7 +6733,7 @@
           "label": "CPU",
           "name": "CPU CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "qwen3-tts"
@@ -6744,7 +6744,7 @@
           "label": "CUDA",
           "name": "CUDA CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-cuda.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "qwen3-tts"
@@ -6755,7 +6755,7 @@
           "label": "Vulkan",
           "name": "Vulkan CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-vulkan.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "qwen3-tts"
@@ -6999,7 +6999,7 @@
           "name": "CPU CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64.tar.gz",
           "library": "bin/crispasr.dll",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "backend": "m2m100",
           "type": "stt"
@@ -7011,7 +7011,7 @@
           "name": "CUDA 12 CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-cuda.tar.gz",
           "library": "bin/crispasr.dll",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "backend": "m2m100",
           "type": "stt"
@@ -7169,7 +7169,7 @@
           "name": "CPU CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64.tar.gz",
           "library": "bin/crispasr.dll",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "backend": "madlad",
           "type": "stt"
@@ -7181,7 +7181,7 @@
           "name": "CUDA 12 CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-cuda.tar.gz",
           "library": "bin/crispasr.dll",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "backend": "madlad",
           "type": "stt"
@@ -7327,7 +7327,7 @@
           "label": "CPU",
           "name": "CPU CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "wav2vec2",
@@ -7962,7 +7962,7 @@
           "label": "CPU",
           "name": "CPU CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "canary-ctc",
@@ -8149,7 +8149,7 @@
       "shortName": "N35",
       "title": "Nemotron-3.5 ASR Streaming 0.6B",
       "subtitle": "Cache-aware multilingual streaming ASR",
-      "description": "NVIDIA's 0.6B FastConformer RNN-T ASR model, run locally through CrispASR v0.8.6 or later.",
+      "description": "NVIDIA's 0.6B FastConformer RNN-T ASR model, run locally through CrispASR v0.8.13 or later.",
       "accent": "#76b900",
       "capabilities": [
         "stt"
@@ -8183,7 +8183,7 @@
           "label": "CPU",
           "name": "CPU CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "nemotron"
@@ -8194,7 +8194,7 @@
           "label": "CUDA",
           "name": "CUDA CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-cuda.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "nemotron"
@@ -8205,7 +8205,7 @@
           "label": "Vulkan",
           "name": "Vulkan CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-vulkan.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "nemotron"
@@ -8362,7 +8362,7 @@
         },
         "readme": {
           "filename": "README.md",
-          "content": "# Nemotron-3.5 ASR Streaming 0.6B\n\nNemotron-3.5 ASR Streaming 0.6B is NVIDIA's multilingual, cache-aware streaming automatic-speech-recognition model. It uses a FastConformer encoder and RNN-T decoder.\n\n## Links\n\n- Upstream model card: https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b\n- CrispASR backend: https://github.com/CrispStrobe/CrispASR/releases/tag/v0.8.6\n\n## Model Facts\n\n- **Task:** Speech-to-Text\n- **Parameters:** 0.6B\n- **License:** OpenMDW-1.1\n- **Languages:** 35 languages, including Vietnamese\n- **Architecture:** Cache-aware FastConformer RNN-T\n\n## LA Studio Notes\n\nLA Studio runs this model locally with the `nemotron` backend in CrispASR v0.8.6 or later. The app downloads GGUF artifacts from `cstr/nemotron-3.5-asr-streaming-0.6b-GGUF`:\n\n- `nemotron-3.5-asr-streaming-0.6b-q4_k.gguf` (recommended, 479 MB)\n- `nemotron-3.5-asr-streaming-0.6b-f16.gguf` (1.3 GB)\n\nThe model is streaming-native. LA Studio's current STT workflow transcribes selected or recorded audio as a completed job; live incremental transcript delivery requires a future CrispASR session-stream API for Nemotron.\n"
+          "content": "# Nemotron-3.5 ASR Streaming 0.6B\n\nNemotron-3.5 ASR Streaming 0.6B is NVIDIA's multilingual, cache-aware streaming automatic-speech-recognition model. It uses a FastConformer encoder and RNN-T decoder.\n\n## Links\n\n- Upstream model card: https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b\n- CrispASR backend: https://github.com/CrispStrobe/CrispASR/releases/tag/v0.8.13\n\n## Model Facts\n\n- **Task:** Speech-to-Text\n- **Parameters:** 0.6B\n- **License:** OpenMDW-1.1\n- **Languages:** 35 languages, including Vietnamese\n- **Architecture:** Cache-aware FastConformer RNN-T\n\n## LA Studio Notes\n\nLA Studio runs this model locally with the `nemotron` backend in CrispASR v0.8.13 or later. The app downloads GGUF artifacts from `cstr/nemotron-3.5-asr-streaming-0.6b-GGUF`:\n\n- `nemotron-3.5-asr-streaming-0.6b-q4_k.gguf` (recommended, 479 MB)\n- `nemotron-3.5-asr-streaming-0.6b-f16.gguf` (1.3 GB)\n\nThe model is streaming-native. LA Studio's current STT workflow transcribes selected or recorded audio as a completed job; live incremental transcript delivery requires a future CrispASR session-stream API for Nemotron.\n"
         },
         "thumbnail": {
           "filename": "thumbnail.webp",
@@ -10154,7 +10154,7 @@
           "label": "CPU",
           "name": "CPU CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "qwen3"
@@ -10165,7 +10165,7 @@
           "label": "CUDA",
           "name": "CUDA CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-cuda.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "qwen3"
@@ -10176,7 +10176,7 @@
           "label": "Vulkan",
           "name": "Vulkan CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-vulkan.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "qwen3"
@@ -10475,7 +10475,7 @@
           "label": "CPU",
           "name": "CPU CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "qwen3"
@@ -10486,7 +10486,7 @@
           "label": "CUDA",
           "name": "CUDA CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-cuda.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "qwen3"
@@ -10497,7 +10497,7 @@
           "label": "Vulkan",
           "name": "Vulkan CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64-vulkan.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "qwen3"
@@ -10750,7 +10750,7 @@
           "label": "CPU",
           "name": "CPU CrispASR (x64)",
           "asset": "libcrispasr-windows-x86_64.tar.gz",
-          "version": "v0.8.6",
+          "version": "v0.8.13",
           "source": "https://github.com/CrispStrobe/CrispASR/releases/download/",
           "library": "bin/crispasr.dll",
           "backend": "qwen3-forced-aligner",

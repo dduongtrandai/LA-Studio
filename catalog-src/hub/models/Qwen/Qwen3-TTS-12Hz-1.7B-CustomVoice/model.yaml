@@ -132,7 +132,7 @@ laStudio:
       label: CPU
       name: CPU CrispASR (x64)
       asset: libcrispasr-windows-x86_64.tar.gz
-      version: v0.8.6
+      version: v0.8.13
       source: https://github.com/CrispStrobe/CrispASR/releases/download/
       library: bin/crispasr.dll
       backend: qwen3-tts
@@ -141,7 +141,7 @@ laStudio:
       label: CUDA
       name: CUDA CrispASR (x64)
       asset: libcrispasr-windows-x86_64-cuda.tar.gz
-      version: v0.8.6
+      version: v0.8.13
       source: https://github.com/CrispStrobe/CrispASR/releases/download/
       library: bin/crispasr.dll
       backend: qwen3-tts
@@ -150,7 +150,7 @@ laStudio:
       label: Vulkan
       name: Vulkan CrispASR (x64)
       asset: libcrispasr-windows-x86_64-vulkan.tar.gz
-      version: v0.8.6
+      version: v0.8.13
       source: https://github.com/CrispStrobe/CrispASR/releases/download/
       library: bin/crispasr.dll
       backend: qwen3-tts

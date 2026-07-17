@@ -6,7 +6,7 @@ VibeVoice Realtime 0.5B is Microsoft's low-latency text-to-speech model. LA Stud
 
 - Upstream model card: https://huggingface.co/microsoft/VibeVoice-Realtime-0.5B
 - CrispASR GGUF artifacts: https://huggingface.co/cstr/vibevoice-realtime-0.5b-GGUF
-- Runtime: https://github.com/CrispStrobe/CrispASR/releases/tag/v0.8.6
+- Runtime: https://github.com/CrispStrobe/CrispASR/releases/tag/v0.8.13
 
 ## Model Facts
 
