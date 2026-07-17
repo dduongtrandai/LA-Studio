@@ -68,7 +68,7 @@ Rectangle {
             title: qsTr("Dubbing"),
             group: qsTr("Localization"),
             description: qsTr("Create timestamped translated speech tracks from local audio or video."),
-            iconName: "waves",
+            iconName: "dubbing",
             routeId: "studio-dubbing",
             accent: "#64d8cb"
         }

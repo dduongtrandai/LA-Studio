@@ -1,5 +1,7 @@
 #include "tts/TtsEngine.h"
 
+#include <QTimer>
+
 namespace LAStudio {
 
 static TtsEngine::State s_mockState = TtsEngine::Unloaded;
@@ -191,6 +193,7 @@ void TtsEngine::clearLastSamples()
     s_mockLastPcm.clear();
     s_mockLastSamplePreview.clear();
     s_mockLastSampleCount = 0;
+    emit outputChanged();
 }
 
 void TtsEngine::synthesize(const QString &text, int speakerId, float speed, const QVariantMap &settings)
@@ -199,6 +202,26 @@ void TtsEngine::synthesize(const QString &text, int speakerId, float speed, cons
     Q_UNUSED(speakerId);
     Q_UNUSED(speed);
     Q_UNUSED(settings);
+    s_mockLastSamples.clear();
+    s_mockLastPcm.clear();
+    s_mockLastSamplePreview.clear();
+    s_mockLastSampleCount = 0;
+    s_mockState = Processing;
+    emit outputChanged();
+    emit stateChanged();
+    emit processingChanged();
+
+    QTimer::singleShot(0, this, [this]() {
+        s_mockLastSamples = QVector<float>(160, 0.1f);
+        s_mockLastSampleCount = s_mockLastSamples.size();
+        s_mockLastSamplePreview = {0.1f};
+        s_mockLastPcm.resize(s_mockLastSamples.size() * 2);
+        emit outputChanged();
+        emit synthesisFinished(s_mockLastPcm, s_mockSampleRate);
+        s_mockState = Ready;
+        emit stateChanged();
+        emit processingChanged();
+    });
 }
 
 void TtsEngine::cloneVoice(const QString &text, const QString &referencePath, const QVariantMap &settings)

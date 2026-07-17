@@ -500,6 +500,7 @@ void TtsEngineInstance::unloadVoiceSync()
     m_lastSamples.clear();
     m_lastSamplePreview.clear();
     m_lastPcm.clear();
+    emit outputChanged();
     m_memoryBaselineArmed = false;
     m_memoryBaselineRamGb = 0.0;
     m_memoryBaselineVramGb = 0.0;
@@ -517,7 +518,7 @@ void TtsEngineInstance::clearLastSamples()
     m_lastSamples.clear();
     m_lastSamplePreview.clear();
     m_lastPcm.clear();
-    emit synthesisFinished(QByteArray(), m_sampleRate);
+    emit outputChanged();
 }
 
 void TtsEngineInstance::synthesize(const QString &text, int speakerId, float speed, const QVariantMap &settings)
@@ -750,6 +751,7 @@ void TtsEngineInstance::dispatch(const EngineEvent &event)
             m_lastSamples.clear();
             m_lastSamplePreview.clear();
             m_lastPcm.clear();
+            emit outputChanged();
             m_memoryBaselineArmed = false;
             m_memoryBaselineRamGb = 0.0;
             m_memoryBaselineVramGb = 0.0;
@@ -766,7 +768,7 @@ void TtsEngineInstance::dispatch(const EngineEvent &event)
             m_lastSamples.clear();
             m_lastSamplePreview.clear();
             m_lastPcm.clear();
-            emit synthesisFinished(QByteArray(), m_sampleRate);
+            emit outputChanged();
             resetGenerationProgress();
             applyState(StateProcessing{});
             QMetaObject::invokeMethod(m_worker, "synthesize", Qt::QueuedConnection,
@@ -778,7 +780,7 @@ void TtsEngineInstance::dispatch(const EngineEvent &event)
             m_lastSamples.clear();
             m_lastSamplePreview.clear();
             m_lastPcm.clear();
-            emit synthesisFinished(QByteArray(), m_sampleRate);
+            emit outputChanged();
             resetGenerationProgress();
             applyState(StateProcessing{});
             QMetaObject::invokeMethod(m_worker, "cloneVoice", Qt::QueuedConnection,
@@ -834,6 +836,7 @@ void TtsEngineInstance::dispatch(const EngineEvent &event)
             }
 
             emit sampleRateChanged();
+            emit outputChanged();
             emit synthesisFinished(m_lastPcm, e.sampleRate);
 
             applyState(StateReady{});

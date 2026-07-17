@@ -22,10 +22,10 @@ class TtsEngine : public QObject {
     Q_PROPERTY(bool modelLoaded READ isModelLoaded NOTIFY modelLoadedChanged)
     Q_PROPERTY(bool processing READ isProcessing NOTIFY processingChanged)
     Q_PROPERTY(int sampleRate READ sampleRate NOTIFY sampleRateChanged)
-    Q_PROPERTY(QByteArray lastPcm READ lastPcm NOTIFY synthesisFinished)
-    Q_PROPERTY(QVector<float> lastSamples READ lastSamples NOTIFY synthesisFinished)
-    Q_PROPERTY(QVariantList lastSamplePreview READ lastSamplePreview NOTIFY synthesisFinished)
-    Q_PROPERTY(int lastSampleCount READ lastSampleCount NOTIFY synthesisFinished)
+    Q_PROPERTY(QByteArray lastPcm READ lastPcm NOTIFY outputChanged)
+    Q_PROPERTY(QVector<float> lastSamples READ lastSamples NOTIFY outputChanged)
+    Q_PROPERTY(QVariantList lastSamplePreview READ lastSamplePreview NOTIFY outputChanged)
+    Q_PROPERTY(int lastSampleCount READ lastSampleCount NOTIFY outputChanged)
     Q_PROPERTY(QVariantList currentSchema READ currentSchema NOTIFY schemaChanged)
     Q_PROPERTY(QVariantMap familyConfig READ familyConfig WRITE setFamilyConfig NOTIFY familyConfigChanged)
     Q_PROPERTY(qint64 estimatedRamBytes READ estimatedRamBytes NOTIFY memoryUsageChanged)
@@ -34,7 +34,7 @@ class TtsEngine : public QObject {
     Q_PROPERTY(QString estimatedVramUsage READ estimatedVramUsage NOTIFY memoryUsageChanged)
     Q_PROPERTY(double cpuUsage READ cpuUsage NOTIFY cpuUsageChanged)
     Q_PROPERTY(State state READ state NOTIFY stateChanged)
-    Q_PROPERTY(bool isCloneAction READ isCloneAction NOTIFY synthesisFinished)
+    Q_PROPERTY(bool isCloneAction READ isCloneAction NOTIFY outputChanged)
     Q_PROPERTY(QString lastGenerationMode READ lastGenerationMode NOTIFY lastGenerationModeChanged)
     Q_PROPERTY(int generationProgress READ generationProgress NOTIFY generationProgressChanged)
     Q_PROPERTY(bool generationProgressEstimated READ generationProgressEstimated NOTIFY generationProgressChanged)
@@ -108,6 +108,7 @@ signals:
     void modelLoadedChanged();
     void processingChanged();
     void sampleRateChanged();
+    void outputChanged();
     void synthesisFinished(const QByteArray &pcm16, int sampleRate);
     void errorOccurred(const QString &error);
     void schemaChanged();

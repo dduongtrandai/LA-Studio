@@ -427,6 +427,28 @@ Canvas {
             line(ctx, cx, cy - 8 * u, cx, cy + 8 * u)
             line(ctx, cx + 4 * u, cy - 5 * u, cx + 4 * u, cy + 5 * u)
             line(ctx, cx + 8 * u, cy - 1 * u, cx + 8 * u, cy + 1 * u)
+        } else if (name === "dubbing") {
+            // Dialogue bubble + compact waveform: localized speech synced to media.
+            ctx.beginPath()
+            ctx.moveTo(cx - 9 * u, cy - 8 * u)
+            ctx.lineTo(cx + 9 * u, cy - 8 * u)
+            ctx.lineTo(cx + 9 * u, cy + 5 * u)
+            ctx.lineTo(cx + 2 * u, cy + 5 * u)
+            ctx.lineTo(cx - 3 * u, cy + 9 * u)
+            ctx.lineTo(cx - 3 * u, cy + 5 * u)
+            ctx.lineTo(cx - 9 * u, cy + 5 * u)
+            ctx.closePath()
+            ctx.stroke()
+
+            ctx.beginPath()
+            ctx.moveTo(cx - 6 * u, cy - 1 * u)
+            ctx.lineTo(cx - 4 * u, cy - 1 * u)
+            ctx.lineTo(cx - 2 * u, cy - 5 * u)
+            ctx.lineTo(cx + 1 * u, cy + 2 * u)
+            ctx.lineTo(cx + 3 * u, cy - 4 * u)
+            ctx.lineTo(cx + 5 * u, cy - 1 * u)
+            ctx.lineTo(cx + 6 * u, cy - 1 * u)
+            ctx.stroke()
         } else if (name === "voice-isolator") {
             // Original LA Studio wave-split mark: a compact waveform enters
             // a center gate and exits as two open, separated channels.

@@ -108,7 +108,6 @@ void TimedSpeechPipeline::startCue(int index)
 
     updateCue(index, {{QStringLiteral("state"), QStringLiteral("generating")} });
     emit progressChanged(qRound(70.0 * index / qMax(1, m_cues.size())));
-    m_awaitingSynthesis = true;
     m_tts->synthesize(m_cues.at(index).text, 0, 1.0f, m_ttsSettings);
 }
 
@@ -122,11 +121,6 @@ void TimedSpeechPipeline::onTtsFinished(const QByteArray &, int sampleRate)
         return;
     }
     const QVector<float> samples = m_tts->lastSamples();
-    // TtsEngine emits an empty synthesisFinished signal synchronously when a
-    // request starts, clearing the previous output buffer. It is not a failed
-    // synthesis result and must not advance the subtitle queue.
-    if (m_awaitingSynthesis && samples.isEmpty()) return;
-    m_awaitingSynthesis = false;
     const QString path = QDir(m_jobDirectory->path()).filePath(
         QStringLiteral("natural-%1.wav").arg(m_currentCue));
     if (samples.isEmpty() || sampleRate <= 0
@@ -157,7 +151,6 @@ void TimedSpeechPipeline::onTtsFinished(const QByteArray &, int sampleRate)
 void TimedSpeechPipeline::onTtsError(const QString &message)
 {
     if (!m_processing || m_currentCue < 0 || m_currentCue >= m_cues.size()) return;
-    m_awaitingSynthesis = false;
     updateCue(m_currentCue, {{QStringLiteral("state"), QStringLiteral("failed_silence")},
                              {QStringLiteral("error"), message} });
     m_naturalDurationsMs[m_currentCue] = 0;

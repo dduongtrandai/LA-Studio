@@ -74,6 +74,7 @@ void TtsEngineInstance::unloadVoiceSync()
 
 void TtsEngineInstance::clearLastSamples()
 {
+    emit outputChanged();
 }
 
 void TtsEngineInstance::synthesize(const QString &text, int speakerId, float speed, const QVariantMap &settings)
@@ -82,7 +83,7 @@ void TtsEngineInstance::synthesize(const QString &text, int speakerId, float spe
     Q_UNUSED(speakerId);
     Q_UNUSED(speed);
     Q_UNUSED(settings);
-    emit synthesisFinished(QByteArray(), 24000);
+    emit outputChanged();
 }
 
 void TtsEngineInstance::cloneVoice(const QString &text, const QString &referencePath, const QVariantMap &settings)

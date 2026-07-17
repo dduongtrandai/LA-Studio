@@ -40,6 +40,24 @@ DubbingJobRunner::DubbingJobRunner(SttSessionController *sttSession, TtsEngine *
 }
 
 namespace {
+QVariantList buildWaveformPreview(const QVector<float> &samples, int maximumPoints = 360)
+{
+    QVariantList preview;
+    if (samples.isEmpty() || maximumPoints <= 0) return preview;
+
+    const int pointCount = qMin(samples.size(), maximumPoints);
+    preview.reserve(pointCount);
+    for (int point = 0; point < pointCount; ++point) {
+        const int begin = point * samples.size() / pointCount;
+        const int end = qMax(begin + 1, (point + 1) * samples.size() / pointCount);
+        float peak = 0.0f;
+        for (int sample = begin; sample < end; ++sample)
+            peak = qMax(peak, qAbs(samples.at(sample)));
+        preview.append(peak);
+    }
+    return preview;
+}
+
 QString synthesisFingerprint(const QVariantMap &segment, const QString &ttsSignature)
 {
     const QVariantMap effective{{QStringLiteral("targetText"), segment.value(QStringLiteral("targetText"))},
@@ -715,6 +733,7 @@ void DubbingJobRunner::onSynthesisFinished(const QByteArray &pcm16, int sampleRa
     updated.insert(QStringLiteral("cacheFingerprint"), synthesisFingerprint(segment, m_tts->activeSignature()));
     updated.insert(QStringLiteral("sampleRate"), sampleRate);
     updated.insert(QStringLiteral("sampleCount"), fittedSamples.size());
+    updated.insert(QStringLiteral("waveformSamples"), buildWaveformPreview(fittedSamples));
     updated.insert(QStringLiteral("sourceDurationMs"), sourceDurationMs);
     updated.insert(QStringLiteral("durationMs"), qRound64(fittedSamples.size() * 1000.0 / sampleRate));
     updated.insert(QStringLiteral("fitFactor"), fitFactor);
@@ -736,7 +755,12 @@ void DubbingJobRunner::onSynthesisFinished(const QByteArray &pcm16, int sampleRa
     m_generationIndex = next;
     m_activeNodeRunId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     setProcessing(true, QStringLiteral("tts"), qRound((100.0 * next) / m_activeSegments.size()));
-    m_tts->synthesize(m_activeSegments.at(next).toMap().value(QStringLiteral("targetText")).toString());
+    // TtsEngineInstance emits synthesisFinished before returning to Ready.
+    // Queue the next request so the Processing state does not discard it.
+    QMetaObject::invokeMethod(this, [this, next]() {
+        if (!m_processing || m_stage != QStringLiteral("tts") || m_generationIndex != next || !m_tts) return;
+        m_tts->synthesize(m_activeSegments.at(next).toMap().value(QStringLiteral("targetText")).toString());
+    }, Qt::QueuedConnection);
 }
 
 void DubbingJobRunner::onTtsError(const QString &message)

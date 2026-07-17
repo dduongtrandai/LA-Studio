@@ -375,6 +375,7 @@ void TtsEngine::connectInstance(TtsEngineInstance *inst)
     forwardIfActive(&TtsEngineInstance::modelLoadedChanged, &TtsEngine::modelLoadedChanged);
     forwardIfActive(&TtsEngineInstance::processingChanged, &TtsEngine::processingChanged);
     forwardIfActive(&TtsEngineInstance::sampleRateChanged, &TtsEngine::sampleRateChanged);
+    forwardIfActive(&TtsEngineInstance::outputChanged, &TtsEngine::outputChanged);
     forwardIfActive(&TtsEngineInstance::schemaChanged, &TtsEngine::schemaChanged);
     forwardIfActive(&TtsEngineInstance::familyConfigChanged, &TtsEngine::familyConfigChanged);
     forwardIfActive(&TtsEngineInstance::memoryUsageChanged, &TtsEngine::memoryUsageChanged);
@@ -395,6 +396,7 @@ void TtsEngine::emitActiveForwardSignals()
     emit modelLoadedChanged();
     emit processingChanged();
     emit sampleRateChanged();
+    emit outputChanged();
     emit schemaChanged();
     emit familyConfigChanged();
     emit memoryUsageChanged();

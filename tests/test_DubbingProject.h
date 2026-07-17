@@ -16,6 +16,7 @@ private slots:
     void rejectsRerunningUnsupportedStep();
     void transcriptionRequiresReadyModel();
     void alignmentRefinementFallsBackWithoutDependencies();
+    void audioGenerationWaitsForCompletedSynthesis();
     void sourceTextEditInvalidatesWordTiming();
     void segmentNormalizerSplitsLongAsrTranscript();
     void segmentNormalizerUsesAlignedWordBoundaries();

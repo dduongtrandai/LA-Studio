@@ -7,6 +7,7 @@
 #include "controllers/DubbingSegmentNormalizer.h"
 #include "controllers/AppController.h"
 #include "stt/SttEngine.h"
+#include "tts/TtsEngine.h"
 
 #include <QFile>
 #include <QFileInfo>
@@ -149,6 +150,44 @@ void TestDubbingProject::alignmentRefinementFallsBackWithoutDependencies()
     QCOMPARE(fallback.value(QStringLiteral("timingSource")).toString(), QStringLiteral("asr"));
     QCOMPARE(fallback.value(QStringLiteral("alignmentStatus")).toString(), QStringLiteral("skipped"));
     QVERIFY(!result.attempted);
+}
+
+void TestDubbingProject::audioGenerationWaitsForCompletedSynthesis()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    TtsEngine tts;
+    tts.loadModel(QStringLiteral("mock-model.onnx"));
+    DubbingJobRunner runner(nullptr, &tts);
+    QSignalSpy completedSpy(&runner, &DubbingJobRunner::stageCompleted);
+    QSignalSpy errorSpy(&runner, &DubbingJobRunner::errorOccurred);
+
+    const QVariantList segments{
+        QVariantMap{{QStringLiteral("id"), QStringLiteral("s1")},
+                    {QStringLiteral("startMs"), 0},
+                    {QStringLiteral("endMs"), 1000},
+                    {QStringLiteral("targetText"), QStringLiteral("Xin chào")}},
+        QVariantMap{{QStringLiteral("id"), QStringLiteral("s2")},
+                    {QStringLiteral("startMs"), 1000},
+                    {QStringLiteral("endMs"), 2000},
+                    {QStringLiteral("targetText"), QStringLiteral("Thế giới")}}
+    };
+    runner.startAudioGeneration(segments, dir.filePath(QStringLiteral("project.ladub.json")));
+
+    QTRY_COMPARE_WITH_TIMEOUT(completedSpy.size(), 1, 3000);
+    QCOMPARE(errorSpy.size(), 0);
+    QVERIFY(!runner.processing());
+
+    const QVariantMap outputs = completedSpy.constFirst().at(1).toMap();
+    const QVariantList timeline = outputs.value(QStringLiteral("timeline")).toList();
+    QCOMPARE(timeline.size(), 2);
+    for (const QVariant &entry : timeline) {
+        const QVariantMap segment = entry.toMap();
+        QVERIFY(!segment.value(QStringLiteral("clipPath")).toString().isEmpty());
+        QVERIFY(QFileInfo::exists(segment.value(QStringLiteral("clipPath")).toString()));
+        QVERIFY(!segment.value(QStringLiteral("waveformSamples")).toList().isEmpty());
+    }
 }
 
 void TestDubbingProject::sourceTextEditInvalidatesWordTiming()

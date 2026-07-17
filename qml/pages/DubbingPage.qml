@@ -4,6 +4,7 @@ import QtQuick.Dialogs
 import QtQuick.Layouts
 import QtMultimedia
 import "../components/base"
+import "../components/alignment"
 import "../components/shared"
 import LAStudio
 
@@ -17,6 +18,7 @@ Item {
     property string reviewStepId: "import"
     property string observedCompletedStep: ""
     property string playingSeparationStem: ""
+    property string playingVoiceClipPath: ""
     readonly property var languageCatalog: AppController.catalog.languageSet("default")
 
     Connections {
@@ -33,7 +35,12 @@ Item {
 
     Connections {
         target: AppController.player
-        function onPlayingChanged() { if (!AppController.player.playing) root.playingSeparationStem = "" }
+        function onPlayingChanged() {
+            if (!AppController.player.playing) {
+                root.playingSeparationStem = ""
+                root.playingVoiceClipPath = ""
+            }
+        }
     }
 
     MediaPlayer {
@@ -125,6 +132,20 @@ Item {
         return stepId !== "import" && stepId !== "completed" && root.stepComplete(stepId)
     }
 
+    function generatedClipCount() {
+        var count = 0
+        for (var i = 0; i < dubbing.segments.length; ++i)
+            if ((dubbing.segments[i].clipPath || "") !== "") ++count
+        return count
+    }
+
+    function segmentStateColor(segment) {
+        if (!segment || !(segment.clipPath || "")) return Theme.textSecondary
+        if (segment.state === "failed" || segment.state === "error") return Theme.danger
+        if (segment.timingConflict || segment.state === "conflict") return Theme.warning
+        return Theme.success
+    }
+
     component Field: TextField {
         color: Theme.textPrimary
         placeholderTextColor: Theme.textSecondary
@@ -190,7 +211,7 @@ Item {
                 spacing: Theme.paddingMedium
                 RowLayout {
                     Layout.preferredWidth: 205; spacing: Theme.paddingSmall
-                    LineIcon { name: "waves"; color: Theme.accentLight; Layout.preferredWidth: 21; Layout.preferredHeight: 21 }
+                    LineIcon { name: "dubbing"; color: Theme.accentLight; Layout.preferredWidth: 21; Layout.preferredHeight: 21 }
                     ColumnLayout { spacing: 0
                         Text { text: qsTr("Dubbing Studio"); color: Theme.textPrimary; font.pixelSize: Theme.fontLarge; font.bold: true }
                         Text { text: dubbing.hasProject ? qsTr("Project workspace") : qsTr("New project"); color: Theme.textSecondary; font.pixelSize: 10 }
@@ -489,9 +510,8 @@ Item {
                             }
                         }
                         RowLayout { Layout.fillWidth: true; spacing: Theme.paddingSmall
-                            Field { id: mediaPath; Layout.fillWidth: true; text: dubbing.sourceMediaPath; placeholderText: qsTr("Media file path") }
-                            PrimaryButton { text: qsTr("Browse"); iconName: "folder"; quiet: true; onClicked: mediaFileDialog.open() }
-                            PrimaryButton { text: qsTr("Import"); enabled: mediaPath.text.trim().length > 0 && !dubbing.processing; onClicked: dubbing.importMedia(mediaPath.text) }
+                            Field { id: mediaPath; Layout.fillWidth: true; text: dubbing.sourceMediaPath; placeholderText: qsTr("Media file path"); readOnly: true }
+                            PrimaryButton { text: qsTr("Browse"); iconName: "folder"; quiet: true; enabled: !dubbing.processing; onClicked: mediaFileDialog.open() }
                         }
                     }
                 }
@@ -586,7 +606,7 @@ Item {
                         PrimaryButton { text: qsTr("Step-by-step"); iconName: "chevron-right"; quiet: true; enabled: !dubbing.processing && dubbing.sourceMediaPath.length > 0; onClicked: { dubbing.startStepByStep(); root.reviewStepId = dubbing.currentStepId } }
                         PrimaryButton { visible: dubbing.workflowMode === "step"; text: qsTr("Run: %1").arg(root.stepTitle(dubbing.currentStepId)); iconName: "play"; enabled: !dubbing.processing && dubbing.currentStepId !== "completed"; onClicked: dubbing.runCurrentStep(root.defaultExportPath()) }
                     }
-                    Item { Layout.fillHeight: true }
+                    Item { Layout.fillHeight: true; visible: root.reviewStepId !== "synthesize" }
                     VoiceSeparationOutput {
                         visible: root.reviewStepId === "source-separate"
                         Layout.fillWidth: true
@@ -603,13 +623,206 @@ Item {
                             if (root.playingSeparationStem === kind && AppController.player.playing) {
                                 AppController.player.stop()
                             } else {
-                                root.playingSeparationStem = kind
+                                root.playingVoiceClipPath = ""
                                 AppController.player.playFile(path)
+                                root.playingSeparationStem = kind
+                            }
+                        }
+                    }
+                    ColumnLayout {
+                        visible: root.reviewStepId === "synthesize"
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        spacing: Theme.paddingSmall
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Text {
+                                Layout.fillWidth: true
+                                text: qsTr("%1 of %2 segment clips generated")
+                                      .arg(root.generatedClipCount()).arg(dubbing.segments.length)
+                                color: root.stepComplete("synthesize") ? Theme.success : Theme.warning
+                                font.pixelSize: Theme.fontSmall
+                                font.bold: true
+                            }
+                            Text {
+                                text: qsTr("Click a waveform or Play to review")
+                                color: Theme.textSecondary
+                                font.pixelSize: Theme.fontSmall
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 1
+                            color: Qt.rgba(1, 1, 1, 0.07)
+                        }
+
+                        ListView {
+                            id: generatedVoiceList
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            clip: true
+                            spacing: Theme.paddingSmall
+                            model: dubbing.segments
+                            ScrollBar.vertical: ScrollBar {}
+
+                            delegate: Rectangle {
+                                id: voiceClipCard
+                                required property int index
+                                required property var modelData
+                                readonly property string clipPath: modelData.clipPath || ""
+                                readonly property bool hasAudio: clipPath !== ""
+                                readonly property bool ownsPlayback: hasAudio
+                                                                        && root.playingVoiceClipPath === clipPath
+                                                                        && AppController.player.playing
+                                readonly property real playbackProgress: ownsPlayback
+                                                                          && AppController.player.playbackDurationMs > 0
+                                                                        ? AppController.player.playbackPositionMs
+                                                                          / AppController.player.playbackDurationMs
+                                                                        : 0
+
+                                width: ListView.view.width
+                                height: 116
+                                radius: Theme.radiusSmall
+                                color: ownsPlayback
+                                       ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.12)
+                                       : Qt.rgba(1, 1, 1, 0.025)
+                                border.color: ownsPlayback
+                                              ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.55)
+                                              : Qt.rgba(1, 1, 1, 0.07)
+                                border.width: 1
+
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: Theme.paddingSmall
+                                    spacing: 6
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: Theme.paddingSmall
+                                        Text {
+                                            text: qsTr("Segment %1").arg(voiceClipCard.index + 1)
+                                            color: Theme.textPrimary
+                                            font.pixelSize: Theme.fontSmall
+                                            font.bold: true
+                                        }
+                                        Text {
+                                            text: "%1 – %2".arg(root.formatTime(modelData.startMs || 0))
+                                                           .arg(root.formatTime(modelData.endMs || 0))
+                                            color: Theme.textSecondary
+                                            font.pixelSize: 10
+                                        }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: modelData.targetText || qsTr("No translated text")
+                                            color: Theme.textPrimary
+                                            font.pixelSize: Theme.fontSmall
+                                            elide: Text.ElideRight
+                                        }
+                                        Rectangle {
+                                            implicitWidth: voiceStateText.implicitWidth + 14
+                                            implicitHeight: 22
+                                            radius: 11
+                                            color: Qt.rgba(root.segmentStateColor(modelData).r,
+                                                           root.segmentStateColor(modelData).g,
+                                                           root.segmentStateColor(modelData).b, 0.12)
+                                            Text {
+                                                id: voiceStateText
+                                                anchors.centerIn: parent
+                                                text: !voiceClipCard.hasAudio ? qsTr("Missing")
+                                                      : modelData.timingConflict ? qsTr("Timing conflict")
+                                                      : qsTr("Ready")
+                                                color: root.segmentStateColor(modelData)
+                                                font.pixelSize: 10
+                                                font.bold: true
+                                            }
+                                        }
+                                    }
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        Layout.fillHeight: true
+                                        spacing: Theme.paddingSmall
+
+                                        WaveformView {
+                                            Layout.fillWidth: true
+                                            Layout.fillHeight: true
+                                            Layout.minimumHeight: 52
+                                            samples: modelData.waveformSamples || []
+                                            framed: true
+                                            placeholderText: voiceClipCard.hasAudio
+                                                             ? qsTr("Audio clip ready")
+                                                             : qsTr("Voice has not been generated")
+                                            showPlaceholder: !samples || samples.length === 0
+                                            barWidth: 2
+                                            barGap: 2
+                                            verticalScale: 0.76
+                                            waveColor: voiceClipCard.ownsPlayback ? Theme.accentLight : Theme.accent
+                                            playedWaveColor: Theme.accentLight
+                                            playbackProgress: voiceClipCard.playbackProgress
+                                            showPlaybackProgress: voiceClipCard.ownsPlayback
+                                            seekEnabled: voiceClipCard.hasAudio
+                                            onSeekRequested: function(progress) {
+                                                if (!voiceClipCard.ownsPlayback) {
+                                                    videoPlayer.pause()
+                                                    root.playingSeparationStem = ""
+                                                    AppController.player.playFile(voiceClipCard.clipPath)
+                                                    root.playingVoiceClipPath = voiceClipCard.clipPath
+                                                }
+                                                AppController.player.seek(
+                                                    Math.round(progress * AppController.player.playbackDurationMs))
+                                            }
+                                        }
+
+                                        AlignmentPlayerButton {
+                                            iconName: voiceClipCard.ownsPlayback && !AppController.player.paused
+                                                      ? "pause" : "play"
+                                            toolTip: voiceClipCard.ownsPlayback && !AppController.player.paused
+                                                     ? qsTr("Pause segment") : qsTr("Play segment")
+                                            highlighted: voiceClipCard.ownsPlayback
+                                            enabled: voiceClipCard.hasAudio
+                                            onClicked: {
+                                                if (voiceClipCard.ownsPlayback) {
+                                                    if (AppController.player.paused)
+                                                        AppController.player.resume()
+                                                    else
+                                                        AppController.player.pause()
+                                                } else {
+                                                    videoPlayer.pause()
+                                                    root.playingSeparationStem = ""
+                                                    AppController.player.playFile(voiceClipCard.clipPath)
+                                                    root.playingVoiceClipPath = voiceClipCard.clipPath
+                                                }
+                                            }
+                                        }
+
+                                        AlignmentPlayerButton {
+                                            iconName: "stop"
+                                            toolTip: qsTr("Stop segment")
+                                            enabled: voiceClipCard.ownsPlayback
+                                            onClicked: AppController.player.stop()
+                                        }
+
+                                        Text {
+                                            Layout.preferredWidth: 52
+                                            text: voiceClipCard.ownsPlayback
+                                                  ? root.formatTime(AppController.player.playbackPositionMs)
+                                                  : root.formatTime(modelData.durationMs
+                                                                    || modelData.sourceDurationMs || 0)
+                                            color: voiceClipCard.ownsPlayback
+                                                   ? Theme.accentLight : Theme.textSecondary
+                                            font.pixelSize: 10
+                                            horizontalAlignment: Text.AlignRight
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                     ColumnLayout {
                         visible: root.reviewStepId !== "source-separate"
+                                 && root.reviewStepId !== "synthesize"
                         Layout.fillWidth: true
                         Layout.alignment: Qt.AlignVCenter
                         spacing: Theme.paddingMedium
@@ -625,7 +838,10 @@ Item {
                                 : qsTr("Select a step in the topbar to inspect its output.")
                         }
                     }
-                    Item { Layout.fillHeight: true }
+                    Item {
+                        Layout.fillHeight: true
+                        visible: root.reviewStepId !== "synthesize"
+                    }
                 }
             }
         }
@@ -705,7 +921,6 @@ Item {
         nameFilters: [qsTr("Media files (*.wav *.mp3 *.mp4 *.mkv *.mov *.webm)"), qsTr("All files (*)")]
         onAccepted: {
             var path = AppController.files.urlToLocalPath(selectedFile.toString())
-            mediaPath.text = path
             dubbing.importMedia(path)
         }
     }

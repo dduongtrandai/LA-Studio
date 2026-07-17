@@ -47,7 +47,6 @@ private:
     TtsEngine *m_tts = nullptr;
     bool m_processing = false;
     bool m_cancelRequested = false;
-    bool m_awaitingSynthesis = false;
     int m_currentCue = -1;
     int m_sampleRate = 0;
     QString m_phase = QStringLiteral("idle");
