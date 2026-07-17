@@ -24,6 +24,7 @@ Run private AI audio workflows locally: speech recognition, voice generation, vo
 [![License: AGPL-3.0-only](https://img.shields.io/badge/License-AGPL--3.0--only-blue.svg)](https://www.gnu.org/licenses/agpl-3.0.html)
 [![Facebook Group](https://img.shields.io/badge/Facebook-Group-1877F2?style=flat&logo=facebook&logoColor=white)](https://www.facebook.com/groups/lastudio.community.vn)
 [![Facebook Chat](https://img.shields.io/badge/Facebook-Chat-1877F2?style=flat&logo=messenger&logoColor=white)](https://m.me/ch/AbZaLPyeBxvQ_kLb/)
+[![Discord](https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?style=flat&logo=discord&logoColor=white)](https://discord.gg/aybynNyCP)
 <!--
 [![C++ Standard](https://img.shields.io/badge/C%2B%2B-17-orange.svg)](https://en.cppreference.com/w/cpp/compiler_support/17)
 [![Qt Version](https://img.shields.io/badge/Qt-6.5%2B-green.svg)](https://www.qt.io/)
@@ -296,6 +297,7 @@ Use these Facebook channels for discussion, feedback, and suggestions:
 
 - **Facebook Group**: [LA Studio Community](https://www.facebook.com/groups/lastudio.community.vn)
 - **Discussion & Feedback Chat**: [Join the Facebook chat](https://m.me/ch/AbZaLPyeBxvQ_kLb/)
+- **Discord**: [Join the LA Studio Discord community](https://discord.gg/aybynNyCP)
 
 ## Contributing
 
