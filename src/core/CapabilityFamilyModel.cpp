@@ -794,6 +794,9 @@ QString CapabilityFamilyModel::capabilityForFamily(const QVariantMap &family) co
     if (capabilities.contains(QStringLiteral("forced-alignment"))) {
         return QStringLiteral("forced-alignment");
     }
+    if (capabilities.contains(QStringLiteral("translation"))) {
+        return QStringLiteral("translation");
+    }
     if (capabilities.contains(QStringLiteral("stt"))) {
         return QStringLiteral("stt");
     }
@@ -812,8 +815,9 @@ QVariantMap CapabilityFamilyModel::storedFilesByRequirement(const QVariantMap &f
         return out;
     }
 
-    const StudioConfiguration selection = m_selectionRepository->selectionFor(capabilityId);
-    if (!selection.isValid() || selection.familyId != familyId) {
+    const QVariantMap selectedFiles =
+        m_selectionRepository->fileSelectionForFamily(capabilityId, familyId);
+    if (selectedFiles.isEmpty()) {
         return out;
     }
 
@@ -822,8 +826,8 @@ QVariantMap CapabilityFamilyModel::storedFilesByRequirement(const QVariantMap &f
         const QVariantMap req = reqVal.toMap();
         const QString role = req.value(QStringLiteral("role")).toString();
         const QString reqFile = req.value(QStringLiteral("file")).toString();
-        if (!role.isEmpty() && !reqFile.isEmpty() && selection.selectedFiles.contains(role)) {
-            out.insert(reqFile, selection.selectedFiles.value(role));
+        if (!role.isEmpty() && !reqFile.isEmpty() && selectedFiles.contains(role)) {
+            out.insert(reqFile, selectedFiles.value(role));
         }
     }
     return out;
@@ -936,6 +940,101 @@ bool CapabilityFamilyModel::isFileInstalled(const QVariantMap &family, const QSt
     }
     Q_UNUSED(req)
     return true;
+}
+
+QVariantMap CapabilityFamilyModel::recommendedConfiguration() const
+{
+    const double ramBytes = HardwareManager::instance()->ramTotal() * 1024.0 * 1024.0 * 1024.0;
+    const double vramBytes = HardwareManager::instance()->vramTotal() * 1024.0 * 1024.0 * 1024.0;
+
+    qint64 bestScore = std::numeric_limits<qint64>::min();
+    const FamilyItem *bestItem = nullptr;
+    QVariantMap bestRuntime;
+    QString bestReason;
+
+    for (const FamilyItem &item : m_items) {
+        if (!item.supported || item.preferredRuntimeId.isEmpty())
+            continue;
+
+        QVariantMap runtime;
+        for (const QVariant &runtimeValue : item.runtimeOptions) {
+            const QVariantMap candidate = runtimeValue.toMap();
+            if (candidate.value(QStringLiteral("id")).toString() == item.preferredRuntimeId) {
+                runtime = candidate;
+                break;
+            }
+        }
+        if (runtime.isEmpty() || !runtime.value(QStringLiteral("compatible")).toBool())
+            continue;
+
+        qint64 modelBytes = 0;
+        for (const QVariant &requirementValue : item.requiredFiles) {
+            const QVariantMap requirement = requirementValue.toMap();
+            modelBytes += parseSizeBytes(requirement.value(QStringLiteral("selectedSize")).toString());
+        }
+
+        const QString runtimeIdentity = (runtime.value(QStringLiteral("id")).toString() + QLatin1Char(' ')
+            + runtime.value(QStringLiteral("label")).toString() + QLatin1Char(' ')
+            + runtime.value(QStringLiteral("name")).toString()).toLower();
+        const bool gpuRuntime = runtimeIdentity.contains(QStringLiteral("cuda"))
+            || runtimeIdentity.contains(QStringLiteral("vulkan"))
+            || runtimeIdentity.contains(QStringLiteral("hip"))
+            || runtimeIdentity.contains(QStringLiteral("radeon"))
+            || runtimeIdentity.contains(QStringLiteral("sycl"))
+            || runtimeIdentity.contains(QStringLiteral("openvino"))
+            || runtimeIdentity.contains(QStringLiteral("gpu"));
+        const bool runtimeInstalled = runtime.value(QStringLiteral("installed")).toBool();
+
+        qint64 score = 0;
+        if (item.ready) score += 100000;
+        if (item.installed) score += 50000;
+        if (runtimeInstalled) score += 10000;
+        if (item.isLastudioPick) score += 3000;
+
+        QString reason;
+        if (gpuRuntime && vramBytes > 0.0) {
+            const bool fitsVram = modelBytes <= 0 || modelBytes <= vramBytes * 0.80;
+            score += fitsVram ? 8000 : -12000;
+            reason = fitsVram
+                ? QStringLiteral("Recommended GPU configuration for the detected hardware")
+                : QStringLiteral("GPU runtime is compatible, but the model may exceed available VRAM");
+        } else {
+            const bool fitsRam = modelBytes <= 0 || modelBytes <= ramBytes * 0.65;
+            score += fitsRam ? 4000 : -16000;
+            reason = fitsRam
+                ? QStringLiteral("Recommended CPU configuration for available system memory")
+                : QStringLiteral("Compatible configuration, but the model may exceed available system memory");
+        }
+
+        // Prefer a smaller footprint when two configurations have otherwise
+        // equivalent readiness and hardware support.
+        if (modelBytes > 0)
+            score -= static_cast<qint64>(modelBytes / (256.0 * 1024.0 * 1024.0));
+
+        if (score > bestScore) {
+            bestScore = score;
+            bestItem = &item;
+            bestRuntime = runtime;
+            bestReason = reason;
+        }
+    }
+
+    if (!bestItem)
+        return {};
+
+    return {
+        {QStringLiteral("familyId"), bestItem->id},
+        {QStringLiteral("modelName"), bestItem->displayName},
+        {QStringLiteral("runtimeId"), bestItem->preferredRuntimeId},
+        {QStringLiteral("runtimeVersion"), bestItem->preferredRuntimeVersion},
+        {QStringLiteral("runtimeName"), bestRuntime.value(QStringLiteral("label"),
+                                                          bestRuntime.value(QStringLiteral("name"),
+                                                                            bestItem->preferredRuntimeId))},
+        {QStringLiteral("selectedFiles"), bestItem->selectedFiles},
+        {QStringLiteral("ready"), bestItem->ready},
+        {QStringLiteral("installed"), bestItem->installed},
+        {QStringLiteral("reason"), bestReason}
+    };
 }
 
 QString CapabilityFamilyModel::recommendedFileForRequirement(const QVariantMap &family,
@@ -1160,13 +1259,24 @@ void CapabilityFamilyModel::updateItems()
             if (m_userSelectedFiles.contains(item.id)) {
                 const QVariantMap &familySel = m_userSelectedFiles.value(item.id);
                 if (familySel.contains(reqFile)) {
-                    selectedFile = familySel.value(reqFile).toString();
-                    hasUserSel = true;
+                    selectedFile = familySel.value(reqFile).toString().trimmed();
+                    hasUserSel = !selectedFile.isEmpty();
                 }
             }
             if (!hasUserSel && storedReqSelections.contains(reqFile)) {
-                selectedFile = storedReqSelections.value(reqFile).toString();
-                hasUserSel = true;
+                selectedFile = storedReqSelections.value(reqFile).toString().trimmed();
+                hasUserSel = !selectedFile.isEmpty();
+            }
+
+            if (hasUserSel) {
+                bool knownCandidate = candidates.isEmpty()
+                    ? selectedFile == reqFile
+                    : candidates.contains(selectedFile);
+                if (!knownCandidate && !isFileInstalled(family, selectedFile, req)) {
+                    // Ignore stale cross-family or removed catalog variants.
+                    selectedFile.clear();
+                    hasUserSel = false;
+                }
             }
 
             bool foundInstalled = false;
@@ -1651,7 +1761,14 @@ void CapabilityFamilyModel::setInitialSelectedFiles(const QString &familyId, con
                 QString role = req.value(QStringLiteral("role")).toString();
                 QString reqFile = req.value(QStringLiteral("file")).toString();
                 if (initialSelected.contains(role)) {
-                    QString chosenFile = initialSelected.value(role).toString();
+                    QString chosenFile = initialSelected.value(role).toString().trimmed();
+                    const QVariantList candidates = req.value(QStringLiteral("candidates")).toList();
+                    const bool knownCandidate = candidates.isEmpty()
+                        ? chosenFile == reqFile
+                        : candidates.contains(chosenFile);
+                    if (chosenFile.isEmpty() || !knownCandidate) {
+                        continue;
+                    }
                     m_userSelectedFiles[familyId][reqFile] = chosenFile;
                 }
             }

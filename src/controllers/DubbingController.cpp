@@ -329,6 +329,9 @@ QVariantList DubbingController::workflowNodes() const
         if (definition.id == QStringLiteral("transcribe")) {
             item.insert(QStringLiteral("configurable"), true);
             item.insert(QStringLiteral("capabilityId"), QStringLiteral("stt"));
+        } else if (definition.id == QStringLiteral("translate")) {
+            item.insert(QStringLiteral("configurable"), true);
+            item.insert(QStringLiteral("capabilityId"), QStringLiteral("translation"));
         } else if (definition.id == QStringLiteral("synthesize")) {
             item.insert(QStringLiteral("configurable"), true);
             item.insert(QStringLiteral("capabilityId"), QStringLiteral("tts"));
@@ -338,6 +341,11 @@ QVariantList DubbingController::workflowNodes() const
             item.insert(QStringLiteral("providerName"), selected.value(QStringLiteral("modelName")));
             item.insert(QStringLiteral("selectedFamilyId"), selected.value(QStringLiteral("familyId")));
             item.insert(QStringLiteral("selectedRuntimeId"), selected.value(QStringLiteral("runtimeId")));
+            const QString capabilityId = selected.value(QStringLiteral("capabilityId")).toString();
+            IModelSession *session = AppController::instance() && AppController::instance()->sessionRegistry()
+                ? AppController::instance()->sessionRegistry()->sessionForCapability(capabilityId) : nullptr;
+            item.insert(QStringLiteral("providerState"),
+                        session && session->canProcess() ? QStringLiteral("ready") : QStringLiteral("loading"));
         }
         result.append(item);
     }
@@ -349,11 +357,16 @@ bool DubbingController::workflowReady() const
     const bool sttReady = AppController::instance() && AppController::instance()->sessionRegistry()
         && AppController::instance()->sessionRegistry()->sessionForCapability(QStringLiteral("stt"))
         && AppController::instance()->sessionRegistry()->sessionForCapability(QStringLiteral("stt"))->canProcess();
+    const bool translationConfigured = !m_workflowNodeConfigurations.value(QStringLiteral("translate")).toMap().isEmpty();
+    const bool translationReady = !translationConfigured || (AppController::instance() && AppController::instance()->sessionRegistry()
+        && AppController::instance()->sessionRegistry()->sessionForCapability(QStringLiteral("translation"))
+        && AppController::instance()->sessionRegistry()->sessionForCapability(QStringLiteral("translation"))->canProcess());
     return workflowGraphValid()
         && !m_project.sourceMediaPath.isEmpty()
         && !m_project.targetLanguage.trimmed().isEmpty()
         && m_tts && m_tts->isModelLoaded()
-        && sttReady;
+        && sttReady
+        && translationReady;
 }
 
 bool DubbingController::setWorkflowNodeModel(const QString &nodeId,
@@ -364,6 +377,7 @@ bool DubbingController::setWorkflowNodeModel(const QString &nodeId,
 {
     QString capabilityId;
     if (nodeId == QStringLiteral("transcribe")) capabilityId = QStringLiteral("stt");
+    else if (nodeId == QStringLiteral("translate")) capabilityId = QStringLiteral("translation");
     else if (nodeId == QStringLiteral("synthesize")) capabilityId = QStringLiteral("tts");
     else {
         setError(QStringLiteral("This workflow node does not support model selection."));
@@ -373,7 +387,9 @@ bool DubbingController::setWorkflowNodeModel(const QString &nodeId,
     AppController *app = AppController::instance();
     if (!app || !app->registry() || !app->sessionRegistry()) return false;
     const QVariantList families = capabilityId == QStringLiteral("stt")
-        ? app->registry()->sttFamilies() : app->registry()->ttsFamilies();
+        ? app->registry()->sttFamilies()
+        : (capabilityId == QStringLiteral("translation") ? app->registry()->translationFamilies()
+                                                           : app->registry()->ttsFamilies());
     QVariantMap family;
     for (const QVariant &entry : families) {
         const QVariantMap candidate = entry.toMap();
@@ -983,7 +999,8 @@ void DubbingController::translateSource()
         setError(QStringLiteral("Transcribe the source before translating."));
         return;
     }
-    m_runner->startTranslation(m_project.sourceLanguage, m_project.targetLanguage, m_project.segments);
+    m_runner->startTranslation(m_project.sourceLanguage, m_project.targetLanguage, m_project.segments,
+                               m_workflowNodeConfigurations.value(QStringLiteral("translate")).toMap());
 }
 
 void DubbingController::generateAudio()

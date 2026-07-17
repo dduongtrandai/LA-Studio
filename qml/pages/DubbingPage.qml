@@ -24,6 +24,12 @@ Item {
     property string pendingHistoryDeleteId: ""
     readonly property var languageCatalog: AppController.catalog.languageSet("default")
 
+    StudioPageController {
+        id: translationRecommendationController
+        capabilityId: "translation"
+        autoLoadOnSync: false
+    }
+
     Connections {
         target: dubbing
         function onWorkflowChanged() {
@@ -109,6 +115,47 @@ Item {
         return qsTr("Completed")
     }
 
+    function workflowNode(nodeId) {
+        var nodes = dubbing.workflowNodes || []
+        for (var i = 0; i < nodes.length; ++i)
+            if (nodes[i].id === nodeId) return nodes[i]
+        return null
+    }
+
+    function nextNodeId(nodeId) {
+        var next = {"import": "ingest", "ingest": "source-separate", "source-separate": "transcribe", "transcribe": "translate", "translate": "synthesize", "synthesize": "mix", "mix": "export"}
+        return next[nodeId] || ""
+    }
+
+    function nextNodeLabel(nodeId) {
+        var next = nextNodeId(nodeId)
+        if (next === "transcribe") return qsTr("Transcribe")
+        if (next === "translate") return qsTr("Translate")
+        if (next === "synthesize") return qsTr("Generate voice")
+        if (next === "mix") return qsTr("Render mix")
+        if (next === "export") return qsTr("Export output")
+        return qsTr("Next")
+    }
+
+    function nextNodeReady(nodeId) {
+        if (!root.stepComplete(nodeId)) return false
+        var next = root.nextNodeId(nodeId)
+        if (next === "translate") return dubbing.targetLanguage && dubbing.targetLanguage.length > 0
+        if (next === "synthesize") {
+            var voiceNode = root.workflowNode("synthesize")
+            return voiceNode && voiceNode.state !== "missing" && voiceNode.state !== "blocked"
+        }
+        return true
+    }
+
+    function runNextNode(nodeId) {
+        var next = nextNodeId(nodeId)
+        if (next === "") return
+        root.reviewStepId = next
+        dubbing.startStepByStep()
+        dubbing.runCurrentStep(root.defaultExportPath())
+    }
+
     function stepComplete(stepId) {
         if (stepId === "import") return dubbing.sourceMediaPath.length > 0
         if (stepId === "ingest") return dubbing.normalizedAudioPath.length > 0
@@ -184,6 +231,136 @@ Item {
         border.width: 1
     }
 
+    component NodeSettingsPanel: Rectangle {
+        id: settingsPanel
+        property string nodeId: ""
+        readonly property var node: root.workflowNode(nodeId)
+        Layout.fillWidth: true
+        Layout.preferredHeight: 52
+        radius: Theme.radiusSmall
+        color: Theme.surfaceAlt
+        border.color: Qt.rgba(1, 1, 1, 0.08)
+        RowLayout {
+            anchors.fill: parent
+            anchors.margins: Theme.paddingSmall
+            spacing: Theme.paddingSmall
+            LineIcon { name: "settings"; color: Theme.accentLight; width: 16; height: 16 }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 1
+                Text { text: qsTr("%1").arg(settingsPanel.node && settingsPanel.node.configurable ? qsTr("%1 settings").arg(root.stepTitle(settingsPanel.nodeId)) : qsTr("%1 actions").arg(root.stepTitle(settingsPanel.nodeId))); color: Theme.textPrimary; font.pixelSize: Theme.fontSmall; font.bold: true }
+                Text { Layout.fillWidth: true; text: settingsPanel.node && settingsPanel.node.providerName ? settingsPanel.node.providerName : qsTr("Use the workflow default model"); color: Theme.textSecondary; font.pixelSize: 10; elide: Text.ElideRight }
+            }
+            PrimaryButton {
+                text: qsTr("Configure")
+                iconName: "settings"
+                quiet: true
+                visible: settingsPanel.node && settingsPanel.node.configurable === true
+                enabled: !dubbing.processing
+                onClicked: nodeModelDialog.openFor(settingsPanel.nodeId)
+            }
+            PrimaryButton {
+                visible: root.nextNodeId(settingsPanel.nodeId) !== "" && root.nextNodeReady(settingsPanel.nodeId)
+                text: root.nextNodeLabel(settingsPanel.nodeId)
+                iconName: "chevron-right"
+                enabled: !dubbing.processing
+                onClicked: root.runNextNode(settingsPanel.nodeId)
+            }
+        }
+    }
+
+    component TranslationSettingsPanel: Rectangle {
+        id: translationPanel
+        readonly property var node: root.workflowNode("translate")
+        readonly property int recommendationRevision: translationRecommendationController.familiesModel.revision
+        readonly property var recommendation: recommendationRevision >= 0
+            ? translationRecommendationController.familiesModel.recommendedConfiguration() : ({})
+        readonly property bool configured: node && node.selectedFamilyId
+        readonly property string modelName: configured
+            ? (node.providerName || node.selectedFamilyId)
+            : (recommendation.modelName || qsTr("No compatible model"))
+        readonly property string runtimeName: configured
+            ? (node.selectedRuntimeId || qsTr("Runtime not selected"))
+            : (recommendation.runtimeName || recommendation.runtimeId || qsTr("Runtime unavailable"))
+        readonly property bool ready: configured
+            ? node.providerState === "ready"
+            : recommendation.ready === true
+        Layout.fillWidth: true
+        Layout.preferredHeight: 72
+        radius: Theme.radiusSmall
+        color: Theme.surfaceAlt
+        border.color: Qt.rgba(1, 1, 1, 0.08)
+        RowLayout {
+            anchors.fill: parent
+            anchors.margins: Theme.paddingMedium
+            spacing: Theme.paddingMedium
+            Rectangle {
+                Layout.preferredWidth: 34
+                Layout.preferredHeight: 34
+                radius: Theme.radiusSmall
+                color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
+                LineIcon { anchors.centerIn: parent; name: "translate"; color: Theme.accentLight; width: 16; height: 16 }
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 2
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.paddingSmall
+                    Text { text: qsTr("Translation model"); color: Theme.textPrimary; font.pixelSize: Theme.fontSmall; font.bold: true }
+                    Rectangle {
+                        implicitWidth: recommendationLabel.implicitWidth + Theme.paddingSmall * 2
+                        implicitHeight: 20
+                        radius: Theme.radiusSmall
+                        color: Qt.rgba(translationPanel.ready ? Theme.success.r : Theme.warning.r,
+                                       translationPanel.ready ? Theme.success.g : Theme.warning.g,
+                                       translationPanel.ready ? Theme.success.b : Theme.warning.b, 0.12)
+                        Text {
+                            id: recommendationLabel
+                            anchors.centerIn: parent
+                            text: translationPanel.configured
+                                ? (translationPanel.ready ? qsTr("Ready") : qsTr("Setup required"))
+                                : qsTr("Recommended")
+                            color: translationPanel.ready ? Theme.success : Theme.warning
+                            font.pixelSize: 10
+                            font.bold: true
+                        }
+                    }
+                    Item { Layout.fillWidth: true }
+                }
+                Text {
+                    Layout.fillWidth: true
+                    text: qsTr("%1  ·  %2").arg(translationPanel.modelName).arg(translationPanel.runtimeName)
+                    color: Theme.textSecondary
+                    font.pixelSize: 10
+                    elide: Text.ElideRight
+                }
+                Text {
+                    Layout.fillWidth: true
+                    visible: !translationPanel.configured && (translationPanel.recommendation.reason || "") !== ""
+                    text: translationPanel.recommendation.reason || ""
+                    color: Theme.textSecondary
+                    font.pixelSize: 10
+                    elide: Text.ElideRight
+                }
+            }
+            PrimaryButton {
+                text: qsTr("Choose model")
+                iconName: "settings"
+                quiet: true
+                enabled: !dubbing.processing
+                onClicked: nodeModelDialog.openFor("translate")
+            }
+            PrimaryButton {
+                visible: root.nextNodeReady("translate")
+                text: qsTr("Generate voice")
+                iconName: "chevron-right"
+                enabled: !dubbing.processing
+                onClicked: root.runNextNode("translate")
+            }
+        }
+    }
+
     component Step: Item {
         property string stepId: ""
         property string title: ""
@@ -248,6 +425,16 @@ Item {
                 Step { stepId: "export"; title: qsTr("Output"); iconName: "download"; complete: root.stepComplete(stepId); active: dubbing.currentStepId === "mix" || dubbing.currentStepId === stepId || dubbing.currentStepId === "completed"; onSelected: function(id) { root.reviewStepId = id } }
                 Item { Layout.fillWidth: true }
                 PrimaryButton {
+                    text: dubbing.processing ? qsTr("Running…") : qsTr("Generate Final Dub")
+                    iconName: dubbing.processing ? "activity" : "play"
+                    enabled: !dubbing.processing && dubbing.workflowReady
+                    onClicked: if (!dubbing.processing) dubbing.startAutomaticWorkflow(root.defaultExportPath())
+                    AppToolTip {
+                        text: qsTr("Run every stage automatically and create the final dubbed output")
+                        visible: parent.hovered
+                    }
+                }
+                PrimaryButton {
                     text: qsTr("Workflow")
                     iconName: "workflow"
                     quiet: true
@@ -260,7 +447,7 @@ Item {
                 Rectangle { implicitWidth: statusRow.implicitWidth + 16; implicitHeight: 28; radius: 14; color: Qt.rgba(dubbing.processing ? Theme.warning.r : Theme.success.r, dubbing.processing ? Theme.warning.g : Theme.success.g, dubbing.processing ? Theme.warning.b : Theme.success.b, 0.12)
                     RowLayout { id: statusRow; anchors.centerIn: parent; spacing: 5
                         Rectangle { width: 6; height: 6; radius: 3; color: dubbing.processing ? Theme.warning : Theme.success }
-                        Text { text: dubbing.processing ? qsTr("%1 · %2%").arg(root.stepTitle(dubbing.currentStepId)).arg(dubbing.progress) : (dubbing.workflowMode === "step" ? qsTr("Waiting for next step") : qsTr("Ready")); color: dubbing.processing ? Theme.warning : Theme.success; font.pixelSize: Theme.fontSmall; font.bold: true }
+                        Text { text: dubbing.processing ? qsTr("%1 · %2%").arg(root.stepTitle(dubbing.currentStepId)).arg(dubbing.progress) : (dubbing.workflowMode === "step" ? qsTr("Ready for node run") : qsTr("Ready")); color: dubbing.processing ? Theme.warning : Theme.success; font.pixelSize: Theme.fontSmall; font.bold: true }
                     }
                 }
                 PrimaryButton { text: qsTr("Save"); iconName: "save"; quiet: true; enabled: dubbing.hasProject; onClicked: dubbing.saveProject() }
@@ -629,6 +816,8 @@ Item {
                 ColumnLayout {
                     anchors.fill: parent; anchors.margins: Theme.paddingMedium; spacing: Theme.paddingSmall
                     visible: root.reviewStepId === "transcribe" || root.reviewStepId === "translate"
+                    NodeSettingsPanel { nodeId: root.reviewStepId; visible: root.reviewStepId === "transcribe" }
+                    TranslationSettingsPanel { visible: root.reviewStepId === "translate" }
                     RowLayout { Layout.fillWidth: true
                         ColumnLayout { Layout.fillWidth: true; spacing: 1
                             Text { text: root.stepTitle(root.reviewStepId).toUpperCase(); color: Theme.textPrimary; font.pixelSize: Theme.fontLarge; font.bold: true }
@@ -636,8 +825,6 @@ Item {
                         }
                         PrimaryButton { text: qsTr("Add segment"); iconName: "more-horizontal"; quiet: true; enabled: dubbing.hasProject && !dubbing.processing; onClicked: dubbing.addSegment(0, 2000, "") }
                         PrimaryButton { visible: root.canRerunStep(root.reviewStepId); text: qsTr("Run again"); iconName: "refresh"; quiet: true; enabled: !dubbing.processing; Layout.preferredWidth: 104; onClicked: dubbing.rerunStep(root.reviewStepId, root.defaultExportPath()) }
-                        PrimaryButton { text: qsTr("Automatic A–Z"); iconName: "activity"; enabled: !dubbing.processing && dubbing.workflowReady; onClicked: dubbing.startAutomaticWorkflow(root.defaultExportPath()) }
-                        PrimaryButton { text: qsTr("Step-by-step"); iconName: "chevron-right"; quiet: true; enabled: !dubbing.processing && dubbing.sourceMediaPath.length > 0; onClicked: { dubbing.startStepByStep(); root.reviewStepId = dubbing.currentStepId } }
                         PrimaryButton { visible: dubbing.workflowMode === "step"; text: qsTr("Run: %1").arg(root.stepTitle(dubbing.currentStepId)); iconName: "play"; enabled: !dubbing.processing && dubbing.currentStepId !== "completed"; onClicked: dubbing.runCurrentStep(root.defaultExportPath()) }
                     }
                     RowLayout { Layout.fillWidth: true; spacing: Theme.paddingSmall
@@ -687,14 +874,13 @@ Item {
                 ColumnLayout {
                     anchors.fill: parent; anchors.margins: Theme.paddingLarge; spacing: Theme.paddingMedium
                     visible: root.reviewStepId !== "transcribe" && root.reviewStepId !== "translate"
+                    NodeSettingsPanel { nodeId: root.reviewStepId; visible: ["import", "ingest", "source-separate", "synthesize"].indexOf(root.reviewStepId) >= 0 }
                     RowLayout { Layout.fillWidth: true
                         ColumnLayout { Layout.fillWidth: true; spacing: 1
                             Text { text: root.stepTitle(root.reviewStepId).toUpperCase(); color: Theme.textPrimary; font.pixelSize: Theme.fontLarge; font.bold: true }
                             Text { text: root.reviewStepId === "import" ? qsTr("Import only selects the source; no processing starts automatically.") : qsTr("Review this step output before continuing."); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
                         }
                         PrimaryButton { visible: root.canRerunStep(root.reviewStepId); text: qsTr("Run again"); iconName: "refresh"; quiet: true; enabled: !dubbing.processing; Layout.preferredWidth: 104; onClicked: dubbing.rerunStep(root.reviewStepId, root.defaultExportPath()) }
-                        PrimaryButton { text: qsTr("Automatic A-Z"); iconName: "activity"; enabled: !dubbing.processing && dubbing.workflowReady; onClicked: dubbing.startAutomaticWorkflow(root.defaultExportPath()) }
-                        PrimaryButton { text: qsTr("Step-by-step"); iconName: "chevron-right"; quiet: true; enabled: !dubbing.processing && dubbing.sourceMediaPath.length > 0; onClicked: { dubbing.startStepByStep(); root.reviewStepId = dubbing.currentStepId } }
                         PrimaryButton { visible: dubbing.workflowMode === "step"; text: qsTr("Run: %1").arg(root.stepTitle(dubbing.currentStepId)); iconName: "play"; enabled: !dubbing.processing && dubbing.currentStepId !== "completed"; onClicked: dubbing.runCurrentStep(root.defaultExportPath()) }
                     }
                     Item { Layout.fillHeight: true; visible: root.reviewStepId !== "synthesize" }
@@ -996,7 +1182,7 @@ Item {
                 Rectangle { Layout.fillHeight: true; Layout.preferredWidth: 1; color: Qt.rgba(1, 1, 1, 0.08) }
                 ColumnLayout { Layout.preferredWidth: 340; Layout.fillHeight: true; spacing: Theme.paddingSmall
                     Text { text: qsTr("OUTPUT"); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall; font.bold: true; font.letterSpacing: 1.1 }
-                    Text { text: dubbing.workflowMode === "automatic" ? qsTr("Automatic A-Z") : (dubbing.workflowMode === "step" ? qsTr("Step-by-step") : qsTr("Choose a processing mode")); color: dubbing.workflowMode === "idle" ? Theme.textSecondary : Theme.accentLight; font.pixelSize: Theme.fontSmall; font.bold: true }
+                    Text { text: dubbing.workflowMode === "automatic" ? qsTr("Full workflow") : (dubbing.workflowMode === "step" ? qsTr("Manual node run") : qsTr("Choose an action")); color: dubbing.workflowMode === "idle" ? Theme.textSecondary : Theme.accentLight; font.pixelSize: Theme.fontSmall; font.bold: true }
                     Text { Layout.fillWidth: true; text: qsTr("Current: %1").arg(root.stepTitle(dubbing.currentStepId)); color: dubbing.processing ? Theme.warning : Theme.textSecondary; font.pixelSize: Theme.fontSmall; elide: Text.ElideRight }
                     Text { Layout.fillWidth: true; text: dubbing.exportPath.length > 0 ? dubbing.exportPath : (dubbing.previewPath.length > 0 ? dubbing.previewPath : qsTr("Final output has not been created.")); color: dubbing.exportPath.length > 0 ? Theme.success : Theme.textSecondary; font.pixelSize: 10; elide: Text.ElideMiddle }
                      PrimaryButton { text: qsTr("Cancel processing"); visible: dubbing.processing; buttonColor: Theme.danger; onClicked: dubbing.cancelProcessing() }
@@ -1216,5 +1402,14 @@ Item {
         onRejectRequested: dubbing.rejectWorkflowReview(qsTr("Rejected from workflow review"))
         nodeConfigurations: dubbing.workflowNodeConfigurations
         onNodeConfigurationChanged: dubbing.setWorkflowNodeModel(nodeId, familyId, runtimeId, runtimeVersion, selectedFiles)
+    }
+
+    WorkflowNodeModelDialog {
+        id: nodeModelDialog
+        nodes: dubbing.workflowNodes
+        nodeConfigurations: dubbing.workflowNodeConfigurations
+        onConfigurationAccepted: function(nodeId, familyId, runtimeId, runtimeVersion, selectedFiles) {
+            dubbing.setWorkflowNodeModel(nodeId, familyId, runtimeId, runtimeVersion, selectedFiles)
+        }
     }
 }

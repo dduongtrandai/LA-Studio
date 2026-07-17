@@ -53,9 +53,75 @@ StudioConfiguration StudioSelectionRepository::selectionFor(const QString &capab
     return {};
 }
 
+QVariantMap StudioSelectionRepository::fileSelectionForFamily(const QString &capabilityId,
+                                                               const QString &familyId) const
+{
+    if (capabilityId.isEmpty() || familyId.isEmpty()) {
+        return {};
+    }
+
+    QSqlQuery query(db());
+    query.prepare(QStringLiteral(
+        "SELECT selected_files_json FROM model_family_file_selections "
+        "WHERE capability_id = ? AND family_id = ?"));
+    query.addBindValue(capabilityId);
+    query.addBindValue(familyId);
+
+    if (!query.exec()) {
+        Logger::error(QStringLiteral("StudioSelectionRepository"),
+                      QStringLiteral("Failed to fetch file selection for %1/%2: %3")
+                          .arg(capabilityId, familyId, query.lastError().text()));
+        return {};
+    }
+    if (!query.next()) {
+        // Backward compatibility for selections saved before per-family persistence existed.
+        const StudioConfiguration active = selectionFor(capabilityId);
+        return active.familyId == familyId ? active.selectedFiles : QVariantMap{};
+    }
+
+    QJsonParseError parseError;
+    const QJsonDocument doc =
+        QJsonDocument::fromJson(query.value(0).toString().toUtf8(), &parseError);
+    return parseError.error == QJsonParseError::NoError && doc.isObject()
+        ? doc.object().toVariantMap()
+        : QVariantMap{};
+}
+
+void StudioSelectionRepository::saveFileSelectionForFamily(const QString &capabilityId,
+                                                            const QString &familyId,
+                                                            const QVariantMap &selectedFiles)
+{
+    if (capabilityId.isEmpty() || familyId.isEmpty()) {
+        return;
+    }
+
+    QSqlQuery query(db());
+    query.prepare(QStringLiteral(
+        "INSERT INTO model_family_file_selections "
+        "(capability_id, family_id, selected_files_json, updated_at) "
+        "VALUES (?, ?, ?, CURRENT_TIMESTAMP) "
+        "ON CONFLICT(capability_id, family_id) DO UPDATE SET "
+        "  selected_files_json = excluded.selected_files_json, "
+        "  updated_at = CURRENT_TIMESTAMP"));
+    query.addBindValue(capabilityId);
+    query.addBindValue(familyId);
+    query.addBindValue(QString::fromUtf8(
+        QJsonDocument::fromVariant(selectedFiles).toJson(QJsonDocument::Compact)));
+
+    if (!query.exec()) {
+        Logger::error(QStringLiteral("StudioSelectionRepository"),
+                      QStringLiteral("Failed to save file selection for %1/%2: %3")
+                          .arg(capabilityId, familyId, query.lastError().text()));
+    }
+}
+
 void StudioSelectionRepository::saveActiveSelection(const StudioConfiguration &selection)
 {
     if (!selection.isValid()) return;
+
+    saveFileSelectionForFamily(selection.capabilityId,
+                               selection.familyId,
+                               selection.selectedFiles);
 
     QSqlDatabase database = db();
     QSqlQuery query(database);

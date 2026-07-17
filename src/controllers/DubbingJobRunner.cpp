@@ -1,4 +1,6 @@
 #include "DubbingJobRunner.h"
+#include "controllers/StudioConfigurationResolver.h"
+#include "translation/TranslationService.h"
 #include "DubbingProject.h"
 #include "translation/DubbingTranslationService.h"
 #include "translation/TranslationEngine.h"
@@ -278,7 +280,8 @@ void DubbingJobRunner::startTranscription(const QString &sourceLanguage, const Q
     }
 }
 
-void DubbingJobRunner::startTranslation(const QString &sourceLanguage, const QString &targetLanguage, const QVariantList &segments)
+void DubbingJobRunner::startTranslation(const QString &sourceLanguage, const QString &targetLanguage, const QVariantList &segments,
+                                        const QVariantMap &modelConfiguration)
 {
     if (m_processing || (m_translationInstance && m_translationInstance->isProcessing())) {
         setBusyError(QStringLiteral("A translation request is already running."));
@@ -291,7 +294,35 @@ void DubbingJobRunner::startTranslation(const QString &sourceLanguage, const QSt
     DubbingTranslationService translationService(m_models, m_runtimes);
     DubbingTranslationRequest request;
     QString preparationError;
-    if (!translationService.prepare(sourceLanguage, targetLanguage, request, &preparationError)) {
+    bool prepared = false;
+    if (!modelConfiguration.isEmpty()) {
+        StudioConfiguration selected;
+        selected.capabilityId = QStringLiteral("translation");
+        selected.familyId = modelConfiguration.value(QStringLiteral("familyId")).toString();
+        selected.runtimeId = modelConfiguration.value(QStringLiteral("runtimeId")).toString();
+        selected.runtimeVersion = modelConfiguration.value(QStringLiteral("runtimeVersion")).toString();
+        selected.selectedFiles = modelConfiguration.value(QStringLiteral("selectedFiles")).toMap();
+        const ResolvedConfiguration resolved = StudioConfigurationResolver::resolve(selected);
+        if (resolved.isValid) {
+            SessionConfiguration sessionConfig;
+            sessionConfig.capabilityId = selected.capabilityId;
+            sessionConfig.selection.capabilityId = selected.capabilityId;
+            sessionConfig.selection.familyId = selected.familyId;
+            sessionConfig.selection.runtimeId = selected.runtimeId;
+            sessionConfig.selection.runtimeVersion = selected.runtimeVersion;
+            sessionConfig.familyConfig = resolved.family;
+            sessionConfig.runtimePath = resolved.runtimePath;
+            for (auto it = resolved.resolvedPaths.cbegin(); it != resolved.resolvedPaths.cend(); ++it) {
+                if (it.key() == QStringLiteral("familyId") || it.key() == QStringLiteral("backend") || it.key() == QStringLiteral("pipelineProfile")) continue;
+                sessionConfig.resolvedPathsByRole.insert(it.key(), it.value().toString());
+                if (it.value().toString().endsWith(QStringLiteral(".gguf"), Qt::CaseInsensitive)) sessionConfig.resolvedModelPaths.append(it.value().toString());
+            }
+            TranslationService::prepareConfiguration(sessionConfig, sourceLanguage, targetLanguage, request, &preparationError);
+            prepared = !request.modelPath.isEmpty();
+        }
+    }
+    if (!prepared) prepared = translationService.prepare(sourceLanguage, targetLanguage, request, &preparationError);
+    if (!prepared) {
         setError(preparationError);
         return;
     }

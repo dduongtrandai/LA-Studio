@@ -29,6 +29,8 @@ Dialog {
     signal nodeConfigureRequested(string nodeId)
     signal nodeConfigurationChanged(string nodeId, string familyId, string runtimeId, string runtimeVersion, var selectedFiles)
 
+    function configureNode(nodeId) { Qt.callLater(function() { modelDialog.openFor(nodeId) }) }
+
     readonly property int nodeWidth: 188
     readonly property int nodeHeight: 208
     readonly property int nodeGap: 76
@@ -50,12 +52,6 @@ Dialog {
     }
 
     onOpened: Qt.callLater(fitCanvas)
-
-    StudioPageController {
-        id: workflowModelController
-        capabilityId: modelDialog.capabilityId
-        autoLoadOnSync: false
-    }
 
     parent: Overlay.overlay
     modal: true
@@ -337,75 +333,14 @@ Dialog {
         }
     }
 
-    Dialog {
+    WorkflowNodeModelDialog {
         id: modelDialog
-        parent: Overlay.overlay
-        modal: true
-        padding: 0
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        property string nodeId: ""
-        property string capabilityId: ""
-        property var families: []
-        property var runtimes: []
-        property string selectedFamilyId: ""
-        property string selectedRuntimeId: ""
-        width: Math.min(1260, Math.max(980, parent ? parent.width - 48 : 1100))
-        height: Math.min(780, Math.max(560, parent ? parent.height - 48 : 680))
-        x: parent ? Math.round((parent.width - width) / 2) : 0
-        y: parent ? Math.round((parent.height - height) / 2) : 0
-        standardButtons: Dialog.NoButton
-
-        background: Rectangle {
-            color: Qt.rgba(0.06, 0.06, 0.09, 0.98)
-            radius: Theme.radiusMedium
-            border.color: Qt.rgba(1, 1, 1, 0.10)
-            border.width: 1
-        }
-
-        function openFor(value) {
-            var item = root.nodes ? root.nodes.find(function(entry) { return entry.id === value }) : null
-            if (!item) return
-            nodeId = value
-            capabilityId = item.capabilityId || "stt"
-            families = capabilityId === "stt" ? AppController.registry.sttFamilies : AppController.registry.ttsFamilies
-            var saved = root.nodeConfigurations[nodeId] || {}
-            selectedFamilyId = saved.familyId || item.selectedFamilyId || (families.length ? families[0].id : "")
-            workflowModelController.openConfiguration(selectedFamilyId)
-            modelGallery.selectedFamilyId = selectedFamilyId
-            open()
-        }
-
-        function refreshRuntimes() {
-            var family = families.find(function(entry) { return entry.id === selectedFamilyId })
-            runtimes = family && family.runtimes ? family.runtimes : []
-            var saved = root.nodeConfigurations[nodeId] || {}
-            selectedRuntimeId = saved.runtimeId || (runtimes.length ? runtimes[0].id : "")
-            runtimeBox.currentIndex = Math.max(0, runtimes.findIndex(function(entry) { return entry.id === selectedRuntimeId }))
-        }
-
-        contentItem: Item {
-            width: modelDialog.width
-            height: modelDialog.height
-
-            CapabilityGallery {
-                id: modelGallery
-                anchors.fill: parent
-                capability: modelDialog.capabilityId
-                modalMode: true
-                familiesModel: workflowModelController.familiesModel
-                selectedFamilyId: modelDialog.selectedFamilyId
-                initialSelectedFiles: workflowModelController.selectedFiles
-                onFamilySelected: function(familyId) {
-                    modelDialog.selectedFamilyId = familyId
-                    workflowModelController.selectFamily(familyId)
-                }
-                onConfigurationAccepted: function(familyId, runtimeId, runtimeVersion, selectedFiles) {
-                    root.nodeConfigurationChanged(modelDialog.nodeId, familyId, runtimeId, runtimeVersion, selectedFiles)
-                    modelDialog.close()
-                }
-            }
+        nodes: root.nodes
+        nodeConfigurations: root.nodeConfigurations
+        onConfigurationAccepted: function(nodeId, familyId, runtimeId, runtimeVersion, selectedFiles) {
+            root.nodeConfigurationChanged(nodeId, familyId, runtimeId, runtimeVersion, selectedFiles)
         }
     }
 
-    onNodeConfigureRequested: function(nodeId) { modelDialog.openFor(nodeId) }
+    onNodeConfigureRequested: function(nodeId) { root.configureNode(nodeId) }
 }

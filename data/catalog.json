@@ -91,6 +91,11 @@
           "familyId": "madlad400-3b-mt",
           "modelId": "cstr/madlad400-3b-mt-GGUF",
           "reason": "Broad 419-language local translation model for dubbing."
+        },
+        {
+          "familyId": "hy-mt2-1.8b",
+          "modelId": "tencent/Hy-MT2-1.8B-GGUF",
+          "reason": "High-quality multilingual local translation through llama.cpp."
         }
       ]
     }

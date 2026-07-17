@@ -44,7 +44,11 @@ public:
     ~StudioSelectionRepository() override = default;
 
     StudioConfiguration selectionFor(const QString &capabilityId) const;
+    QVariantMap fileSelectionForFamily(const QString &capabilityId, const QString &familyId) const;
     void saveActiveSelection(const StudioConfiguration &selection);
+    void saveFileSelectionForFamily(const QString &capabilityId,
+                                    const QString &familyId,
+                                    const QVariantMap &selectedFiles);
     void clearActiveSelection(const QString &capabilityId);
     void migrateLegacySelectionsIfNeeded(Settings *settings);
 

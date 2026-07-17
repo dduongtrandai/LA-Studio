@@ -231,3 +231,13 @@ CREATE TABLE IF NOT EXISTS active_capability_selections (
   selected_files_json TEXT NOT NULL DEFAULT '{}',
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Deliberately independent from bundled catalog foreign keys. Bundled model rows are
+-- replaced during catalog refreshes, while a user's per-family file choices must survive.
+CREATE TABLE IF NOT EXISTS model_family_file_selections (
+  capability_id TEXT NOT NULL,
+  family_id TEXT NOT NULL,
+  selected_files_json TEXT NOT NULL DEFAULT '{}',
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (capability_id, family_id)
+);

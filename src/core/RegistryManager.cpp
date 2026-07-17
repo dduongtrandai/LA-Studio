@@ -18,6 +18,19 @@
 
 namespace LAStudio {
 
+QVariantList RegistryManager::translationFamilies() const
+{
+    QVariantList result;
+    for (const QVariant &entry : m_sttFamilies) {
+        const QVariantMap family = entry.toMap();
+        if (family.value(QStringLiteral("supportsTranslation")).toBool()
+            || family.value(QStringLiteral("capabilities")).toList().contains(QStringLiteral("translation"))) {
+            result.append(entry);
+        }
+    }
+    return result;
+}
+
 namespace {
 
 constexpr const char *kRegistrySourceId = "bundled";

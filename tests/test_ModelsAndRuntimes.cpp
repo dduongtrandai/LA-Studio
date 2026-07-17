@@ -6,6 +6,7 @@
 #include "core/CatalogManager.h"
 #include "core/RegistryManager.h"
 #include "core/Settings.h"
+#include "core/StudioSelectionRepository.h"
 #include "core/RuntimeManager.h"
 #include "core/ModelManager.h"
 #include "core/LogViewService.h"
@@ -19,7 +20,10 @@
 #include <QJsonObject>
 #include <QScopeGuard>
 #include <QSet>
+#include <QSqlDatabase>
+#include <QSqlQuery>
 #include <QTemporaryDir>
+#include <QUuid>
 
 namespace LAStudio {
 
@@ -91,6 +95,8 @@ void TestModelsAndRuntimes::testLlamaCatalogIncludesAllWindowsX64Runtimes()
         }
     }
     QVERIFY2(!hyMt2.isEmpty(), "Hy-MT2 should be present in the catalog");
+    QVERIFY2(hyMt2.value(QStringLiteral("isLastudioPick")).toBool(),
+             "Hy-MT2 should be marked as an LA Studio Pick");
 
     const QSet<QString> expectedRuntimeIds{
         QStringLiteral("llama-win-x86_64-cpu"),
@@ -128,6 +134,57 @@ void TestModelsAndRuntimes::testLlamaCatalogIncludesAllWindowsX64Runtimes()
         }
     }
     QCOMPARE(foundRuntimeIds, expectedRuntimeIds);
+}
+
+void TestModelsAndRuntimes::testStudioSelectionRepositoryRemembersFilesPerFamily()
+{
+    const QString connectionName =
+        QStringLiteral("selection-test-%1").arg(QUuid::createUuid().toString(QUuid::WithoutBraces));
+    {
+        QSqlDatabase database = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), connectionName);
+        database.setDatabaseName(QStringLiteral(":memory:"));
+        QVERIFY(database.open());
+
+        QSqlQuery query(database);
+        QVERIFY(query.exec(QStringLiteral(
+            "CREATE TABLE active_capability_selections ("
+            "capability_id TEXT PRIMARY KEY, family_id TEXT NOT NULL, runtime_id TEXT, "
+            "runtime_version TEXT, selected_files_json TEXT NOT NULL DEFAULT '{}', "
+            "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)")));
+        QVERIFY(query.exec(QStringLiteral(
+            "CREATE TABLE model_family_file_selections ("
+            "capability_id TEXT NOT NULL, family_id TEXT NOT NULL, "
+            "selected_files_json TEXT NOT NULL DEFAULT '{}', "
+            "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, "
+            "PRIMARY KEY (capability_id, family_id))")));
+
+        StudioSelectionRepository repository(connectionName);
+        StudioConfiguration first;
+        first.capabilityId = QStringLiteral("translation");
+        first.familyId = QStringLiteral("m2m100-418m");
+        first.selectedFiles.insert(QStringLiteral("model"), QStringLiteral("m2m-q8.gguf"));
+        repository.saveActiveSelection(first);
+
+        StudioConfiguration second;
+        second.capabilityId = QStringLiteral("translation");
+        second.familyId = QStringLiteral("hy-mt2-1.8b");
+        second.selectedFiles.insert(QStringLiteral("model"), QStringLiteral("hy-mt2-q6.gguf"));
+        repository.saveActiveSelection(second);
+
+        QCOMPARE(repository.selectionFor(QStringLiteral("translation")).familyId,
+                 QStringLiteral("hy-mt2-1.8b"));
+        QCOMPARE(repository.fileSelectionForFamily(QStringLiteral("translation"),
+                                                   QStringLiteral("m2m100-418m"))
+                     .value(QStringLiteral("model")).toString(),
+                 QStringLiteral("m2m-q8.gguf"));
+        QCOMPARE(repository.fileSelectionForFamily(QStringLiteral("translation"),
+                                                   QStringLiteral("hy-mt2-1.8b"))
+                     .value(QStringLiteral("model")).toString(),
+                 QStringLiteral("hy-mt2-q6.gguf"));
+
+        database.close();
+    }
+    QSqlDatabase::removeDatabase(connectionName);
 }
 
 void TestModelsAndRuntimes::testModelManagerConcreteModelDir()
@@ -280,6 +337,45 @@ void TestModelsAndRuntimes::testVoiceDesignFamiliesExposeRuntimeOptions()
             runtimeIds.insert(runtimeId);
         }
     }
+}
+
+void TestModelsAndRuntimes::testTranslationRecommendationUsesCompatibleRuntime()
+{
+    const QString oldCurrentPath = QDir::currentPath();
+    const auto restoreCurrentPath = qScopeGuard([oldCurrentPath]() {
+        QDir::setCurrent(oldCurrentPath);
+    });
+    const QString repoRoot = QDir(QFileInfo(QStringLiteral(__FILE__)).absolutePath() + QStringLiteral("/..")).absolutePath();
+    QVERIFY2(QDir::setCurrent(repoRoot), "Test must run from the repository root to load catalog data");
+
+    CatalogManager catalog;
+    RegistryManager registry;
+    registry.initializeFromCatalog(&catalog);
+    ModelManager models;
+    Settings settings;
+    RuntimeManager runtimes(&catalog, &settings);
+    CapabilityFamilyModel familyModel(&models, &runtimes, &registry, &settings);
+    familyModel.setCapability(QStringLiteral("translation"));
+
+    const QVariantMap recommendation = familyModel.recommendedConfiguration();
+    QVERIFY2(!recommendation.isEmpty(), "Translation should expose a hardware-compatible default configuration");
+    QVERIFY(!recommendation.value(QStringLiteral("familyId")).toString().isEmpty());
+    QVERIFY(!recommendation.value(QStringLiteral("runtimeId")).toString().isEmpty());
+    QVERIFY(!recommendation.value(QStringLiteral("reason")).toString().isEmpty());
+
+    const QVariantMap family = familyModel.itemForFamily(
+        recommendation.value(QStringLiteral("familyId")).toString());
+    QVERIFY(!family.isEmpty());
+    bool foundCompatibleRuntime = false;
+    for (const QVariant &runtimeValue : family.value(QStringLiteral("runtimeOptions")).toList()) {
+        const QVariantMap runtime = runtimeValue.toMap();
+        if (runtime.value(QStringLiteral("id")).toString()
+            == recommendation.value(QStringLiteral("runtimeId")).toString()) {
+            foundCompatibleRuntime = runtime.value(QStringLiteral("compatible")).toBool();
+            break;
+        }
+    }
+    QVERIFY2(foundCompatibleRuntime, "Recommended translation runtime must be compatible with detected hardware");
 }
 
 void TestModelsAndRuntimes::testForcedAlignmentCatalogEntry()

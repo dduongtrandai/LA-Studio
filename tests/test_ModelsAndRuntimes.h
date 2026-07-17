@@ -18,12 +18,14 @@ private slots:
     void testProcessRuntimeRejectsMissingEntrypoint();
     void testOptionalLlamaTranslationRuntimeLoad();
     void testLlamaCatalogIncludesAllWindowsX64Runtimes();
+    void testStudioSelectionRepositoryRemembersFilesPerFamily();
     void testVieNeuV3CatalogIncludesMossExternalData();
     void testCapabilityFamilyModelAcceptsExistingModelFiles();
     void testQwen3TtsUsesAutomaticFrameLimit();
     void testQwen3TtsDoesNotExposeUnsupportedLengthScale();
     void testLogViewServicePending();
     void testStudioConfigurationResolver();
+    void testTranslationRecommendationUsesCompatibleRuntime();
 };
 
 } // namespace LAStudio

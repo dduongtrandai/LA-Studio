@@ -13,6 +13,7 @@ class RegistryManager : public QObject {
     Q_PROPERTY(QVariantList modelCategories READ modelCategories NOTIFY registryUpdated)
     Q_PROPERTY(QVariantList ttsFamilies READ ttsFamilies NOTIFY registryUpdated)
     Q_PROPERTY(QVariantList sttFamilies READ sttFamilies NOTIFY registryUpdated)
+    Q_PROPERTY(QVariantList translationFamilies READ translationFamilies NOTIFY registryUpdated)
     Q_PROPERTY(QString databasePath READ databasePath CONSTANT)
 
 public:
@@ -21,6 +22,7 @@ public:
     QVariantList modelCategories() const { return m_modelCategories; }
     QVariantList ttsFamilies() const { return m_ttsFamilies; }
     QVariantList sttFamilies() const { return m_sttFamilies; }
+    QVariantList translationFamilies() const;
     QString databasePath() const { return m_databasePath; }
 
     void initializeFromCatalog(CatalogManager *catalog);

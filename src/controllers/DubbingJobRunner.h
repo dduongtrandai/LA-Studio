@@ -47,7 +47,8 @@ public:
     void startIngest(const QString &path);
     void startSourceSeparation(const QString &audioPath);
     void startTranscription(const QString &sourceLanguage, const QString &sourceMediaPath);
-    void startTranslation(const QString &sourceLanguage, const QString &targetLanguage, const QVariantList &segments);
+    void startTranslation(const QString &sourceLanguage, const QString &targetLanguage, const QVariantList &segments,
+                          const QVariantMap &modelConfiguration = QVariantMap());
     void startAudioGeneration(const QVariantList &segments, const QString &projectPath);
     void cancel();
     bool renderPreview(const QVariantList &segments, const QString &projectPath, const QString &path = QString());
