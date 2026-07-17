@@ -10,6 +10,7 @@ set(TEST_SOURCES
     test_AudioPreviewService.cpp
     test_ModelsAndRuntimes.cpp
     test_SttSession.cpp
+    test_SubtitleVoice.cpp
     test_StudioCapabilities.cpp
     test_AlignmentTranscriptMatcher.cpp
     test_AlignmentWorkflow.cpp
@@ -26,6 +27,7 @@ set(TEST_SOURCES
     mocks/HFHubClient.cpp
     mocks/DownloadManager.cpp
     mocks/AppController.cpp
+    test_SubtitleVoice.h
 
     ../src/api/ApiServerService.cpp
 
@@ -66,6 +68,11 @@ set(TEST_SOURCES
     ../src/controllers/ModelSessionRegistry.cpp
     ../src/controllers/StudioConfigurationResolver.cpp
     ../src/controllers/SttSessionController.cpp
+    ../src/controllers/SubtitleVoiceController.cpp
+    ../src/subtitles/SrtTimelineParser.cpp
+    ../src/tts/SubtitleSmartFitPlanner.cpp
+    ../src/tts/TimedSpeechPipeline.cpp
+    ../src/audio/AudioTimelineRenderer.cpp
     ../src/controllers/SttAudioDecoder.cpp
     ../src/controllers/DubbingProject.cpp
     ../src/controllers/DubbingController.cpp

@@ -1,5 +1,7 @@
 #include "TranslationProject.h"
 
+#include "subtitles/SrtTimelineParser.h"
+
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
@@ -57,6 +59,30 @@ bool TranslationProject::importText(const QString &text, TranslationProject &pro
 
 bool TranslationProject::importSubtitle(const QString &text, const QString &format, TranslationProject &project, QString *error)
 {
+    if (format == QStringLiteral("srt")) {
+        const SubtitleParseResult parsed = SrtTimelineParser::parseSrt(text);
+        if (!parsed.ok || parsed.skippedCues > 0) {
+            setError(error, parsed.error.isEmpty() ? QStringLiteral("Invalid subtitle cue.") : parsed.error);
+            return false;
+        }
+        QVariantList segments;
+        for (const TimedTextCue &cue : parsed.cues) {
+            segments.append(QVariantMap{{QStringLiteral("id"), segmentId(segments.size())},
+                                        {QStringLiteral("sourceText"), cue.text},
+                                        {QStringLiteral("targetText"), QString()},
+                                        {QStringLiteral("startMs"), cue.startMs},
+                                        {QStringLiteral("endMs"), cue.endMs},
+                                        {QStringLiteral("state"), QStringLiteral("ready")}});
+        }
+        if (segments.isEmpty()) {
+            setError(error, QStringLiteral("No subtitle cues were found."));
+            return false;
+        }
+        project.sourceFormat = format;
+        project.segments = segments;
+        return true;
+    }
+
     QString normalized = text; normalized.replace(QStringLiteral("\r\n"), QStringLiteral("\n"));
     if (format == QStringLiteral("vtt")) { if (!normalized.startsWith(QStringLiteral("WEBVTT"))) { setError(error, QStringLiteral("Invalid VTT header.")); return false; } normalized = normalized.mid(normalized.indexOf('\n') + 1); }
     const QStringList blocks = normalized.split(QRegularExpression(QStringLiteral("\\n\\s*\\n")), Qt::SkipEmptyParts);

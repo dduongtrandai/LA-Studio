@@ -16,6 +16,7 @@
 #include "test_TranslationProject.h"
 #include "test_WorkflowGraph.h"
 #include "test_SourceSeparation.h"
+#include "test_SubtitleVoice.h"
 
 #include <QFile>
 #include <QTextStream>
@@ -130,6 +131,11 @@ int main(int argc, char *argv[])
     {
         LAStudio::TestSourceSeparation suite;
         runSuite(&suite, "TestSourceSeparation");
+    }
+
+    {
+        LAStudio::TestSubtitleVoice suite;
+        runSuite(&suite, "TestSubtitleVoice");
     }
 
     std::cout << "\n==================================================\n";

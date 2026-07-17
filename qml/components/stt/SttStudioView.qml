@@ -142,6 +142,7 @@ StudioShell {
                     Layout.fillHeight: true
                 }
             }
+
         }
     ]
 
@@ -203,6 +204,7 @@ StudioShell {
                 Layout.fillHeight: true
                 onCloseRequested: root.isSettingsOpen = false
             }
+
         }
     ]
 }

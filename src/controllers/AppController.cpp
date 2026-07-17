@@ -65,6 +65,7 @@ AppController::AppController(QObject *parent)
     m_voiceClonePresets = new VoiceClonePresetService(this);
     m_voiceDesignPresets = new VoiceDesignPresetService(this);
     m_sttSession = new SttSessionController(this);
+    m_subtitleVoice = new SubtitleVoiceController(m_tts, m_player, this);
     m_dubbing = new DubbingController(m_sttSession, m_tts, m_translationEngine, m_models, m_runtimes, this);
     m_updates = new AppUpdateService(m_downloads, this);
     m_examples = new ExampleManager(this);

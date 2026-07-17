@@ -163,10 +163,15 @@ set(LASTUDIO_SOURCES
     src/controllers/StudioSessionViewModel.cpp
     src/controllers/StudioConfigurationResolver.cpp
     src/controllers/SttSessionController.cpp
+    src/controllers/SubtitleVoiceController.cpp
     src/controllers/SttAudioDecoder.cpp
     src/controllers/DubbingProject.cpp
     src/controllers/DubbingController.cpp
     src/controllers/AudioTimelineMixer.cpp
+    src/subtitles/SrtTimelineParser.cpp
+    src/tts/SubtitleSmartFitPlanner.cpp
+    src/tts/TimedSpeechPipeline.cpp
+    src/audio/AudioTimelineRenderer.cpp
     src/controllers/DubbingJobRunner.cpp
     src/separation/SeparationAudioIO.cpp
     src/separation/SourceSeparationService.cpp
@@ -294,10 +299,16 @@ set(LASTUDIO_HEADERS
     src/controllers/StudioSessionViewModel.h
     src/controllers/StudioConfigurationResolver.h
     src/controllers/SttSessionController.h
+    src/controllers/SubtitleVoiceController.h
     src/controllers/SttAudioDecoder.h
     src/controllers/DubbingProject.h
     src/controllers/DubbingController.h
     src/controllers/AudioTimelineMixer.h
+    src/subtitles/TimedTextCue.h
+    src/subtitles/SrtTimelineParser.h
+    src/tts/SubtitleSmartFitPlanner.h
+    src/tts/TimedSpeechPipeline.h
+    src/audio/AudioTimelineRenderer.h
     src/controllers/DubbingJobRunner.h
     src/separation/SeparationTypes.h
     src/separation/SeparationAudioIO.h
@@ -433,6 +444,7 @@ qt_add_qml_module(LAStudio
         qml/components/tts/TtsHistoryPanel.qml
         qml/components/tts/TtsSettingsPanel.qml
         qml/components/tts/TtsStudioView.qml
+        qml/components/tts/SrtVoiceView.qml
         qml/components/voiceisolator/VoiceIsolatorHistoryPanel.qml
         qml/components/voiceisolator/VoiceIsolatorStudioView.qml
         qml/components/voicedesign/VoiceDesignHistoryPanel.qml

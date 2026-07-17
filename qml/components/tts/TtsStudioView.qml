@@ -29,6 +29,7 @@ StudioShell {
     property string detectedLanguage: "en"
     property bool outputReady: AppController.tts.lastSampleCount > 0 && !AppController.tts.isCloneAction
     property string lastSynthesizedText: ""
+    property bool srtVoiceMode: false
     property real mainHorizontalInset: Theme.paddingXL
     property real promptInset: Theme.paddingSmall
     readonly property bool inputsLocked: AppController.tts.processing
@@ -127,6 +128,10 @@ StudioShell {
         target: AppController.tts
         function onSynthesisFinished(pcm16, sampleRate) {
             if (AppController.tts.lastGenerationMode !== "tts") return;
+            // Subtitle synthesis is a single batch workflow. Its per-cue
+            // completions are previews, not standalone TTS history entries.
+            if (root.srtVoiceMode
+                    || (AppController.subtitleVoice && AppController.subtitleVoice.processing)) return;
             var text = root.lastSynthesizedText.trim()
             if (text === "") {
                 text = inputText.text.trim()
@@ -157,8 +162,14 @@ StudioShell {
     ]
 
     mainContent: [
-        Item {
+        StackLayout {
             anchors.fill: parent
+            anchors.topMargin: 44
+            currentIndex: root.srtVoiceMode ? 1 : 0
+
+            Item {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
 
             Item {
                 anchors.fill: parent
@@ -477,12 +488,36 @@ StudioShell {
                 }
                 }
             }
+            }
+
+            SrtVoiceView {
+                id: srtVoiceView
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                voiceController: AppController.subtitleVoice
+                settingsPanel: srtSettingsPanel
+            }
+        },
+
+        Row {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: 34
+            spacing: Theme.paddingSmall
+            AppTabButton { text: qsTr("Text to Speech"); iconName: "volume"; selected: !root.srtVoiceMode; onClicked: root.srtVoiceMode = false }
+            AppTabButton { text: qsTr("SRT to Voice"); iconName: "volume"; selected: root.srtVoiceMode; onClicked: root.srtVoiceMode = true }
         }
     ]
 
     settingsContent: [
-        Item {
+        StackLayout {
             anchors.fill: parent
+            currentIndex: root.srtVoiceMode ? 1 : 0
+
+            Item {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
 
             Item {
                 anchors.fill: parent
@@ -533,7 +568,7 @@ StudioShell {
                 }
             }
 
-            TtsSettingsPanel {
+                TtsSettingsPanel {
                 id: settingsPanel
                 anchors.fill: parent
                 visible: opacity > 0
@@ -545,6 +580,18 @@ StudioShell {
                 suggestedLanguage: root.detectedLanguage
                 backendType: root.resolveBackendType()
                 locked: root.inputsLocked
+                onCloseRequested: root.isSettingsOpen = false
+                }
+            }
+
+            TtsSettingsPanel {
+                id: srtSettingsPanel
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                family: root.family
+                suggestedLanguage: root.detectedLanguage
+                backendType: root.resolveBackendType()
+                locked: AppController.subtitleVoice ? AppController.subtitleVoice.processing : false
                 onCloseRequested: root.isSettingsOpen = false
             }
         }
