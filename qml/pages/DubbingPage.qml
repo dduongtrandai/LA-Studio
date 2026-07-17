@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import QtMultimedia
 import "../components/base"
 import "../components/alignment"
+import "../components/dubbing"
 import "../components/shared"
 import LAStudio
 
@@ -153,6 +154,14 @@ Item {
         return item.sourceName || item.sourceMediaPath || qsTr("No source media")
     }
 
+    function languageDisplayName(code) {
+        for (var i = 0; i < root.languageCatalog.length; ++i) {
+            if (root.languageCatalog[i].value === code)
+                return root.languageCatalog[i].text || code
+        }
+        return code
+    }
+
     component Field: TextField {
         color: Theme.textPrimary
         placeholderTextColor: Theme.textSecondary
@@ -255,6 +264,7 @@ Item {
                     }
                 }
                 PrimaryButton { text: qsTr("Save"); iconName: "save"; quiet: true; enabled: dubbing.hasProject; onClicked: dubbing.saveProject() }
+                PrimaryButton { text: qsTr("Export"); iconName: "download"; enabled: dubbing.hasProject && !dubbing.processing; onClicked: exportOptionsDialog.open() }
             }
         }
 
@@ -1104,6 +1114,73 @@ Item {
             var path = AppController.files.urlToLocalPath(selectedFile.toString())
             dubbing.importMedia(path)
         }
+    }
+
+    DubbingExportDialog {
+        id: exportOptionsDialog
+        parent: Overlay.overlay
+        projectName: dubbing.projectPath
+        videoSource: root.isVideoSource
+        busy: dubbing.processing
+        segmentCount: dubbing.segments.length
+        generatedClipCount: root.generatedClipCount()
+        sourceLanguageCode: dubbing.sourceLanguage
+        sourceLanguageName: root.languageDisplayName(dubbing.sourceLanguage)
+        targetLanguageCode: dubbing.targetLanguage
+        targetLanguageName: root.languageDisplayName(dubbing.targetLanguage)
+        onVideoExportRequested: videoExportFileDialog.open()
+        onAudioExportRequested: audioExportFileDialog.open()
+        onSubtitleExportRequested: function(format, useTargetText, languageCode) {
+            root.pendingSubtitleFormat = format
+            root.pendingSubtitleUsesTarget = useTargetText
+            root.pendingSubtitleLanguageCode = languageCode
+            subtitleExportFileDialog.open()
+        }
+        onPackageExportRequested: packageExportFolderDialog.open()
+    }
+
+    FileDialog {
+        id: videoExportFileDialog
+        title: qsTr("Export dubbed video")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "mp4"
+        nameFilters: [qsTr("MP4 video (*.mp4)")]
+        onAccepted: dubbing.exportMedia(AppController.files.urlToLocalPath(selectedFile.toString()))
+    }
+
+    FileDialog {
+        id: audioExportFileDialog
+        title: qsTr("Export dubbing mix")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "wav"
+        nameFilters: [qsTr("WAV audio (*.wav)")]
+        onAccepted: dubbing.renderPreview(AppController.files.urlToLocalPath(selectedFile.toString()))
+    }
+
+    property string pendingSubtitleFormat: "srt"
+    property bool pendingSubtitleUsesTarget: true
+    property string pendingSubtitleLanguageCode: ""
+
+    FileDialog {
+        id: subtitleExportFileDialog
+        title: root.pendingSubtitleFormat === "vtt" ? qsTr("Export WebVTT subtitles")
+                                                    : qsTr("Export SubRip subtitles")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: root.pendingSubtitleFormat
+        currentFile: "subtitles-" + (root.pendingSubtitleLanguageCode || "und")
+                     + "." + root.pendingSubtitleFormat
+        nameFilters: root.pendingSubtitleFormat === "vtt"
+                     ? [qsTr("WebVTT subtitles (*.vtt)")]
+                     : [qsTr("SubRip subtitles (*.srt)")]
+        onAccepted: dubbing.exportSubtitles(
+                        AppController.files.urlToLocalPath(selectedFile.toString()),
+                        root.pendingSubtitleUsesTarget)
+    }
+
+    FolderDialog {
+        id: packageExportFolderDialog
+        title: qsTr("Choose review package folder")
+        onAccepted: dubbing.exportPackage(AppController.files.urlToLocalPath(selectedFolder.toString()))
     }
 
     ConfirmationDialog {

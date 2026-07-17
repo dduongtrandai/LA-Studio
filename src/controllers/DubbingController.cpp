@@ -27,6 +27,85 @@
 
 namespace LAStudio {
 
+namespace {
+
+QString subtitleTimestamp(qint64 milliseconds, bool webVtt)
+{
+    const qint64 hours = milliseconds / 3600000;
+    milliseconds %= 3600000;
+    const qint64 minutes = milliseconds / 60000;
+    milliseconds %= 60000;
+    const qint64 seconds = milliseconds / 1000;
+    const qint64 millis = milliseconds % 1000;
+    return QStringLiteral("%1:%2:%3%4%5")
+        .arg(hours, 2, 10, QLatin1Char('0'))
+        .arg(minutes, 2, 10, QLatin1Char('0'))
+        .arg(seconds, 2, 10, QLatin1Char('0'))
+        .arg(webVtt ? QLatin1Char('.') : QLatin1Char(','))
+        .arg(millis, 3, 10, QLatin1Char('0'));
+}
+
+bool writeDubbingSubtitles(const QVariantList &segments, const QString &path,
+                           bool useTargetText, QString *error)
+{
+    const bool webVtt = QFileInfo(path).suffix().compare(QStringLiteral("vtt"), Qt::CaseInsensitive) == 0;
+    QStringList lines;
+    if (webVtt) lines.append(QStringLiteral("WEBVTT\n"));
+
+    int cueNumber = 1;
+    for (const QVariant &entry : segments) {
+        const QVariantMap segment = entry.toMap();
+        const QString text = segment.value(useTargetText ? QStringLiteral("targetText")
+                                                         : QStringLiteral("sourceText")).toString().trimmed();
+        if (text.isEmpty()) continue;
+        if (!webVtt) lines.append(QString::number(cueNumber));
+        lines.append(subtitleTimestamp(segment.value(QStringLiteral("startMs")).toLongLong(), webVtt)
+                     + QStringLiteral(" --> ")
+                     + subtitleTimestamp(segment.value(QStringLiteral("endMs")).toLongLong(), webVtt));
+        lines.append(text);
+        lines.append(QString());
+        ++cueNumber;
+    }
+    if (cueNumber == 1) {
+        if (error) *error = useTargetText
+            ? QStringLiteral("No translated subtitle text is available.")
+            : QStringLiteral("No source subtitle text is available.");
+        return false;
+    }
+
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        if (error) *error = file.errorString();
+        return false;
+    }
+    file.write(lines.join(QLatin1Char('\n')).toUtf8());
+    if (!file.commit()) {
+        if (error) *error = file.errorString();
+        return false;
+    }
+    return true;
+}
+
+bool replaceCopy(const QString &source, const QString &destination, QString *error)
+{
+    if (source.isEmpty() || !QFileInfo(source).isFile()) return true;
+    if (QFileInfo(source).absoluteFilePath().compare(
+            QFileInfo(destination).absoluteFilePath(), Qt::CaseInsensitive) == 0) {
+        return true;
+    }
+    if (QFileInfo::exists(destination) && !QFile::remove(destination)) {
+        if (error) *error = QStringLiteral("Cannot replace package file: %1").arg(destination);
+        return false;
+    }
+    if (!QFile::copy(source, destination)) {
+        if (error) *error = QStringLiteral("Cannot copy %1 to %2.").arg(source, destination);
+        return false;
+    }
+    return true;
+}
+
+} // namespace
+
 DubbingController::DubbingController(SttSessionController *sttSession, TtsEngine *tts,
                                      ModelManager *models, RuntimeManager *runtimes, QObject *parent)
     : DubbingController(sttSession, tts, nullptr, models, runtimes, parent)
@@ -933,6 +1012,91 @@ bool DubbingController::exportMedia(const QString &path)
         if (!renderPreview()) return false;
     }
     return m_runner->startExport(m_project.sourceMediaPath, outputPath);
+}
+
+bool DubbingController::exportSubtitles(const QString &path, bool useTargetText)
+{
+    const QString outputPath = QFileInfo(PathUtils::urlToLocalPath(path)).absoluteFilePath();
+    if (path.isEmpty() || outputPath.isEmpty()) {
+        setError(QStringLiteral("Choose a subtitle output path."));
+        return false;
+    }
+    QString error;
+    if (!writeDubbingSubtitles(m_project.segments, outputPath, useTargetText, &error)) {
+        setError(error);
+        return false;
+    }
+    clearError();
+    return true;
+}
+
+bool DubbingController::exportPackage(const QString &directoryPath)
+{
+    const QString outputDirectory = QFileInfo(PathUtils::urlToLocalPath(directoryPath)).absoluteFilePath();
+    if (directoryPath.isEmpty() || outputDirectory.isEmpty()) {
+        setError(QStringLiteral("Choose a package output folder."));
+        return false;
+    }
+    if (!hasProject()) {
+        setError(QStringLiteral("Save the dubbing project before exporting a package."));
+        return false;
+    }
+
+    QDir directory(outputDirectory);
+    if (!directory.mkpath(QStringLiteral(".")) || !directory.mkpath(QStringLiteral("clips"))) {
+        setError(QStringLiteral("Cannot create package folder: %1").arg(outputDirectory));
+        return false;
+    }
+
+    QString error;
+    if (!m_project.save(&error)
+        || !replaceCopy(m_project.projectPath, directory.filePath(QStringLiteral("project.ladub.json")), &error)
+        || !replaceCopy(previewPath(), directory.filePath(QStringLiteral("dubbed-mix.wav")), &error)
+        || !replaceCopy(m_project.analysisAudioPath, directory.filePath(QStringLiteral("source-vocals.wav")), &error)
+        || !replaceCopy(m_project.backgroundAudioPath, directory.filePath(QStringLiteral("background.wav")), &error)) {
+        setError(error);
+        return false;
+    }
+
+    int exportedClips = 0;
+    for (int i = 0; i < m_project.segments.size(); ++i) {
+        const QString clipPath = m_project.segments.at(i).toMap().value(QStringLiteral("clipPath")).toString();
+        if (clipPath.isEmpty() || !QFileInfo(clipPath).isFile()) continue;
+        const QString suffix = QFileInfo(clipPath).suffix().isEmpty()
+            ? QStringLiteral("wav") : QFileInfo(clipPath).suffix();
+        const QString clipName = QStringLiteral("%1.%2").arg(i + 1, 4, 10, QLatin1Char('0')).arg(suffix);
+        if (!replaceCopy(clipPath, directory.filePath(QStringLiteral("clips/") + clipName), &error)) {
+            setError(error);
+            return false;
+        }
+        ++exportedClips;
+    }
+
+    const QString sourceSubtitlePath = directory.filePath(QStringLiteral("source.srt"));
+    const QString dubbedSubtitlePath = directory.filePath(QStringLiteral("dubbed.srt"));
+    if (!writeDubbingSubtitles(m_project.segments, sourceSubtitlePath, false, nullptr))
+        QFile::remove(sourceSubtitlePath);
+    if (!writeDubbingSubtitles(m_project.segments, dubbedSubtitlePath, true, nullptr))
+        QFile::remove(dubbedSubtitlePath);
+
+    const QJsonObject manifest{
+        {QStringLiteral("format"), QStringLiteral("la-studio-dubbing-package")},
+        {QStringLiteral("version"), 1},
+        {QStringLiteral("exportedAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate)},
+        {QStringLiteral("project"), QStringLiteral("project.ladub.json")},
+        {QStringLiteral("sourceMediaPath"), m_project.sourceMediaPath},
+        {QStringLiteral("segmentCount"), m_project.segments.size()},
+        {QStringLiteral("exportedClipCount"), exportedClips}
+    };
+    QSaveFile manifestFile(directory.filePath(QStringLiteral("manifest.json")));
+    if (!manifestFile.open(QIODevice::WriteOnly)
+        || manifestFile.write(QJsonDocument(manifest).toJson(QJsonDocument::Indented)) < 0
+        || !manifestFile.commit()) {
+        setError(QStringLiteral("Cannot write package manifest: %1").arg(manifestFile.errorString()));
+        return false;
+    }
+    clearError();
+    return true;
 }
 
 bool DubbingController::renderPreview(const QString &path)

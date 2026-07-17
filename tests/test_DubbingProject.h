@@ -18,6 +18,7 @@ private slots:
     void alignmentRefinementFallsBackWithoutDependencies();
     void audioGenerationWaitsForCompletedSynthesis();
     void sourceTextEditInvalidatesWordTiming();
+    void exportsSubtitlesAndReviewPackage();
     void segmentNormalizerSplitsLongAsrTranscript();
     void segmentNormalizerUsesAlignedWordBoundaries();
 };

@@ -210,6 +210,33 @@ void TestDubbingProject::sourceTextEditInvalidatesWordTiming()
     QCOMPARE(updated.value(QStringLiteral("alignmentStatus")).toString(), QStringLiteral("pending"));
 }
 
+void TestDubbingProject::exportsSubtitlesAndReviewPackage()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    DubbingController controller(nullptr, nullptr);
+    const QString projectPath = dir.filePath(QStringLiteral("demo.ladub.json"));
+    QVERIFY(controller.newProject(projectPath));
+    controller.addSegment(1200, 3450, QStringLiteral("Hello"));
+    controller.updateSegment(0, QVariantMap{{QStringLiteral("targetText"), QStringLiteral("Xin chao")}});
+
+    const QString subtitlePath = dir.filePath(QStringLiteral("dubbed.srt"));
+    QVERIFY(controller.exportSubtitles(subtitlePath, true));
+    QFile subtitleFile(subtitlePath);
+    QVERIFY(subtitleFile.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QString subtitle = QString::fromUtf8(subtitleFile.readAll());
+    QVERIFY(subtitle.contains(QStringLiteral("00:00:01,200 --> 00:00:03,450")));
+    QVERIFY(subtitle.contains(QStringLiteral("Xin chao")));
+
+    const QString packagePath = dir.filePath(QStringLiteral("review-package"));
+    QVERIFY(controller.exportPackage(packagePath));
+    QVERIFY(QFileInfo(packagePath + QStringLiteral("/manifest.json")).isFile());
+    QVERIFY(QFileInfo(packagePath + QStringLiteral("/project.ladub.json")).isFile());
+    QVERIFY(QFileInfo(packagePath + QStringLiteral("/source.srt")).isFile());
+    QVERIFY(QFileInfo(packagePath + QStringLiteral("/dubbed.srt")).isFile());
+}
+
 void TestDubbingProject::segmentNormalizerSplitsLongAsrTranscript()
 {
     const QVariantList input{QVariantMap{

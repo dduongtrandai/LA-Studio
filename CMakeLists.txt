@@ -409,6 +409,7 @@ qt_add_qml_module(LAStudio
         qml/components/alignment/AlignmentViewModeButton.qml
         qml/components/alignment/AlignmentPlayerButton.qml
         qml/components/alignment/AlignmentResultMetric.qml
+        qml/components/dubbing/DubbingExportDialog.qml
         qml/components/shared/WorkflowPipelineDialog.qml
         qml/components/voicecloning/VoiceSettingsPanel.qml
         qml/components/voicecloning/VoiceCloningStudioView.qml
