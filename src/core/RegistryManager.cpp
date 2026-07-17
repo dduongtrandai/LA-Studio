@@ -539,7 +539,7 @@ bool RegistryManager::reloadCachedViews()
             "SELECT f.metadata_json "
             "FROM model_families f "
             "JOIN family_capabilities c ON c.family_id = f.id "
-            "WHERE f.source_id = 'bundled' AND c.capability_id IN ('stt', 'forced-alignment', 'translation') "
+            "WHERE f.source_id = 'bundled' AND c.capability_id IN ('stt', 'forced-alignment', 'translation', 'voice-isolation') "
             "ORDER BY f.rowid ASC"))) {
         Logger::error(QStringLiteral("RegistryManager"),
                       QStringLiteral("Failed to load STT family view: %1").arg(sttQuery.lastError().text()));

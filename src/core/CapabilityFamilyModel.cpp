@@ -439,6 +439,16 @@ QPair<QString, QString> preferredRuntime(const QVariantList &runtimeOptions)
     return firstOption;
 }
 
+// Keep the gallery filter on canonical ISO 639-1 codes while accepting
+// ISO 639-3 aliases from model metadata (for example vie -> vi).
+QString canonicalLanguageCode(const QString &raw)
+{
+    const QString code = raw.trimmed().toLower();
+    if (code == QStringLiteral("vie"))
+        return QStringLiteral("vi");
+    return code;
+}
+
 QVersionNumber parsedRuntimeVersion(QString version)
 {
     version = version.trimmed();
@@ -489,17 +499,17 @@ bool familySupportsLanguage(const QVariantMap &family, const QString &langFilter
         return true;
     }
 
-    const QString targetLang = langFilter.trimmed().toLower();
+    const QString targetLang = canonicalLanguageCode(langFilter);
 
     // 1. Check supportedLanguages
     const QVariantList supportedLangs = family.value(QStringLiteral("supportedLanguages")).toList();
     for (const QVariant &val : supportedLangs) {
         if (val.typeId() == QMetaType::QVariantMap) {
             const QVariantMap m = val.toMap();
-            if (m.value(QStringLiteral("value")).toString().trimmed().toLower() == targetLang) {
+            if (canonicalLanguageCode(m.value(QStringLiteral("value")).toString()) == targetLang) {
                 return true;
             }
-        } else if (val.toString().trimmed().toLower() == targetLang) {
+        } else if (canonicalLanguageCode(val.toString()) == targetLang) {
             return true;
         }
     }
@@ -509,10 +519,10 @@ bool familySupportsLanguage(const QVariantMap &family, const QString &langFilter
     for (const QVariant &val : featuredLangs) {
         if (val.typeId() == QMetaType::QVariantMap) {
             const QVariantMap m = val.toMap();
-            if (m.value(QStringLiteral("value")).toString().trimmed().toLower() == targetLang) {
+            if (canonicalLanguageCode(m.value(QStringLiteral("value")).toString()) == targetLang) {
                 return true;
             }
-        } else if (val.toString().trimmed().toLower() == targetLang) {
+        } else if (canonicalLanguageCode(val.toString()) == targetLang) {
             return true;
         }
     }
@@ -526,10 +536,10 @@ bool familySupportsLanguage(const QVariantMap &family, const QString &langFilter
             for (const QVariant &val : setLangs) {
                 if (val.typeId() == QMetaType::QVariantMap) {
                     const QVariantMap m = val.toMap();
-                    if (m.value(QStringLiteral("code")).toString().trimmed().toLower() == targetLang) {
+                    if (canonicalLanguageCode(m.value(QStringLiteral("code")).toString()) == targetLang) {
                         return true;
                     }
-                } else if (val.toString().trimmed().toLower() == targetLang) {
+                } else if (canonicalLanguageCode(val.toString()) == targetLang) {
                     return true;
                 }
             }
@@ -1034,7 +1044,7 @@ void CapabilityFamilyModel::updateItems()
 
     QHash<QString, QString> uniqueMap;
     for (const auto &pair : rawLangs) {
-        QString code = pair.first.trimmed().toLower();
+        QString code = canonicalLanguageCode(pair.first);
         QString name = pair.second.trimmed();
         if (code.isEmpty()) continue;
         if (!uniqueMap.contains(code) || (uniqueMap.value(code) == code && name != code)) {
