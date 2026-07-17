@@ -1,6 +1,8 @@
 #include "SubtitleVoiceController.h"
 
 #include "audio/AudioPlayer.h"
+#include "audio/WavIO.h"
+#include "controllers/HistoryService.h"
 #include "core/PathUtils.h"
 #include "subtitles/SrtTimelineParser.h"
 #include "tts/TimedSpeechPipeline.h"
@@ -11,8 +13,9 @@
 
 namespace LAStudio {
 
-SubtitleVoiceController::SubtitleVoiceController(TtsEngine *tts, AudioPlayer *player, QObject *parent)
-    : QObject(parent), m_tts(tts), m_player(player)
+SubtitleVoiceController::SubtitleVoiceController(TtsEngine *tts, AudioPlayer *player,
+                                                 HistoryService *history, QObject *parent)
+    : QObject(parent), m_tts(tts), m_player(player), m_history(history)
 {
     m_pipeline = new TimedSpeechPipeline(m_tts, this);
     connect(m_pipeline, &TimedSpeechPipeline::cueUpdated,
@@ -87,6 +90,14 @@ void SubtitleVoiceController::generate(const QVariantMap &ttsSettings)
         return;
     }
     m_outputPath.clear();
+    const QVariantMap familyConfig = m_tts->familyConfig();
+    m_historyModelName = familyConfig.value(
+        QStringLiteral("title"),
+        familyConfig.value(QStringLiteral("name"),
+                           familyConfig.value(QStringLiteral("id"),
+                                              QStringLiteral("TTS")))).toString();
+    m_historyVoiceName = ttsSettings.value(QStringLiteral("voice"),
+                                           QStringLiteral("Default")).toString();
     setError(QString());
     m_processing = true;
     m_currentCue = -1;
@@ -141,6 +152,14 @@ void SubtitleVoiceController::onPipelineFinished(const QString &outputPath, cons
     m_outputPath = outputPath;
     m_summary = summary;
     m_processing = false;
+    if (m_history && QFileInfo::exists(m_outputPath)) {
+        const WavIO::WavData audio = WavIO::loadAsFloat(m_outputPath);
+        const QString historyText = QStringLiteral("%1 · %2 subtitles")
+                                        .arg(QFileInfo(m_sourcePath).completeBaseName())
+                                        .arg(m_typedCues.size());
+        m_history->addTtsHistorySamples(historyText, m_historyModelName,
+                                        m_historyVoiceName, audio.samples, audio.sampleRate);
+    }
     emit outputPathChanged();
     emit summaryChanged();
     emit processingChanged();

@@ -496,6 +496,7 @@ StudioShell {
                 Layout.fillHeight: true
                 voiceController: AppController.subtitleVoice
                 settingsPanel: srtSettingsPanel
+                family: root.family
             }
         },
 

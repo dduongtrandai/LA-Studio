@@ -179,9 +179,15 @@ void HistoryService::addTtsHistoryItem(const QString &text, const QString &model
         return;
     }
 
-    QVector<float> samples = m_tts->lastSamples();
-    int sampleRate = m_tts->sampleRate();
+    addTtsHistorySamples(text, modelName, voiceName,
+                         m_tts->lastSamples(), m_tts->sampleRate());
+}
 
+void HistoryService::addTtsHistorySamples(const QString &text, const QString &modelName,
+                                          const QString &voiceName,
+                                          const QVector<float> &samples, int sampleRate)
+{
+    if (samples.isEmpty() || sampleRate <= 0) return;
     QMetaObject::invokeMethod(m_worker, [this, text, modelName, voiceName, samples, sampleRate]() {
         m_worker->addTtsHistoryItem(text, modelName, voiceName, samples, sampleRate);
     });

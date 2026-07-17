@@ -246,13 +246,18 @@ void TimedSpeechPipeline::fitAndAssemble()
 
     qint64 durationMs = 0;
     for (const SubtitleFit &fit : fits) durationMs = qMax(durationMs, fit.effectiveEndMs);
+    const WavIO::WavData outputAudio = WavIO::loadAsFloat(output);
     const QVariantMap summary{{QStringLiteral("totalCues"), m_cues.size()},
                               {QStringLiteral("slowedCues"), slowed},
                               {QStringLiteral("stretchedCues"), stretched},
                               {QStringLiteral("trimmedCues"), trimmed},
                               {QStringLiteral("failedCues"), failed},
                               {QStringLiteral("droppedOverlaps"), dropped},
-                              {QStringLiteral("durationMs"), durationMs}};
+                              {QStringLiteral("durationMs"), durationMs},
+                              {QStringLiteral("sampleRate"), outputAudio.sampleRate},
+                              {QStringLiteral("sampleCount"), outputAudio.samples.size()},
+                              {QStringLiteral("waveformSamples"),
+                               buildWaveformPreview(outputAudio.samples)}};
     m_processing = false;
     setPhase(QStringLiteral("ready"));
     emit progressChanged(100);

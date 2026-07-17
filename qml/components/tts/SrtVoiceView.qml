@@ -10,6 +10,7 @@ ColumnLayout {
 
     property var voiceController: AppController.subtitleVoice
     property var settingsPanel: null
+    property var family: null
     property bool locked: voiceController ? voiceController.processing : false
     readonly property int activePlaybackIndex: voiceController ? voiceController.activePlaybackIndex : -1
 
@@ -349,6 +350,39 @@ ColumnLayout {
                 }
             }
 
+            GeneratedAudioOutput {
+                Layout.fillWidth: true
+                outputReady: root.voiceController && root.voiceController.outputPath !== ""
+                samples: root.voiceController
+                         ? (root.voiceController.summary.waveformSamples || []) : []
+                durationText: root.voiceController
+                              ? root.formatTime(root.voiceController.summary.durationMs || 0) : "--"
+                sampleRate: root.voiceController
+                            ? (root.voiceController.summary.sampleRate || 0) : 0
+                sampleCountText: root.voiceController
+                                 ? qsTr("%1 samples · complete subtitle track")
+                                       .arg(root.voiceController.summary.sampleCount || 0) : ""
+                audioDurationMs: root.voiceController
+                                 ? (root.voiceController.summary.durationMs || 0) : 0
+                family: root.family
+                isPlaying: root.activePlaybackIndex === -2 && AppController.player.playing
+                isPaused: root.activePlaybackIndex === -2 && AppController.player.paused
+                playbackPositionMs: root.activePlaybackIndex === -2
+                                    ? AppController.player.playbackPositionMs : 0
+                playbackDurationMs: root.activePlaybackIndex === -2
+                                    ? AppController.player.playbackDurationMs : 0
+                onPlayClicked: root.voiceController.playOutput()
+                onPauseClicked: root.voiceController.pausePlayback()
+                onResumeClicked: root.voiceController.resumePlayback()
+                onStopClicked: root.voiceController.stopPlayback()
+                onSeekRequested: function(positionMs) {
+                    if (root.activePlaybackIndex !== -2)
+                        root.voiceController.playOutput()
+                    root.voiceController.seekPlayback(positionMs)
+                }
+                onSaveClicked: saveDialog.open()
+            }
+
             RowLayout {
                 Layout.fillWidth: true
 
@@ -371,41 +405,6 @@ ColumnLayout {
                                : voiceController.generate(root.settingsPanel
                                                           ? root.settingsPanel.getSynthesisSettings()
                                                           : ({}))
-                }
-                PrimaryButton {
-                    text: root.activePlaybackIndex === -2 && AppController.player.paused
-                          ? qsTr("Resume Output") : qsTr("Play Output")
-                    iconName: "play"
-                    quiet: true
-                    enabled: voiceController && voiceController.outputPath !== ""
-                             && !voiceController.processing
-                             && (root.activePlaybackIndex !== -2 || AppController.player.paused)
-                    onClicked: root.activePlaybackIndex === -2 && AppController.player.paused
-                               ? voiceController.resumePlayback() : voiceController.playOutput()
-                }
-                PrimaryButton {
-                    text: qsTr("Pause")
-                    iconName: "pause"
-                    quiet: true
-                    visible: root.activePlaybackIndex === -2
-                    enabled: AppController.player.playing && !AppController.player.paused
-                    onClicked: voiceController.pausePlayback()
-                }
-                PrimaryButton {
-                    text: qsTr("Stop")
-                    iconName: "stop"
-                    quiet: true
-                    visible: root.activePlaybackIndex === -2
-                    enabled: AppController.player.playing
-                    onClicked: voiceController.stopPlayback()
-                }
-                PrimaryButton {
-                    text: qsTr("Save WAV")
-                    iconName: "save"
-                    quiet: true
-                    enabled: voiceController && voiceController.outputPath !== ""
-                             && !voiceController.processing
-                    onClicked: saveDialog.open()
                 }
             }
         }

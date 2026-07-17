@@ -11,6 +11,7 @@ namespace LAStudio {
 
 class TtsEngine;
 class AudioPlayer;
+class HistoryService;
 class TimedSpeechPipeline;
 
 class SubtitleVoiceController final : public QObject
@@ -32,7 +33,8 @@ class SubtitleVoiceController final : public QObject
     Q_PROPERTY(int activePlaybackIndex READ activePlaybackIndex NOTIFY activePlaybackIndexChanged)
 
 public:
-    explicit SubtitleVoiceController(TtsEngine *tts, AudioPlayer *player, QObject *parent = nullptr);
+    explicit SubtitleVoiceController(TtsEngine *tts, AudioPlayer *player,
+                                     HistoryService *history, QObject *parent = nullptr);
 
     QString sourcePath() const { return m_sourcePath; }
     QVariantList cues() const { return m_cues; }
@@ -83,6 +85,7 @@ private:
 
     TtsEngine *m_tts = nullptr;
     AudioPlayer *m_player = nullptr;
+    HistoryService *m_history = nullptr;
     TimedSpeechPipeline *m_pipeline = nullptr;
     QString m_sourcePath;
     QVector<TimedTextCue> m_typedCues;
@@ -94,6 +97,8 @@ private:
     QString m_outputPath;
     QVariantMap m_summary;
     QString m_error;
+    QString m_historyModelName;
+    QString m_historyVoiceName;
     int m_activePlaybackIndex = -1;
 };
 

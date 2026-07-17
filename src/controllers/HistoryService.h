@@ -30,6 +30,9 @@ public:
     QVariantList voiceDesignHistory() const { return m_voiceDesignHistory; }
 
     Q_INVOKABLE void addTtsHistoryItem(const QString &text, const QString &modelName, const QString &voiceName);
+    void addTtsHistorySamples(const QString &text, const QString &modelName,
+                              const QString &voiceName, const QVector<float> &samples,
+                              int sampleRate);
     Q_INVOKABLE void deleteTtsHistoryItem(const QString &id);
     Q_INVOKABLE void clearTtsHistory();
 
