@@ -409,6 +409,25 @@ bool fileMatchesSha256(const QString &path, const QString &expectedSha256, QStri
     }
     return actual.compare(expectedSha256, Qt::CaseInsensitive) == 0;
 }
+
+bool mergeDirectoryContents(const QString &sourcePath, const QString &targetPath)
+{
+    QDir source(sourcePath);
+    if (!source.exists() || !QDir().mkpath(targetPath)) return false;
+
+    bool ok = true;
+    for (const QFileInfo &entry : source.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot)) {
+        const QString target = QDir(targetPath).absoluteFilePath(entry.fileName());
+        if (entry.isDir()) {
+            ok = mergeDirectoryContents(entry.absoluteFilePath(), target) && ok;
+            QDir(entry.absoluteFilePath()).removeRecursively();
+        } else {
+            QFile::remove(target);
+            ok = QFile::rename(entry.absoluteFilePath(), target) && ok;
+        }
+    }
+    return ok;
+}
 }
 
 QVariantMap DownloadInstallService::latestSupportedRuntime(const QVariantMap &runtimeOption)
@@ -745,8 +764,11 @@ void DownloadInstallService::onDownloadFinished(const QString &modelId,
     QFileInfo fi(localPath);
     QString dirPath = fi.absolutePath();
     bool isRuntime = dirPath.contains(QStringLiteral("backends"));
+    const bool isRuntimeDependency =
+        metadata.value(QStringLiteral("kind")).toString() == QStringLiteral("runtimeDependency");
+    const QString dependencyRuntimeDir = metadata.value(QStringLiteral("runtimeDir")).toString();
 
-    if (metadata.value(QStringLiteral("kind")).toString() == QStringLiteral("runtimeDependency")) {
+    if (isRuntimeDependency) {
         const QString dependency = metadata.value(QStringLiteral("dependency")).toString();
         const QString runtimeDir = metadata.value(QStringLiteral("runtimeDir")).toString();
         if (dependency == QStringLiteral("espeak-ng") &&
@@ -827,7 +849,10 @@ void DownloadInstallService::onDownloadFinished(const QString &modelId,
             QFileInfo tarFi(fi.completeBaseName());
             extractName = tarFi.completeBaseName();
         }
-        if (isRuntime && metadata.contains("id") && metadata.contains("version")) {
+        if (isRuntimeDependency && !dependencyRuntimeDir.isEmpty()) {
+            dirPath = dependencyRuntimeDir;
+            extractName.prepend(QStringLiteral(".dependency-"));
+        } else if (isRuntime && metadata.contains("id") && metadata.contains("version")) {
             QString runtimeId = metadata.value("id").toString();
             QString runtimeVersion = metadata.value("version").toString();
             QString engineFamily = metadata.value("engineFamily").toString();
@@ -891,7 +916,7 @@ void DownloadInstallService::onDownloadFinished(const QString &modelId,
         process->setProcessChannelMode(QProcess::MergedChannels);
         
         QPointer<DownloadInstallService> weakThis(this);
-        connect(process, &QProcess::finished, this, [weakThis, process, isRuntime, task, format, dirPath, filename, fi, extractDir, metadata, localPath, modelId](int exitCode, QProcess::ExitStatus status) {
+        connect(process, &QProcess::finished, this, [weakThis, process, isRuntime, isRuntimeDependency, dependencyRuntimeDir, task, format, dirPath, filename, fi, extractDir, metadata, localPath, modelId](int exitCode, QProcess::ExitStatus status) {
             const QString output = QString::fromLocal8Bit(process->readAll()).trimmed();
             process->deleteLater();
             if (!weakThis) return;
@@ -910,7 +935,17 @@ void DownloadInstallService::onDownloadFinished(const QString &modelId,
                 
                 QFile::remove(localPath);
 
-                if (isRuntime) {
+                if (isRuntimeDependency) {
+                    if (dependencyRuntimeDir.isEmpty() ||
+                        !mergeDirectoryContents(extractDir, dependencyRuntimeDir)) {
+                        Logger::error(QStringLiteral("DownloadInstallService"),
+                                      QStringLiteral("Failed to install runtime dependency %1").arg(filename));
+                        emit weakThis->errorOccurred(QStringLiteral("Failed to install runtime dependency: ") + filename);
+                        return;
+                    }
+                    QDir(extractDir).removeRecursively();
+                    weakThis->m_runtimes->scanRuntimes();
+                } else if (isRuntime) {
                     QDir dir(extractDir);
                     QStringList subdirs = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
                     if (subdirs.size() == 1 && dir.entryList(QDir::Files).isEmpty()) {
@@ -1012,8 +1047,6 @@ void DownloadInstallService::onDownloadFinished(const QString &modelId,
                         manifestFile.close();
                     }
 
-                    weakThis->m_runtimes->scanRuntimes();
-
                     const QVariantList dependencyDownloads = metadata.value(QStringLiteral("dependencyDownloads")).toList();
                     for (const QVariant &depValue : dependencyDownloads) {
                         const QVariantMap dep = depValue.toMap();
@@ -1024,9 +1057,16 @@ void DownloadInstallService::onDownloadFinished(const QString &modelId,
 
                         QVariantMap depMetadata;
                         depMetadata[QStringLiteral("kind")] = QStringLiteral("runtimeDependency");
+                        depMetadata[QStringLiteral("id")] = metadata.value(QStringLiteral("id")).toString();
+                        depMetadata[QStringLiteral("version")] = metadata.value(QStringLiteral("version")).toString();
                         depMetadata[QStringLiteral("dependency")] = dependency;
                         depMetadata[QStringLiteral("runtimeDir")] = extractDir;
+                        depMetadata[QStringLiteral("sha256")] = dep.value(QStringLiteral("sha256")).toString();
+                        depMetadata[QStringLiteral("checksum")] = dep.value(QStringLiteral("checksum")).toString();
                         weakThis->m_downloads->enqueueUrl(url, depFilename, extractDir, depMetadata);
+                    }
+                    if (dependencyDownloads.isEmpty()) {
+                        weakThis->m_runtimes->scanRuntimes();
                     }
                 } else {
                     QString installedFilename = filename;

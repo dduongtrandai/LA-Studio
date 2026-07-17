@@ -146,7 +146,8 @@ void LlamaTranslationInterface::setError(const QString &message, QString *error)
 
 bool LlamaTranslationInterface::load(const QString &libraryPath,
                                      const QString &modelPath,
-                                     QString *error)
+                                     QString *error,
+                                     bool useGpu)
 {
     unload();
     if (!QFileInfo(libraryPath).isFile()) {
@@ -187,7 +188,7 @@ bool LlamaTranslationInterface::load(const QString &libraryPath,
     m_api->backendLoadAllFromPath(nativeRuntimePath.constData());
     m_api->backendInit();
     llama_model_params params = m_api->modelDefaultParams();
-    params.n_gpu_layers = 0;
+    params.n_gpu_layers = useGpu ? -1 : 0;
     const QByteArray nativeModelPath = PathUtils::toNativeShortPath(modelPath).toUtf8();
     m_api->model = m_api->modelLoad(nativeModelPath.constData(), params);
     if (!m_api->model) {

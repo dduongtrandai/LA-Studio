@@ -70,6 +70,66 @@ void TestModelsAndRuntimes::testOptionalLlamaTranslationRuntimeLoad()
     }
 }
 
+void TestModelsAndRuntimes::testLlamaCatalogIncludesAllWindowsX64Runtimes()
+{
+    const QString oldCurrentPath = QDir::currentPath();
+    const auto restoreCurrentPath = qScopeGuard([oldCurrentPath]() {
+        QDir::setCurrent(oldCurrentPath);
+    });
+    const QString repoRoot =
+        QDir(QFileInfo(QStringLiteral(__FILE__)).absolutePath() + QStringLiteral("/..")).absolutePath();
+    QVERIFY2(QDir::setCurrent(repoRoot),
+             "Test must run from the repository root to load catalog and schema files");
+
+    CatalogManager catalog;
+    QVariantMap hyMt2;
+    for (const QVariant &familyValue : catalog.sttFamilies()) {
+        const QVariantMap family = familyValue.toMap();
+        if (family.value(QStringLiteral("id")).toString() == QStringLiteral("hy-mt2-1.8b")) {
+            hyMt2 = family;
+            break;
+        }
+    }
+    QVERIFY2(!hyMt2.isEmpty(), "Hy-MT2 should be present in the catalog");
+
+    const QSet<QString> expectedRuntimeIds{
+        QStringLiteral("llama-win-x86_64-cpu"),
+        QStringLiteral("llama-win-x86_64-cuda-12.4"),
+        QStringLiteral("llama-win-x86_64-cuda-13.3"),
+        QStringLiteral("llama-win-x86_64-vulkan"),
+        QStringLiteral("llama-win-x86_64-hip-radeon"),
+        QStringLiteral("llama-win-x86_64-sycl"),
+        QStringLiteral("llama-win-x86_64-openvino")
+    };
+    QSet<QString> foundRuntimeIds;
+    for (const QVariant &runtimeValue : hyMt2.value(QStringLiteral("runtimes")).toList()) {
+        const QVariantMap runtime = runtimeValue.toMap();
+        const QString runtimeId = runtime.value(QStringLiteral("id")).toString();
+        foundRuntimeIds.insert(runtimeId);
+        QCOMPARE(runtime.value(QStringLiteral("engineFamily")).toString(), QStringLiteral("llama"));
+        QCOMPARE(runtime.value(QStringLiteral("backend")).toString(), QStringLiteral("llama"));
+        QCOMPARE(runtime.value(QStringLiteral("version")).toString(), QStringLiteral("b10036"));
+        QCOMPARE(runtime.value(QStringLiteral("kind")).toString(), QStringLiteral("dynamic-library"));
+        QCOMPARE(runtime.value(QStringLiteral("library")).toString(), QStringLiteral("llama.dll"));
+        QCOMPARE(runtime.value(QStringLiteral("protocolVersion")).toString(),
+                 QStringLiteral("llama-c-api-b10036"));
+        QCOMPARE(runtime.value(QStringLiteral("sha256")).toString().size(), 64);
+
+        if (runtimeId.contains(QStringLiteral("cuda"))) {
+            const QVariantList dependencies =
+                runtime.value(QStringLiteral("dependencyDownloads")).toList();
+            QCOMPARE(dependencies.size(), 1);
+            const QVariantMap dependency = dependencies.first().toMap();
+            QCOMPARE(dependency.value(QStringLiteral("dependency")).toString(),
+                     QStringLiteral("cuda-runtime"));
+            QCOMPARE(dependency.value(QStringLiteral("sha256")).toString().size(), 64);
+            QVERIFY(dependency.value(QStringLiteral("url")).toString()
+                        .contains(QStringLiteral("/releases/download/b10036/")));
+        }
+    }
+    QCOMPARE(foundRuntimeIds, expectedRuntimeIds);
+}
+
 void TestModelsAndRuntimes::testModelManagerConcreteModelDir()
 {
     qDebug() << "--- START: testModelManagerConcreteModelDir ---";

@@ -8,7 +8,8 @@ bool LlamaTranslationBackend::loadModel(const TranslationBackendConfiguration &c
                                         QString &error)
 {
     m_configuration = configuration;
-    return m_runtime.load(configuration.runtimePath, configuration.modelPath, &error);
+    return m_runtime.load(configuration.runtimePath, configuration.modelPath, &error,
+                          configuration.useGpu);
 }
 
 void LlamaTranslationBackend::unloadModel()

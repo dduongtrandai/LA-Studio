@@ -87,7 +87,10 @@ void TranslationEngineInstance::loadModel()
         m_configuration.runtimePath,
         translationBackendFor(m_configuration),
         m_configuration.selection.runtimeId.contains(QStringLiteral("cuda"), Qt::CaseInsensitive) ||
-            m_configuration.selection.runtimeId.contains(QStringLiteral("vulkan"), Qt::CaseInsensitive),
+            m_configuration.selection.runtimeId.contains(QStringLiteral("vulkan"), Qt::CaseInsensitive) ||
+            m_configuration.selection.runtimeId.contains(QStringLiteral("hip"), Qt::CaseInsensitive) ||
+            m_configuration.selection.runtimeId.contains(QStringLiteral("sycl"), Qt::CaseInsensitive) ||
+            m_configuration.selection.runtimeId.contains(QStringLiteral("openvino"), Qt::CaseInsensitive),
         0};
     QMetaObject::invokeMethod(m_worker, "loadModel", Qt::QueuedConnection,
                               Q_ARG(LAStudio::TranslationBackendConfiguration, backendConfig));

@@ -42,6 +42,7 @@ laStudio:
     - Translation
     - Offline
     - CPU
+    - GPU
   runtimes:
     - id: llama-win-x86_64-cpu
       engineFamily: llama
@@ -60,6 +61,118 @@ laStudio:
         - gguf
       protocolVersion: "llama-c-api-b10036"
       sha256: 4d79dc585de38cdc2d516e5ce7ebbbc84eeb975f2c086570fa5de9d83d2ec8b9
+    - id: llama-win-x86_64-cuda-12.4
+      engineFamily: llama
+      backend: llama
+      label: CUDA 12.4
+      name: llama.cpp official CUDA 12.4 runtime (x64)
+      version: b10036
+      source: https://github.com/ggml-org/llama.cpp/releases/download/
+      asset: llama-b10036-bin-win-cuda-12.4-x64.zip
+      kind: dynamic-library
+      library: llama.dll
+      type: stt
+      capabilities:
+        - translation
+      modelFormats:
+        - gguf
+      protocolVersion: "llama-c-api-b10036"
+      sha256: 44fbf0e56d37f9c3aedaaadba491f946f900a00a2034366c91e43c5b4934ad7f
+      dependencyDownloads:
+        - dependency: cuda-runtime
+          filename: cudart-llama-bin-win-cuda-12.4-x64.zip
+          url: https://github.com/ggml-org/llama.cpp/releases/download/b10036/cudart-llama-bin-win-cuda-12.4-x64.zip
+          sha256: 8c79a9b226de4b3cacfd1f83d24f962d0773be79f1e7b75c6af4ded7e32ae1d6
+    - id: llama-win-x86_64-cuda-13.3
+      engineFamily: llama
+      backend: llama
+      label: CUDA 13.3
+      name: llama.cpp official CUDA 13.3 runtime (x64)
+      version: b10036
+      source: https://github.com/ggml-org/llama.cpp/releases/download/
+      asset: llama-b10036-bin-win-cuda-13.3-x64.zip
+      kind: dynamic-library
+      library: llama.dll
+      type: stt
+      capabilities:
+        - translation
+      modelFormats:
+        - gguf
+      protocolVersion: "llama-c-api-b10036"
+      sha256: 7dbcb3fe3b036ace1b9f88160a433d0d979525fbb7fa167591df18986a65c18c
+      dependencyDownloads:
+        - dependency: cuda-runtime
+          filename: cudart-llama-bin-win-cuda-13.3-x64.zip
+          url: https://github.com/ggml-org/llama.cpp/releases/download/b10036/cudart-llama-bin-win-cuda-13.3-x64.zip
+          sha256: 1462a050eb4c684921ba51dcc4cc488a036674c3e73e9945ee705b854808d03e
+    - id: llama-win-x86_64-vulkan
+      engineFamily: llama
+      backend: llama
+      label: Vulkan
+      name: llama.cpp official Vulkan runtime (x64)
+      version: b10036
+      source: https://github.com/ggml-org/llama.cpp/releases/download/
+      asset: llama-b10036-bin-win-vulkan-x64.zip
+      kind: dynamic-library
+      library: llama.dll
+      type: stt
+      capabilities:
+        - translation
+      modelFormats:
+        - gguf
+      protocolVersion: "llama-c-api-b10036"
+      sha256: 6413aac6b44daa452d39892a13123a38de8abec7af3e9658f87e6262cd20f8cc
+    - id: llama-win-x86_64-hip-radeon
+      engineFamily: llama
+      backend: llama
+      label: HIP Radeon
+      name: llama.cpp official HIP Radeon runtime (x64)
+      version: b10036
+      source: https://github.com/ggml-org/llama.cpp/releases/download/
+      asset: llama-b10036-bin-win-hip-radeon-x64.zip
+      kind: dynamic-library
+      library: llama.dll
+      type: stt
+      capabilities:
+        - translation
+      modelFormats:
+        - gguf
+      protocolVersion: "llama-c-api-b10036"
+      sha256: 5d29f73e17c47498f94565dc6d1ecfeb79edd0b9d686c55524df53110283026f
+    - id: llama-win-x86_64-sycl
+      engineFamily: llama
+      backend: llama
+      label: SYCL
+      name: llama.cpp official SYCL runtime (x64)
+      version: b10036
+      source: https://github.com/ggml-org/llama.cpp/releases/download/
+      asset: llama-b10036-bin-win-sycl-x64.zip
+      kind: dynamic-library
+      library: llama.dll
+      type: stt
+      capabilities:
+        - translation
+      modelFormats:
+        - gguf
+      protocolVersion: "llama-c-api-b10036"
+      sha256: fbd23e23b10bf10f384df8e6353d0c6725ed06dc90c923c52b09b7ec7c95b053
+    - id: llama-win-x86_64-openvino
+      engineFamily: llama
+      backend: llama
+      label: OpenVINO
+      name: llama.cpp official OpenVINO 2026.2.1 runtime (x64)
+      version: b10036
+      source: https://github.com/ggml-org/llama.cpp/releases/download/
+      asset: llama-b10036-bin-win-openvino-2026.2.1-x64.zip
+      kind: dynamic-library
+      library: llama.dll
+      type: stt
+      capabilities:
+        - translation
+      modelFormats:
+        - gguf
+      protocolVersion: "llama-c-api-b10036"
+      sha256: 12792556081747bf43b9590e0a7e6fa9abf847a6d16f916ae96edf726c41e72f
   studio:
     translation:
       layout: translation

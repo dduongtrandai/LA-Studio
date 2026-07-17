@@ -381,6 +381,12 @@ QString runtimeDescription(const QVariantMap &runtime)
         return QStringLiteral("NVIDIA CUDA accelerated inference engine");
     if (label.contains(QStringLiteral("vulkan")))
         return QStringLiteral("Vulkan GPU accelerated inference engine");
+    if (label.contains(QStringLiteral("hip")) || label.contains(QStringLiteral("radeon")))
+        return QStringLiteral("AMD Radeon GPU accelerated inference engine");
+    if (label.contains(QStringLiteral("sycl")))
+        return QStringLiteral("Intel SYCL accelerated inference engine");
+    if (label.contains(QStringLiteral("openvino")))
+        return QStringLiteral("Intel OpenVINO accelerated inference engine");
     return QStringLiteral("CPU-only inference engine");
 }
 
@@ -408,6 +414,10 @@ QPair<QString, QString> preferredRuntime(const QVariantList &runtimeOptions)
             + option.value(QStringLiteral("name")).toString()).toLower();
         const bool gpu = runtimeIdentity.contains(QStringLiteral("cuda"))
             || runtimeIdentity.contains(QStringLiteral("vulkan"))
+            || runtimeIdentity.contains(QStringLiteral("hip"))
+            || runtimeIdentity.contains(QStringLiteral("radeon"))
+            || runtimeIdentity.contains(QStringLiteral("sycl"))
+            || runtimeIdentity.contains(QStringLiteral("openvino"))
             || runtimeIdentity.contains(QStringLiteral("gpu"));
         if (firstOption.first.isEmpty()) firstOption = {optionId, optionVersion};
         if (!option.value(QStringLiteral("compatible")).toBool()) {
@@ -1485,7 +1495,8 @@ bool CapabilityFamilyModel::isModelSuitable(const QString &filename, const QVari
         }
         if (!runtime.isEmpty()) {
             QString id = runtime.value("id").toString().toLower();
-            if (id.contains("cuda") || id.contains("vulkan")) {
+            if (id.contains("cuda") || id.contains("vulkan") || id.contains("hip") ||
+                id.contains("radeon") || id.contains("sycl") || id.contains("openvino")) {
                 isGpu = true;
             }
         }

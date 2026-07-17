@@ -98,6 +98,50 @@ QVariantMap HardwareManager::runtimeCompatibility(const QVariantMap &runtime) co
         return result;
     }
 
+    if (haystack.contains(QStringLiteral("hip")) || haystack.contains(QStringLiteral("radeon"))) {
+        const bool hasAmdGpu = std::any_of(m_gpus.cbegin(), m_gpus.cend(), [](const QVariant &gpuValue) {
+            const QString gpuName = gpuValue.toMap().value(QStringLiteral("name")).toString();
+            return gpuName.contains(QStringLiteral("AMD"), Qt::CaseInsensitive) ||
+                gpuName.contains(QStringLiteral("Radeon"), Qt::CaseInsensitive);
+        });
+        result.insert(QStringLiteral("kind"), QStringLiteral("hip"));
+        result.insert(QStringLiteral("compatible"), hasAmdGpu);
+        result.insert(QStringLiteral("title"), hasAmdGpu ? QStringLiteral("Compatible") : QStringLiteral("Unavailable"));
+        result.insert(QStringLiteral("detail"), hasAmdGpu
+            ? QStringLiteral("AMD Radeon GPU detected.")
+            : QStringLiteral("Requires a supported AMD Radeon GPU."));
+        return result;
+    }
+
+    if (haystack.contains(QStringLiteral("sycl"))) {
+        const bool hasIntelGpu = std::any_of(m_gpus.cbegin(), m_gpus.cend(), [](const QVariant &gpuValue) {
+            return gpuValue.toMap().value(QStringLiteral("name")).toString()
+                .contains(QStringLiteral("Intel"), Qt::CaseInsensitive);
+        });
+        result.insert(QStringLiteral("kind"), QStringLiteral("sycl"));
+        result.insert(QStringLiteral("compatible"), hasIntelGpu);
+        result.insert(QStringLiteral("title"), hasIntelGpu ? QStringLiteral("Compatible") : QStringLiteral("Unavailable"));
+        result.insert(QStringLiteral("detail"), hasIntelGpu
+            ? QStringLiteral("Intel GPU detected.")
+            : QStringLiteral("Requires a supported Intel GPU."));
+        return result;
+    }
+
+    if (haystack.contains(QStringLiteral("openvino"))) {
+        const bool hasIntelDevice = m_cpuName.contains(QStringLiteral("Intel"), Qt::CaseInsensitive) ||
+            std::any_of(m_gpus.cbegin(), m_gpus.cend(), [](const QVariant &gpuValue) {
+                return gpuValue.toMap().value(QStringLiteral("name")).toString()
+                    .contains(QStringLiteral("Intel"), Qt::CaseInsensitive);
+            });
+        result.insert(QStringLiteral("kind"), QStringLiteral("openvino"));
+        result.insert(QStringLiteral("compatible"), hasIntelDevice);
+        result.insert(QStringLiteral("title"), hasIntelDevice ? QStringLiteral("Compatible") : QStringLiteral("Unavailable"));
+        result.insert(QStringLiteral("detail"), hasIntelDevice
+            ? QStringLiteral("Intel CPU or GPU detected.")
+            : QStringLiteral("Requires a supported Intel CPU or GPU."));
+        return result;
+    }
+
     const bool supportedCpu = m_cpuArchitecture.compare(QStringLiteral("x86_64"), Qt::CaseInsensitive) == 0
         || m_cpuArchitecture.compare(QStringLiteral("arm64"), Qt::CaseInsensitive) == 0;
     result.insert(QStringLiteral("compatible"), supportedCpu);

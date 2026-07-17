@@ -113,6 +113,10 @@ QString acceleratorFromRuntime(const QVariantMap &runtime)
 
     if (haystack.contains(QStringLiteral("cuda"))) return QStringLiteral("cuda");
     if (haystack.contains(QStringLiteral("vulkan"))) return QStringLiteral("vulkan");
+    if (haystack.contains(QStringLiteral("hip")) || haystack.contains(QStringLiteral("radeon")))
+        return QStringLiteral("hip");
+    if (haystack.contains(QStringLiteral("sycl"))) return QStringLiteral("sycl");
+    if (haystack.contains(QStringLiteral("openvino"))) return QStringLiteral("openvino");
     if (haystack.contains(QStringLiteral("directml"))) return QStringLiteral("directml");
     return QStringLiteral("cpu");
 }

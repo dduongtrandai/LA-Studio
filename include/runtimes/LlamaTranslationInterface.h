@@ -16,7 +16,10 @@ public:
     LlamaTranslationInterface();
     ~LlamaTranslationInterface();
 
-    bool load(const QString &libraryPath, const QString &modelPath, QString *error = nullptr);
+    bool load(const QString &libraryPath,
+              const QString &modelPath,
+              QString *error = nullptr,
+              bool useGpu = false);
     void unload();
     void cancel();
     bool isLoaded() const;
