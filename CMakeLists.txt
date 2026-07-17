@@ -40,6 +40,10 @@ file(GLOB_RECURSE LASTUDIO_EXAMPLE_FILES CONFIGURE_DEPENDS
     "examples/*.json"
     "examples/*.md"
 )
+file(GLOB LASTUDIO_LANGUAGE_SET_FILES CONFIGURE_DEPENDS
+    RELATIVE "${CMAKE_SOURCE_DIR}"
+    "data/language-sets/*.json"
+)
 file(MAKE_DIRECTORY "${LASTUDIO_GENERATED_DIR}/lastudio")
 configure_file(
     "${CMAKE_SOURCE_DIR}/cmake/AppVersion.h.in"
@@ -425,11 +429,7 @@ qt_add_qml_module(LAStudio
     RESOURCES
         data/catalog.json
         data/registry_schema.sql
-        data/language-sets/omnivoice-v1.json
-        data/language-sets/whisper-v1.json
-        data/language-sets/nemotron-3.5-v1.json
-        data/language-sets/alignment-mms-nemotron-v1.json
-        data/language-sets/default.json
+        ${LASTUDIO_LANGUAGE_SET_FILES}
         data/vieneu/voices_v3_turbo.json
         ${LASTUDIO_EXAMPLE_FILES}
         icons/app_icon.ico

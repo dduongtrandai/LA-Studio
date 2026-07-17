@@ -5,6 +5,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QLibrary>
+#include <QLocale>
 #include <QThread>
 
 #include <algorithm>
@@ -34,8 +35,8 @@ void prependRuntimePath(const QString &directory)
     }
 }
 
-QString tokenPiece(const llama_vocab *vocab, llama_token token,
-                   int32_t (*toPiece)(const llama_vocab *, llama_token, char *, int32_t, int32_t, bool))
+QByteArray tokenPiece(const llama_vocab *vocab, llama_token token,
+                      int32_t (*toPiece)(const llama_vocab *, llama_token, char *, int32_t, int32_t, bool))
 {
     QByteArray buffer(128, Qt::Uninitialized);
     int32_t length = toPiece(vocab, token, buffer.data(), buffer.size(), 0, false);
@@ -43,7 +44,24 @@ QString tokenPiece(const llama_vocab *vocab, llama_token token,
         buffer.resize(-length);
         length = toPiece(vocab, token, buffer.data(), buffer.size(), 0, false);
     }
-    return length > 0 ? QString::fromUtf8(buffer.constData(), length) : QString();
+    return length > 0 ? QByteArray(buffer.constData(), length) : QByteArray();
+}
+
+QString fullLanguageName(const QString &language)
+{
+    const QString normalized = language.trimmed().replace(u'_', u'-');
+    if (normalized.compare(QStringLiteral("zh-hant"), Qt::CaseInsensitive) == 0) {
+        return QStringLiteral("Traditional Chinese");
+    }
+    if (normalized.compare(QStringLiteral("yue"), Qt::CaseInsensitive) == 0) {
+        return QStringLiteral("Cantonese");
+    }
+
+    const QLocale locale(normalized);
+    if (locale.language() != QLocale::C) {
+        return QLocale::languageToString(locale.language());
+    }
+    return language.trimmed();
 }
 
 } // namespace
@@ -54,7 +72,7 @@ struct LlamaTranslationInterface::Api
     QLibrary llama;
     llama_model *model = nullptr;
 
-    decltype(&ggml_backend_load_all) backendLoadAll = nullptr;
+    decltype(&ggml_backend_load_all_from_path) backendLoadAllFromPath = nullptr;
     decltype(&llama_backend_init) backendInit = nullptr;
     decltype(&llama_backend_free) backendFree = nullptr;
     decltype(&llama_model_default_params) modelDefaultParams = nullptr;
@@ -85,7 +103,7 @@ struct LlamaTranslationInterface::Api
     bool resolveAll(QString *error)
     {
         const bool ok =
-            resolve(ggml, "ggml_backend_load_all", backendLoadAll) &&
+            resolve(ggml, "ggml_backend_load_all_from_path", backendLoadAllFromPath) &&
             resolve(llama, "llama_backend_init", backendInit) &&
             resolve(llama, "llama_backend_free", backendFree) &&
             resolve(llama, "llama_model_default_params", modelDefaultParams) &&
@@ -164,7 +182,9 @@ bool LlamaTranslationInterface::load(const QString &libraryPath,
         return false;
     }
 
-    m_api->backendLoadAll();
+    const QByteArray nativeRuntimePath =
+        PathUtils::toNativeShortPath(llamaInfo.absolutePath()).toUtf8();
+    m_api->backendLoadAllFromPath(nativeRuntimePath.constData());
     m_api->backendInit();
     llama_model_params params = m_api->modelDefaultParams();
     params.n_gpu_layers = 0;
@@ -200,11 +220,13 @@ QStringList LlamaTranslationInterface::translateBatch(
     const QStringList &texts, const QString &sourceLanguage, const QString &targetLanguage,
     int maxTokens, const std::shared_ptr<std::atomic_bool> &cancelToken, QString *error)
 {
-    Q_UNUSED(sourceLanguage);
     if (!isLoaded() || texts.isEmpty()) {
         setError(QStringLiteral("The llama.cpp DLL runtime is not loaded."), error);
         return {};
     }
+
+    const QString targetName = fullLanguageName(targetLanguage);
+    Q_UNUSED(sourceLanguage);
 
     QStringList results;
     const llama_vocab *vocab = m_api->modelGetVocab(m_api->model);
@@ -218,7 +240,7 @@ QStringList LlamaTranslationInterface::translateBatch(
         const QByteArray instruction = QStringLiteral(
             "Translate the following text into %1. Note that you should only output the "
             "translated result without any additional explanation:\n\n%2")
-            .arg(targetLanguage, text).toUtf8();
+            .arg(targetName, text).toUtf8();
         QByteArray prompt = instruction;
         const char *chatTemplate = m_api->modelChatTemplate(m_api->model, nullptr);
         if (chatTemplate) {
@@ -265,7 +287,7 @@ QStringList LlamaTranslationInterface::translateBatch(
         m_api->samplerChainAdd(sampler, m_api->samplerDist(LLAMA_DEFAULT_SEED));
 
         llama_batch batch = m_api->batchGetOne(tokens.data(), tokenCount);
-        QString translated;
+        QByteArray translatedUtf8;
         bool failed = false;
         for (int generated = 0; generated < outputLimit; ++generated) {
             if (m_cancelled.load(std::memory_order_relaxed) ||
@@ -273,7 +295,7 @@ QStringList LlamaTranslationInterface::translateBatch(
             if (m_api->decode(context, batch) != 0) { failed = true; break; }
             llama_token token = m_api->samplerSample(sampler, context, -1);
             if (m_api->vocabIsEog(vocab, token)) break;
-            translated += tokenPiece(vocab, token, m_api->tokenToPiece);
+            translatedUtf8 += tokenPiece(vocab, token, m_api->tokenToPiece);
             batch = m_api->batchGetOne(&token, 1);
         }
 
@@ -288,7 +310,7 @@ QStringList LlamaTranslationInterface::translateBatch(
             setError(QStringLiteral("Translation was cancelled."), error);
             return {};
         }
-        results.append(translated.trimmed());
+        results.append(QString::fromUtf8(translatedUtf8).trimmed());
     }
     return results;
 }

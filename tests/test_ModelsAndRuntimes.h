@@ -16,6 +16,7 @@ private slots:
     void testVoiceIsolationRuntimeCatalogEntry();
     void testProcessRuntimeManifest();
     void testProcessRuntimeRejectsMissingEntrypoint();
+    void testOptionalLlamaTranslationRuntimeLoad();
     void testVieNeuV3CatalogIncludesMossExternalData();
     void testCapabilityFamilyModelAcceptsExistingModelFiles();
     void testQwen3TtsUsesAutomaticFrameLimit();

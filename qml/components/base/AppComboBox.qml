@@ -532,7 +532,9 @@ ComboBox {
                         }
                         
                         Text {
-                            text: variantInfo ? variantInfo.language : ""
+                            text: variantInfo && variantInfo.language !== undefined
+                                  ? String(variantInfo.language)
+                                  : ""
                             color: Theme.accent
                             font.pixelSize: 10
                             font.bold: true

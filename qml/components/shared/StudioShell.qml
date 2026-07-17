@@ -436,16 +436,16 @@ RowLayout {
                 id: mainContentScrollView
                 anchors.fill: parent
                 clip: true
-                contentWidth: mainContentItem.width
-                contentHeight: mainContentItem.height
+                contentWidth: Math.max(root.mainContentMinimumWidth, width)
+                contentHeight: Math.max(root.mainContentMinimumHeight, height)
 
                 ScrollBar.horizontal.policy: ScrollBar.AsNeeded
                 ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
                 Item {
                     id: mainContentItem
-                    width: Math.max(root.mainContentMinimumWidth, mainContentScrollView.availableWidth)
-                    height: Math.max(root.mainContentMinimumHeight, mainContentScrollView.availableHeight)
+                    width: mainContentScrollView.contentWidth
+                    height: mainContentScrollView.contentHeight
                 }
             }
 

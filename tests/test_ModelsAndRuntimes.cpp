@@ -10,6 +10,7 @@
 #include "core/ModelManager.h"
 #include "core/LogViewService.h"
 #include "controllers/StudioConfigurationResolver.h"
+#include "runtimes/LlamaTranslationInterface.h"
 
 #include <QDir>
 #include <QFile>
@@ -25,6 +26,48 @@ namespace LAStudio {
 void TestModelsAndRuntimes::cleanupTestCase()
 {
     QThreadPool::globalInstance()->waitForDone();
+}
+
+void TestModelsAndRuntimes::testOptionalLlamaTranslationRuntimeLoad()
+{
+    const QString runtimePath =
+        qEnvironmentVariable("LASTUDIO_TEST_LLAMA_RUNTIME_PATH").trimmed();
+    const QString modelPath =
+        qEnvironmentVariable("LASTUDIO_TEST_LLAMA_MODEL_PATH").trimmed();
+    if (runtimePath.isEmpty() || modelPath.isEmpty()) {
+        QSKIP("Set LASTUDIO_TEST_LLAMA_RUNTIME_PATH and LASTUDIO_TEST_LLAMA_MODEL_PATH "
+              "to run the local llama.cpp model-load smoke test.");
+    }
+
+    LlamaTranslationInterface translator;
+    QString error;
+    QVERIFY2(translator.load(runtimePath, modelPath, &error), qPrintable(error));
+    QVERIFY(translator.isLoaded());
+
+    const QStringList sourceTexts{
+        QStringLiteral("that it almost lasted 1,000 years"),
+        QStringLiteral("at No. 5 it's the Vietnam War"),
+        QStringLiteral("we have the Afghanistan war between the USA and Afghanistan")
+    };
+    const QStringList results = translator.translateBatch(
+        sourceTexts,
+        QStringLiteral("en"),
+        QStringLiteral("vi"),
+        128,
+        {},
+        &error);
+    QVERIFY2(error.isEmpty(), qPrintable(error));
+    QCOMPARE(results.size(), sourceTexts.size());
+    for (qsizetype i = 0; i < results.size(); ++i) {
+        QVERIFY2(!results.at(i).trimmed().isEmpty(),
+                 "The llama.cpp translation smoke test returned empty output.");
+        QVERIFY2(!results.at(i).contains(QChar::ReplacementCharacter),
+                 qPrintable(QStringLiteral("Translation contains invalid UTF-8 replacement characters: %1")
+                                .arg(results.at(i))));
+        QVERIFY2(results.at(i).compare(sourceTexts.at(i), Qt::CaseInsensitive) != 0,
+                 qPrintable(QStringLiteral("Hy-MT2 copied the source instead of translating it: %1")
+                                .arg(results.at(i))));
+    }
 }
 
 void TestModelsAndRuntimes::testModelManagerConcreteModelDir()
