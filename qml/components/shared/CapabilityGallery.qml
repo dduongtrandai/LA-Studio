@@ -869,6 +869,9 @@ Rectangle {
 
             property var f: root.activeModel && root.activeModel.revision >= 0
                 ? root.selectedFamilyItem() : null
+            readonly property int requiredFileComboWidth: root.modalMode
+                ? Math.max(220, Math.min(360, Math.round(width * 0.38)))
+                : 240
 
             ScrollView {
                 id: detailScroll
@@ -1228,10 +1231,9 @@ Rectangle {
 
                                     AppComboBox {
                                         visible: modelData.candidates !== undefined && modelData.candidates.length > 0
-                                        Layout.fillWidth: root.modalMode
-                                        Layout.preferredWidth: root.modalMode ? 0 : 240
-                                        Layout.minimumWidth: root.modalMode ? 220 : 160
-                                        Layout.maximumWidth: root.modalMode ? 360 : 280
+                                        Layout.preferredWidth: detailPanel.requiredFileComboWidth
+                                        Layout.minimumWidth: detailPanel.requiredFileComboWidth
+                                        Layout.maximumWidth: detailPanel.requiredFileComboWidth
                                         Layout.preferredHeight: 34
                                         model: modelData.candidates ? modelData.candidates : []
                                         currentIndex: model.indexOf(modelData.selectedFile)
