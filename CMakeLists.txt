@@ -413,6 +413,7 @@ qt_add_qml_module(LAStudio
         qml/components/dubbing/DubbingHistoryPanel.qml
         qml/components/dubbing/DubbingProjectStatusPanel.qml
         qml/components/dubbing/DubbingNodeSettingsPanel.qml
+        qml/components/dubbing/DubbingNodeInspector.qml
         qml/components/dubbing/DubbingWorkflowStep.qml
         qml/components/dubbing/DubbingWorkflowHeader.qml
         qml/components/dubbing/DubbingSourceMediaPanel.qml

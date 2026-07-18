@@ -144,6 +144,10 @@ public:
                                           const QString &runtimeId,
                                           const QString &runtimeVersion,
                                           const QVariantMap &selectedFiles = QVariantMap());
+    Q_INVOKABLE bool loadWorkflowNodeModel(const QString &nodeId);
+    Q_INVOKABLE bool unloadWorkflowNodeModel(const QString &nodeId);
+    Q_INVOKABLE bool reloadWorkflowNodeModel(const QString &nodeId);
+    Q_INVOKABLE bool setWorkflowNodeParameters(const QString &nodeId, const QVariantMap &parameters);
 
 signals:
     void projectChanged();

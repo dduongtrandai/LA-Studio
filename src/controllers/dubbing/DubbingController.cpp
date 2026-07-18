@@ -336,6 +336,7 @@ QVariantList DubbingController::workflowNodes() const
             detail = QStringLiteral("Review is waiting for your decision");
         }
         QVariantMap item = node(definition.id, definition.title, state, detail, provider).toMap();
+        item.insert(QStringLiteral("parameters"), definition.parameters);
         item.insert(QStringLiteral("typeId"), definition.typeId);
         item.insert(QStringLiteral("typeVersion"), definition.typeVersion);
         if (definition.id == QStringLiteral("source-separate")) {
@@ -361,6 +362,32 @@ QVariantList DubbingController::workflowNodes() const
                 ? AppController::instance()->sessionRegistry()->sessionForCapability(capabilityId) : nullptr;
             item.insert(QStringLiteral("providerState"),
                         session && session->canProcess() ? QStringLiteral("ready") : QStringLiteral("loading"));
+            const ModelSessionState modelState = session ? session->state() : ModelSessionState::Unconfigured;
+            item.insert(QStringLiteral("modelState"), static_cast<int>(modelState));
+            item.insert(QStringLiteral("modelStateText"),
+                        modelState == ModelSessionState::Ready ? QStringLiteral("ready")
+                        : modelState == ModelSessionState::Loading ? QStringLiteral("loading")
+                        : modelState == ModelSessionState::Unloading ? QStringLiteral("unloading")
+                        : modelState == ModelSessionState::Processing ? QStringLiteral("processing")
+                        : modelState == ModelSessionState::Error ? QStringLiteral("error")
+                        : QStringLiteral("unloaded"));
+            QVariantMap parameters = item.value(QStringLiteral("parameters")).toMap();
+            const QVariantMap customParameters = selected.value(QStringLiteral("parameters")).toMap();
+            for (auto it = customParameters.cbegin(); it != customParameters.cend(); ++it)
+                parameters.insert(it.key(), it.value());
+            item.insert(QStringLiteral("parameters"), parameters);
+            const QVariantMap definitions = selected.value(QStringLiteral("parameterDefinitions")).toMap();
+            const QVariantMap studioConfig = selected.value(QStringLiteral("studioConfig")).toMap();
+            QVariantList parameterSchema;
+            for (const QVariant &parameterValue : studioConfig.value(QStringLiteral("parameters")).toList()) {
+                const QString parameterId = parameterValue.toString();
+                QVariantMap parameterDefinition = definitions.value(parameterId).toMap();
+                if (parameterDefinition.isEmpty()) continue;
+                parameterDefinition.insert(QStringLiteral("id"), parameterId);
+                parameterSchema.append(parameterDefinition);
+            }
+            item.insert(QStringLiteral("parameterSchema"), parameterSchema);
+            item.insert(QStringLiteral("studioConfig"), studioConfig);
         }
         result.append(item);
     }
@@ -453,9 +480,12 @@ bool DubbingController::setWorkflowNodeModel(const QString &nodeId,
     QVariantMap selected{{QStringLiteral("familyId"), familyId},
                          {QStringLiteral("runtimeId"), config.runtimeId},
                          {QStringLiteral("runtimeVersion"), config.runtimeVersion},
-                         {QStringLiteral("selectedFiles"), config.selectedFiles},
-                         {QStringLiteral("modelName"), family.value(QStringLiteral("title"))},
-                         {QStringLiteral("capabilityId"), capabilityId}};
+                          {QStringLiteral("selectedFiles"), config.selectedFiles},
+                          {QStringLiteral("modelName"), family.value(QStringLiteral("title"))},
+                          {QStringLiteral("capabilityId"), capabilityId},
+                          {QStringLiteral("parameterDefinitions"), family.value(QStringLiteral("parameterDefinitions"))},
+                          {QStringLiteral("studioConfig"),
+                           family.value(QStringLiteral("studio")).toMap().value(capabilityId)}};
     m_workflowNodeConfigurations.insert(nodeId, selected);
     if (IModelSession *session = app->sessionRegistry()->sessionForCapability(capabilityId)) {
         session->requestLoad(capabilityId, config);
@@ -463,6 +493,58 @@ bool DubbingController::setWorkflowNodeModel(const QString &nodeId,
     Logger::info(QStringLiteral("DubbingController"),
                  QStringLiteral("Workflow node model changed node=%1 family=%2 runtime=%3")
                      .arg(nodeId, familyId, config.runtimeId));
+    emit workflowChanged();
+    return true;
+}
+
+bool DubbingController::loadWorkflowNodeModel(const QString &nodeId)
+{
+    const QVariantMap selected = m_workflowNodeConfigurations.value(nodeId).toMap();
+    if (selected.isEmpty()) {
+        setError(QStringLiteral("Choose a model configuration before loading this node."));
+        return false;
+    }
+    return setWorkflowNodeModel(nodeId, selected.value(QStringLiteral("familyId")).toString(),
+                                selected.value(QStringLiteral("runtimeId")).toString(),
+                                selected.value(QStringLiteral("runtimeVersion")).toString(),
+                                selected.value(QStringLiteral("selectedFiles")).toMap());
+}
+
+bool DubbingController::unloadWorkflowNodeModel(const QString &nodeId)
+{
+    const QVariantMap selected = m_workflowNodeConfigurations.value(nodeId).toMap();
+    const QString capabilityId = selected.value(QStringLiteral("capabilityId")).toString();
+    auto *app = AppController::instance();
+    auto *session = app && app->sessionRegistry()
+        ? app->sessionRegistry()->sessionForCapability(capabilityId) : nullptr;
+    if (!session || capabilityId.isEmpty()) return false;
+    session->requestUnload(capabilityId);
+    emit workflowChanged();
+    return true;
+}
+
+bool DubbingController::reloadWorkflowNodeModel(const QString &nodeId)
+{
+    const QVariantMap selected = m_workflowNodeConfigurations.value(nodeId).toMap();
+    const QString capabilityId = selected.value(QStringLiteral("capabilityId")).toString();
+    auto *app = AppController::instance();
+    auto *session = app && app->sessionRegistry()
+        ? app->sessionRegistry()->sessionForCapability(capabilityId) : nullptr;
+    if (!session || capabilityId.isEmpty()) return false;
+    session->requestReload(capabilityId);
+    emit workflowChanged();
+    return true;
+}
+
+bool DubbingController::setWorkflowNodeParameters(const QString &nodeId, const QVariantMap &parameters)
+{
+    if (nodeId.isEmpty()) return false;
+    QVariantMap selected = m_workflowNodeConfigurations.value(nodeId).toMap();
+    QVariantMap current = selected.value(QStringLiteral("parameters")).toMap();
+    for (auto it = parameters.cbegin(); it != parameters.cend(); ++it)
+        current.insert(it.key(), it.value());
+    selected.insert(QStringLiteral("parameters"), current);
+    m_workflowNodeConfigurations.insert(nodeId, selected);
     emit workflowChanged();
     return true;
 }
@@ -590,6 +672,9 @@ bool DubbingController::runWorkflow(const QString &outputPath)
             node.parameters.insert(QStringLiteral("runtimeId"), modelConfig.value(QStringLiteral("runtimeId")));
             node.parameters.insert(QStringLiteral("runtimeVersion"), modelConfig.value(QStringLiteral("runtimeVersion")));
             node.parameters.insert(QStringLiteral("selectedFiles"), modelConfig.value(QStringLiteral("selectedFiles")));
+            const QVariantMap customParameters = modelConfig.value(QStringLiteral("parameters")).toMap();
+            for (auto it = customParameters.cbegin(); it != customParameters.cend(); ++it)
+                node.parameters.insert(it.key(), it.value());
             node.properties = node.parameters;
         }
         if (node.id == QStringLiteral("media-input")) {

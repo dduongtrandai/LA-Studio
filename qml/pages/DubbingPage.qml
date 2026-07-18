@@ -21,6 +21,7 @@ Item {
     property string playingSeparationStem: ""
     property string playingVoiceClipPath: ""
     property bool isHistoryOpen: true
+    property bool isNodeInspectorOpen: true
     property string pendingHistoryDeleteId: ""
     readonly property var languageCatalog: AppController.catalog.languageSet("default")
 
@@ -379,12 +380,14 @@ Item {
                         runReady: root.stepRunReady(nodeId)
                         nextNodeId: root.nextNodeId(nodeId)
                         nextReady: root.nextNodeReady(nodeId)
-                        visible: root.reviewStepId === "transcribe"
+                        visible: true
                         onConfigureRequested: nodeModelDialog.openFor(nodeId)
+                        onLoadRequested: dubbing.loadWorkflowNodeModel(nodeId)
+                        onUnloadRequested: dubbing.unloadWorkflowNodeModel(nodeId)
+                        onReloadRequested: dubbing.reloadWorkflowNodeModel(nodeId)
                         onRunRequested: root.runStep(nodeId)
                         onNextRequested: root.runNextNode(nodeId)
                     }
-                    TranslationSettingsPanel { visible: root.reviewStepId === "translate" }
                     RowLayout { Layout.fillWidth: true
                         ColumnLayout { Layout.fillWidth: true; spacing: 1
                             Text { text: root.stepTitle(root.reviewStepId).toUpperCase(); color: Theme.textPrimary; font.pixelSize: Theme.fontLarge; font.bold: true }
@@ -449,6 +452,9 @@ Item {
                         nextReady: root.nextNodeReady(nodeId)
                         visible: ["import", "ingest", "source-separate", "synthesize", "mix", "export"].indexOf(root.reviewStepId) >= 0
                         onConfigureRequested: nodeModelDialog.openFor(nodeId)
+                        onLoadRequested: dubbing.loadWorkflowNodeModel(nodeId)
+                        onUnloadRequested: dubbing.unloadWorkflowNodeModel(nodeId)
+                        onReloadRequested: dubbing.reloadWorkflowNodeModel(nodeId)
                         onRunRequested: root.runStep(nodeId)
                         onNextRequested: root.runNextNode(nodeId)
                     }
@@ -512,6 +518,52 @@ Item {
                     Item {
                         Layout.fillHeight: true
                         visible: root.reviewStepId !== "synthesize"
+                    }
+                }
+            }
+
+            DubbingNodeInspector {
+                dubbing: root.dubbing
+                nodeId: root.reviewStepId
+                node: root.workflowNode(root.reviewStepId)
+                nodeTitle: root.stepTitle(root.reviewStepId)
+                visible: root.isNodeInspectorOpen
+                         && node && node.configurable === true
+                onCloseRequested: root.isNodeInspectorOpen = false
+            }
+
+            Rectangle {
+                Layout.preferredWidth: 46
+                Layout.fillHeight: true
+                visible: {
+                    var selectedNode = root.workflowNode(root.reviewStepId)
+                    return !root.isNodeInspectorOpen
+                            && selectedNode && selectedNode.configurable === true
+                }
+                color: Theme.surface
+                radius: Theme.radiusSmall
+                border.color: Qt.rgba(1, 1, 1, 0.08)
+
+                Button {
+                    anchors.top: parent.top
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.topMargin: Theme.paddingLarge
+                    implicitWidth: 30
+                    implicitHeight: 34
+                    flat: true
+                    onClicked: root.isNodeInspectorOpen = true
+                    contentItem: LineIcon {
+                        name: "sliders"
+                        color: parent.hovered ? Theme.accent : Theme.textSecondary
+                        anchors.centerIn: parent
+                        width: 18
+                        height: 18
+                    }
+                    background: Rectangle {
+                        radius: 7
+                        color: parent.hovered ? Qt.rgba(1, 1, 1, 0.05) : Qt.rgba(1, 1, 1, 0.025)
+                        border.color: Qt.rgba(1, 1, 1, 0.08)
+                        border.width: 1
                     }
                 }
             }
