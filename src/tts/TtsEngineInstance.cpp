@@ -3,6 +3,7 @@
 #include "TtsRequestValidator.h"
 #include "core/Logger.h"
 #include "core/HardwareManager.h"
+#include "controllers/models/CapabilitySettingsSchema.h"
 #include <runtimes/OmnivoiceInterface.h>
 
 #include <QThread>
@@ -189,79 +190,7 @@ void TtsEngineInstance::setFamilyConfig(const QVariantMap &config)
 
 QVariantList TtsEngineInstance::schemaForCapability(const QString &capability) const
 {
-    if (m_familyConfig.isEmpty())
-        return m_currentSchema;
-
-    QVariantMap studio = m_familyConfig.value("studio").toMap();
-    if (!studio.contains(capability))
-        return m_currentSchema; // Fallback to runtime-derived schema if capability is not in catalog
-
-    QVariantMap studioConfig = studio.value(capability).toMap();
-    if (!studioConfig.contains("parameters"))
-        return m_currentSchema; // Fallback if no explicit parameter list
-
-    QVariantList parameterIds = studioConfig.value("parameters").toList();
-    QVariantMap definitions = m_familyConfig.value("parameterDefinitions").toMap();
-    QVariantList schema;
-
-    for (const QVariant &idVar : parameterIds) {
-        QString id = idVar.toString();
-        if (definitions.contains(id)) {
-            QVariantMap def = definitions.value(id).toMap();
-            QVariantMap merged;
-            for (const QVariant &curVar : m_currentSchema) {
-                QVariantMap curMap = curVar.toMap();
-                if (curMap.value(QStringLiteral("id")).toString() == id) {
-                    merged = curMap;
-                    break;
-                }
-            }
-            for (auto it = def.cbegin(); it != def.cend(); ++it) {
-                merged[it.key()] = it.value();
-            }
-            if (merged.value(QStringLiteral("type")).toString() == QStringLiteral("choice") &&
-                !merged.contains(QStringLiteral("choices")) &&
-                merged.contains(QStringLiteral("options"))) {
-                merged[QStringLiteral("choices")] = merged.value(QStringLiteral("options"));
-            }
-            merged["id"] = id;
-            schema.append(merged);
-        } else {
-            bool foundInCurrent = false;
-            for (const QVariant &curVar : m_currentSchema) {
-                QVariantMap curMap = curVar.toMap();
-                if (curMap.value(QStringLiteral("id")).toString() == id) {
-                    if (id == QStringLiteral("voice") && m_familyConfig.contains(QStringLiteral("speakersMetadata"))) {
-                        QVariantList choices = curMap.value(QStringLiteral("choices")).toList();
-                        QVariantList metadata = m_familyConfig.value(QStringLiteral("speakersMetadata")).toList();
-                        QVariantList newChoices;
-                        for (const QVariant &choiceVar : choices) {
-                            QVariantMap choice = choiceVar.toMap();
-                            QString val = choice.value(QStringLiteral("value")).toString().toLower();
-                            for (const QVariant &metaVar : metadata) {
-                                QVariantMap meta = metaVar.toMap();
-                                if (meta.value(QStringLiteral("name")).toString().toLower() == val) {
-                                    choice[QStringLiteral("text")] = meta.value(QStringLiteral("displayName"), choice.value(QStringLiteral("text")));
-                                    choice[QStringLiteral("detail")] = meta.value(QStringLiteral("language"));
-                                    break;
-                                }
-                            }
-                            newChoices.append(choice);
-                        }
-                        curMap[QStringLiteral("choices")] = newChoices;
-                    }
-                    schema.append(curMap);
-                    foundInCurrent = true;
-                    break;
-                }
-            }
-            if (!foundInCurrent) {
-                Logger::warning("TtsEngineInstance", QString("Catalog studio.%1.parameters contains unknown ID: %2").arg(capability, id));
-            }
-        }
-    }
-
-    return schema.isEmpty() ? m_currentSchema : schema;
+    return CapabilitySettingsSchema::merge(m_familyConfig, capability, m_currentSchema);
 }
 
 QVariantMap TtsEngineInstance::studioConfigForCapability(const QString &capability) const

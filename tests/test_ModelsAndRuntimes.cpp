@@ -11,6 +11,7 @@
 #include "core/ModelManager.h"
 #include "core/LogViewService.h"
 #include "controllers/models/StudioConfigurationResolver.h"
+#include "controllers/models/CapabilitySettingsSchema.h"
 #include "runtimes/LlamaTranslationInterface.h"
 
 #include <QDir>
@@ -26,6 +27,52 @@
 #include <QUuid>
 
 namespace LAStudio {
+
+void TestModelsAndRuntimes::testCapabilitySettingsSchemaPreservesRuntimeVoiceChoices()
+{
+    const QVariantMap familyConfig{
+        {QStringLiteral("studio"), QVariantMap{
+            {QStringLiteral("tts"), QVariantMap{
+                {QStringLiteral("parameters"), QVariantList{QStringLiteral("voice")}}
+            }}
+        }},
+        {QStringLiteral("parameterDefinitions"), QVariantMap{
+            {QStringLiteral("voice"), QVariantMap{
+                {QStringLiteral("id"), QStringLiteral("voice")},
+                {QStringLiteral("name"), QStringLiteral("Voice")},
+                {QStringLiteral("type"), QStringLiteral("choice")}
+            }}
+        }},
+        {QStringLiteral("speakersMetadata"), QVariantList{
+            QVariantMap{
+                {QStringLiteral("name"), QStringLiteral("speaker_a")},
+                {QStringLiteral("displayName"), QStringLiteral("Speaker A")},
+                {QStringLiteral("language"), QStringLiteral("vi")}
+            }
+        }}
+    };
+    const QVariantList runtimeSchema{QVariantMap{
+        {QStringLiteral("id"), QStringLiteral("voice")},
+        {QStringLiteral("type"), QStringLiteral("choice")},
+        {QStringLiteral("choices"), QVariantList{QVariantMap{
+            {QStringLiteral("value"), QStringLiteral("speaker_a")},
+            {QStringLiteral("text"), QStringLiteral("speaker_a")}
+        }}}
+    }};
+
+    const QVariantList merged = CapabilitySettingsSchema::merge(
+        familyConfig, QStringLiteral("tts"), runtimeSchema);
+    QCOMPARE(merged.size(), 1);
+    const QVariantMap voice = merged.first().toMap();
+    const QVariantList choices = voice.value(QStringLiteral("choices")).toList();
+    QCOMPARE(choices.size(), 1);
+    QCOMPARE(choices.first().toMap().value(QStringLiteral("value")).toString(),
+             QStringLiteral("speaker_a"));
+    QCOMPARE(choices.first().toMap().value(QStringLiteral("text")).toString(),
+             QStringLiteral("Speaker A"));
+    QCOMPARE(choices.first().toMap().value(QStringLiteral("detail")).toString(),
+             QStringLiteral("vi"));
+}
 
 void TestModelsAndRuntimes::cleanupTestCase()
 {

@@ -60,13 +60,15 @@ QVariantList buildWaveformPreview(const QVector<float> &samples, int maximumPoin
     return preview;
 }
 
-QString synthesisFingerprint(const QVariantMap &segment, const QString &ttsSignature)
+QString synthesisFingerprint(const QVariantMap &segment, const QString &ttsSignature,
+                             const QVariantMap &synthesisSettings)
 {
     const QVariantMap effective{{QStringLiteral("targetText"), segment.value(QStringLiteral("targetText"))},
                                 {QStringLiteral("startMs"), segment.value(QStringLiteral("startMs"))},
                                 {QStringLiteral("endMs"), segment.value(QStringLiteral("endMs"))},
                                 {QStringLiteral("speakerId"), segment.value(QStringLiteral("speakerId"))},
-                                {QStringLiteral("ttsSignature"), ttsSignature}};
+                                {QStringLiteral("ttsSignature"), ttsSignature},
+                                {QStringLiteral("synthesisSettings"), synthesisSettings}};
     return QString::fromLatin1(QCryptographicHash::hash(
         QJsonDocument(QJsonObject::fromVariantMap(effective)).toJson(QJsonDocument::Compact),
         QCryptographicHash::Sha256).toHex());
@@ -436,7 +438,8 @@ void DubbingJobRunner::startTranslation(const QString &sourceLanguage, const QSt
     }
 }
 
-void DubbingJobRunner::startAudioGeneration(const QVariantList &segments, const QString &projectPath)
+void DubbingJobRunner::startAudioGeneration(const QVariantList &segments, const QString &projectPath,
+                                            const QVariantMap &synthesisSettings)
 {
     if (m_processing || (m_tts && m_tts->isProcessing())) {
         setBusyError(QStringLiteral("Speech synthesis is already running."));
@@ -448,11 +451,15 @@ void DubbingJobRunner::startAudioGeneration(const QVariantList &segments, const 
     }
     m_activeSegments = segments;
     m_projectPath = projectPath;
+    // Snapshot the node settings once per run. Every segment in this run must
+    // use the same preset even if the inspector changes while synthesis runs.
+    m_synthesisSettings = synthesisSettings;
     if (m_runId.isEmpty()) m_runId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     m_generationIndex = -1;
     for (int i = 0; i < m_activeSegments.size(); ++i) {
         const QVariantMap segment = m_activeSegments.at(i).toMap();
-        const QString fingerprint = synthesisFingerprint(segment, m_tts->activeSignature());
+        const QString fingerprint = synthesisFingerprint(
+            segment, m_tts->activeSignature(), m_synthesisSettings);
         const bool cacheValid = segment.value(QStringLiteral("state")).toString() == QStringLiteral("ready")
             && QFileInfo::exists(segment.value(QStringLiteral("clipPath")).toString())
             && segment.value(QStringLiteral("cacheFingerprint")).toString() == fingerprint;
@@ -467,12 +474,16 @@ void DubbingJobRunner::startAudioGeneration(const QVariantList &segments, const 
         return;
     }
     Logger::info(QStringLiteral("DubbingPipeline"),
-                 QStringLiteral("[tts] start run=%1 segments=%2 firstIndex=%3 model=%4 project=%5")
+                 QStringLiteral("[tts] start run=%1 segments=%2 firstIndex=%3 model=%4 voice=%5 project=%6")
                      .arg(m_runId).arg(m_activeSegments.size()).arg(m_generationIndex)
-                     .arg(m_tts->activeSignature(), projectPath));
+                     .arg(m_tts->activeSignature(),
+                          m_synthesisSettings.value(QStringLiteral("voice")).toString(),
+                          projectPath));
     setProcessing(true, QStringLiteral("tts"), 0);
     m_activeNodeRunId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    m_tts->synthesize(m_activeSegments.at(m_generationIndex).toMap().value(QStringLiteral("targetText")).toString());
+    m_tts->synthesize(
+        m_activeSegments.at(m_generationIndex).toMap().value(QStringLiteral("targetText")).toString(),
+        0, 1.0f, m_synthesisSettings);
 }
 
 void DubbingJobRunner::cancel()
@@ -801,7 +812,8 @@ void DubbingJobRunner::onSynthesisFinished(const QByteArray &pcm16, int sampleRa
     QVariantMap updated = segment;
     updated.insert(QStringLiteral("clipPath"), clipPath);
     updated.insert(QStringLiteral("clipArtifact"), clipArtifact.toJson().toVariantMap());
-    updated.insert(QStringLiteral("cacheFingerprint"), synthesisFingerprint(segment, m_tts->activeSignature()));
+    updated.insert(QStringLiteral("cacheFingerprint"),
+                   synthesisFingerprint(segment, m_tts->activeSignature(), m_synthesisSettings));
     updated.insert(QStringLiteral("sampleRate"), sampleRate);
     updated.insert(QStringLiteral("sampleCount"), fittedSamples.size());
     updated.insert(QStringLiteral("waveformSamples"), buildWaveformPreview(fittedSamples));
@@ -830,7 +842,9 @@ void DubbingJobRunner::onSynthesisFinished(const QByteArray &pcm16, int sampleRa
     // Queue the next request so the Processing state does not discard it.
     QMetaObject::invokeMethod(this, [this, next]() {
         if (!m_processing || m_stage != QStringLiteral("tts") || m_generationIndex != next || !m_tts) return;
-        m_tts->synthesize(m_activeSegments.at(next).toMap().value(QStringLiteral("targetText")).toString());
+        m_tts->synthesize(
+            m_activeSegments.at(next).toMap().value(QStringLiteral("targetText")).toString(),
+            0, 1.0f, m_synthesisSettings);
     }, Qt::QueuedConnection);
 }
 

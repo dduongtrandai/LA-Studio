@@ -26,6 +26,7 @@ private slots:
     void testLogViewServicePending();
     void testStudioConfigurationResolver();
     void testTranslationRecommendationUsesCompatibleRuntime();
+    void testCapabilitySettingsSchemaPreservesRuntimeVoiceChoices();
 };
 
 } // namespace LAStudio

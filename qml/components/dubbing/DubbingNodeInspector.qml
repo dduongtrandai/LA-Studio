@@ -141,13 +141,13 @@ Rectangle {
                         labelText: root.nodeId === "translate" ? qsTr("Target language") : qsTr("Language")
                         language: root.nodeId === "translate"
                                   ? root.dubbing.targetLanguage
-                                  : String(root.dynamicSettings["language"] !== undefined
-                                           ? root.dynamicSettings["language"] : "auto")
+                                  : String(root.dynamicSettings["lang"] !== undefined
+                                           ? root.dynamicSettings["lang"] : "auto")
                         onLanguageChanged: {
                             if (root.nodeId === "translate")
                                 root.dubbing.targetLanguage = language
                             else
-                                root.updateParameter("language", language)
+                                root.updateParameter("lang", language)
                         }
                     }
                 }
@@ -210,7 +210,7 @@ Rectangle {
                         }
                         Text {
                             Layout.fillWidth: true
-                            text: qsTr("Model and runtime files are changed from Configure.")
+                            text: qsTr("Model and runtime files are selected from Open model.")
                             color: Theme.textSecondary
                             font.pixelSize: 10
                             wrapMode: Text.WordWrap

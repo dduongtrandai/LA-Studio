@@ -41,8 +41,14 @@ Rectangle {
             Text { Layout.fillWidth: true; text: root.node && root.node.providerName ? root.node.providerName : qsTr("Use the workflow default model"); color: Theme.textSecondary; font.pixelSize: 10; elide: Text.ElideRight }
         }
         Text { visible: root.node && root.node.configurable === true; text: root.modelStateLabel(); color: root.modelStateColor(); font.pixelSize: 10; font.bold: true; Layout.preferredWidth: 62; horizontalAlignment: Text.AlignRight }
-        PrimaryButton { text: qsTr("Configure"); iconName: "settings"; quiet: true; visible: root.node && root.node.configurable === true; enabled: !root.lifecycleBusy(); onClicked: root.configureRequested() }
-        PrimaryButton { text: qsTr("Load"); iconName: "download"; visible: root.canLoad(); enabled: !root.lifecycleBusy(); onClicked: root.loadRequested() }
+        PrimaryButton {
+            text: root.modelActionText()
+            iconName: root.modelActionIcon()
+            visible: root.node && root.node.configurable === true
+            enabled: !root.lifecycleBusy()
+            quiet: root.modelState() === 3
+            onClicked: root.runModelAction()
+        }
         PrimaryButton { text: qsTr("Reload"); iconName: "refresh"; quiet: true; visible: root.canReload(); enabled: !root.lifecycleBusy(); onClicked: root.reloadRequested() }
         PrimaryButton { text: qsTr("Unload"); iconName: "power"; quiet: true; visible: root.canUnload(); enabled: !root.lifecycleBusy(); onClicked: root.unloadRequested() }
         PrimaryButton { visible: root.canRun; text: qsTr("Run"); iconName: "play"; enabled: !root.dubbing.processing && root.runReady; Layout.preferredWidth: 104; onClicked: root.runRequested() }
@@ -55,6 +61,22 @@ Rectangle {
     function canLoad() { return root.node && root.node.configurable === true && [1, 6].indexOf(root.modelState()) >= 0 }
     function canReload() { return root.node && root.node.configurable === true && root.modelState() === 3 }
     function canUnload() { return root.node && root.node.configurable === true && [3, 6].indexOf(root.modelState()) >= 0 }
+    function modelActionText() {
+        var state = root.modelState()
+        if (state === 0) return qsTr("Open model")
+        if ([1, 6].indexOf(state) >= 0) return qsTr("Load model")
+        return qsTr("Change model")
+    }
+    function modelActionIcon() {
+        var state = root.modelState()
+        if (state === 0) return "gallery"
+        if ([1, 6].indexOf(state) >= 0) return "download"
+        return "settings"
+    }
+    function runModelAction() {
+        if ([1, 6].indexOf(root.modelState()) >= 0) root.loadRequested()
+        else root.configureRequested()
+    }
     function modelStateLabel() {
         var labels = [qsTr("Unconfigured"), qsTr("Unloaded"), qsTr("Loading"), qsTr("Ready"), qsTr("Running"), qsTr("Unloading"), qsTr("Error")]
         return labels[root.modelState()] || qsTr("Unknown")

@@ -67,6 +67,7 @@ set(TEST_SOURCES
     ../src/controllers/tts/TtsSharedModelSession.cpp
     ../src/controllers/models/ModelSessionRegistry.cpp
     ../src/controllers/models/StudioConfigurationResolver.cpp
+    ../src/controllers/models/CapabilitySettingsSchema.cpp
     ../src/controllers/stt/SttSessionController.cpp
     ../src/controllers/tts/SubtitleVoiceController.cpp
     ../src/subtitles/SrtTimelineParser.cpp

@@ -6,6 +6,7 @@
 #include "dubbing/AlignmentRefinementService.h"
 #include "dubbing/DubbingSegmentNormalizer.h"
 #include "controllers/app/AppController.h"
+#include "audio/WavIO.h"
 #include "stt/SttEngine.h"
 #include "tts/TtsEngine.h"
 
@@ -205,6 +206,45 @@ void TestDubbingProject::audioGenerationWaitsForCompletedSynthesis()
         QVERIFY(!segment.value(QStringLiteral("clipPath")).toString().isEmpty());
         QVERIFY(QFileInfo::exists(segment.value(QStringLiteral("clipPath")).toString()));
         QVERIFY(!segment.value(QStringLiteral("waveformSamples")).toList().isEmpty());
+    }
+}
+
+void TestDubbingProject::audioGenerationUsesSelectedVoiceForEverySegment()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    TtsEngine tts;
+    tts.loadModel(QStringLiteral("mock-model.onnx"));
+    DubbingJobRunner runner(nullptr, &tts);
+    QSignalSpy completedSpy(&runner, &DubbingJobRunner::stageCompleted);
+    QSignalSpy errorSpy(&runner, &DubbingJobRunner::errorOccurred);
+
+    const QVariantList segments{
+        QVariantMap{{QStringLiteral("id"), QStringLiteral("s1")},
+                    {QStringLiteral("startMs"), 0},
+                    {QStringLiteral("endMs"), 10},
+                    {QStringLiteral("targetText"), QStringLiteral("Một")}},
+        QVariantMap{{QStringLiteral("id"), QStringLiteral("s2")},
+                    {QStringLiteral("startMs"), 10},
+                    {QStringLiteral("endMs"), 20},
+                    {QStringLiteral("targetText"), QStringLiteral("Hai")}}
+    };
+    runner.startAudioGeneration(
+        segments,
+        dir.filePath(QStringLiteral("project.ladub.json")),
+        QVariantMap{{QStringLiteral("voice"), QStringLiteral("preset-a")}});
+
+    QTRY_COMPARE_WITH_TIMEOUT(completedSpy.size(), 1, 3000);
+    QCOMPARE(errorSpy.size(), 0);
+    const QVariantList timeline = completedSpy.constFirst().at(1).toMap()
+                                      .value(QStringLiteral("timeline")).toList();
+    QCOMPARE(timeline.size(), 2);
+    for (const QVariant &entry : timeline) {
+        const WavIO::WavData wav = WavIO::loadAsFloat(
+            entry.toMap().value(QStringLiteral("clipPath")).toString());
+        QVERIFY(!wav.samples.isEmpty());
+        QVERIFY(qAbs(wav.samples.first() - 0.2f) < 0.001f);
     }
 }
 

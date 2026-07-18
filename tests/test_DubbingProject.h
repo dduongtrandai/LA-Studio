@@ -18,6 +18,7 @@ private slots:
     void transcriptionRequiresReadyModel();
     void alignmentRefinementFallsBackWithoutDependencies();
     void audioGenerationWaitsForCompletedSynthesis();
+    void audioGenerationUsesSelectedVoiceForEverySegment();
     void sourceTextEditInvalidatesWordTiming();
     void exportsSubtitlesAndReviewPackage();
     void segmentNormalizerSplitsLongAsrTranscript();

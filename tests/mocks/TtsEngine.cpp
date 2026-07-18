@@ -201,7 +201,9 @@ void TtsEngine::synthesize(const QString &text, int speakerId, float speed, cons
     Q_UNUSED(text);
     Q_UNUSED(speakerId);
     Q_UNUSED(speed);
-    Q_UNUSED(settings);
+    const QString voice = settings.value(QStringLiteral("voice")).toString();
+    const float sampleValue = voice == QStringLiteral("preset-a") ? 0.2f
+                            : voice == QStringLiteral("preset-b") ? 0.3f : 0.1f;
     s_mockLastSamples.clear();
     s_mockLastPcm.clear();
     s_mockLastSamplePreview.clear();
@@ -211,10 +213,10 @@ void TtsEngine::synthesize(const QString &text, int speakerId, float speed, cons
     emit stateChanged();
     emit processingChanged();
 
-    QTimer::singleShot(0, this, [this]() {
-        s_mockLastSamples = QVector<float>(160, 0.1f);
+    QTimer::singleShot(0, this, [this, sampleValue]() {
+        s_mockLastSamples = QVector<float>(160, sampleValue);
         s_mockLastSampleCount = s_mockLastSamples.size();
-        s_mockLastSamplePreview = {0.1f};
+        s_mockLastSamplePreview = {sampleValue};
         s_mockLastPcm.resize(s_mockLastSamples.size() * 2);
         emit outputChanged();
         emit synthesisFinished(s_mockLastPcm, s_mockSampleRate);

@@ -12,6 +12,7 @@ ColumnLayout {
     property string labelText: qsTr("Language")
     property bool useTextFieldFallback: false
     property bool hasLanguageInput: true
+    property bool syncingSelection: false
 
     visible: hasLanguageInput
     spacing: Theme.paddingSmall
@@ -64,6 +65,23 @@ ColumnLayout {
     readonly property bool showComboBox: supportedLanguages.length > 0
     readonly property bool showTextField: !showComboBox && useTextFieldFallback
 
+    function languageIndex() {
+        if (!langCombo.model || langCombo.model.length === 0) return 0
+        for (var i = 0; i < langCombo.model.length; ++i) {
+            if (langCombo.model[i].value === root.language) return i
+        }
+        return 0
+    }
+
+    function syncComboSelection() {
+        if (!root.showComboBox) return
+        var index = root.languageIndex()
+        if (langCombo.currentIndex === index) return
+        root.syncingSelection = true
+        langCombo.currentIndex = index
+        root.syncingSelection = false
+    }
+
     FieldLabel {
         text: root.labelText
         visible: root.showComboBox || root.showTextField
@@ -78,14 +96,10 @@ ColumnLayout {
         textRole: "text"
         secondaryTextRole: "detail"
         searchable: model.length > 15
-        currentIndex: {
-            if (!model || model.length === 0) return 0
-            for (var i = 0; i < model.length; ++i) {
-                if (model[i].value === root.language) return i
-            }
-            return 0
-        }
+        Component.onCompleted: root.syncComboSelection()
+        onModelChanged: root.syncComboSelection()
         onCurrentIndexChanged: {
+            if (root.syncingSelection) return
             if (!model || currentIndex < 0 || currentIndex >= model.length) return
             var val = model[currentIndex].value
             if (root.language !== val) {
@@ -117,6 +131,7 @@ ColumnLayout {
     }
 
     onLanguageChanged: {
+        root.syncComboSelection()
         if (showTextField && langField.text !== root.language) {
             langField.text = root.language
         }

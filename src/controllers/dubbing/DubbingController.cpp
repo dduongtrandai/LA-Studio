@@ -11,6 +11,7 @@
 #include "controllers/app/AppController.h"
 #include "controllers/models/ModelSessionRegistry.h"
 #include "controllers/models/StudioConfigurationResolver.h"
+#include "controllers/models/CapabilitySettingsSchema.h"
 
 #include <QFileInfo>
 #include <QFile>
@@ -376,16 +377,19 @@ QVariantList DubbingController::workflowNodes() const
             for (auto it = customParameters.cbegin(); it != customParameters.cend(); ++it)
                 parameters.insert(it.key(), it.value());
             item.insert(QStringLiteral("parameters"), parameters);
-            const QVariantMap definitions = selected.value(QStringLiteral("parameterDefinitions")).toMap();
-            const QVariantMap studioConfig = selected.value(QStringLiteral("studioConfig")).toMap();
-            QVariantList parameterSchema;
-            for (const QVariant &parameterValue : studioConfig.value(QStringLiteral("parameters")).toList()) {
-                const QString parameterId = parameterValue.toString();
-                QVariantMap parameterDefinition = definitions.value(parameterId).toMap();
-                if (parameterDefinition.isEmpty()) continue;
-                parameterDefinition.insert(QStringLiteral("id"), parameterId);
-                parameterSchema.append(parameterDefinition);
+            QVariantList runtimeSchema;
+            if (capabilityId == QStringLiteral("tts") && m_tts) {
+                const QString signature = selected.value(QStringLiteral("configurationSignature")).toString();
+                if (!signature.isEmpty() && m_tts->instance(signature))
+                    runtimeSchema = m_tts->instance(signature)->schemaForCapability(QStringLiteral("tts"));
+                else
+                    runtimeSchema = m_tts->schemaForCapability(QStringLiteral("tts"));
             }
+            const QVariantMap familyConfig = selected.value(QStringLiteral("familyConfig")).toMap();
+            const QVariantMap studioConfig = familyConfig.value(QStringLiteral("studio")).toMap()
+                .value(capabilityId).toMap();
+            const QVariantList parameterSchema = CapabilitySettingsSchema::merge(
+                familyConfig, capabilityId, runtimeSchema);
             item.insert(QStringLiteral("parameterSchema"), parameterSchema);
             item.insert(QStringLiteral("studioConfig"), studioConfig);
         }
@@ -483,6 +487,8 @@ bool DubbingController::setWorkflowNodeModel(const QString &nodeId,
                           {QStringLiteral("selectedFiles"), config.selectedFiles},
                           {QStringLiteral("modelName"), family.value(QStringLiteral("title"))},
                           {QStringLiteral("capabilityId"), capabilityId},
+                          {QStringLiteral("configurationSignature"), resolved.signature},
+                          {QStringLiteral("familyConfig"), family},
                           {QStringLiteral("parameterDefinitions"), family.value(QStringLiteral("parameterDefinitions"))},
                           {QStringLiteral("studioConfig"),
                            family.value(QStringLiteral("studio")).toMap().value(capabilityId)}};
@@ -687,7 +693,12 @@ bool DubbingController::runWorkflow(const QString &outputPath)
         } else if (node.typeId == QStringLiteral("core.review-gate")) {
             node.parameters.insert(QStringLiteral("mode"), QStringLiteral("never"));
             node.properties = node.parameters;
-        } else if (node.id == QStringLiteral("synthesize") || node.id == QStringLiteral("mix")) {
+        } else if (node.id == QStringLiteral("synthesize")) {
+            node.parameters.insert(QStringLiteral("projectPath"), m_project.projectPath);
+            node.parameters.insert(QStringLiteral("synthesisSettings"),
+                                   modelConfig.value(QStringLiteral("parameters")).toMap());
+            node.properties = node.parameters;
+        } else if (node.id == QStringLiteral("mix")) {
             node.parameters.insert(QStringLiteral("projectPath"), m_project.projectPath);
             node.properties = node.parameters;
         } else if (node.id == QStringLiteral("export")) {
@@ -1110,7 +1121,10 @@ void DubbingController::translateSource()
 
 void DubbingController::generateAudio()
 {
-    m_runner->startAudioGeneration(m_project.segments, m_project.projectPath);
+    const QVariantMap synthesisSettings = m_workflowNodeConfigurations
+        .value(QStringLiteral("synthesize")).toMap()
+        .value(QStringLiteral("parameters")).toMap();
+    m_runner->startAudioGeneration(m_project.segments, m_project.projectPath, synthesisSettings);
 }
 
 void DubbingController::cancelProcessing()

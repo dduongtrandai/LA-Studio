@@ -162,6 +162,7 @@ set(LASTUDIO_SOURCES
     src/controllers/models/ModelSessionRegistry.cpp
     src/controllers/app/StudioSessionViewModel.cpp
     src/controllers/models/StudioConfigurationResolver.cpp
+    src/controllers/models/CapabilitySettingsSchema.cpp
     src/controllers/stt/SttSessionController.cpp
     src/controllers/tts/SubtitleVoiceController.cpp
     src/controllers/stt/SttAudioDecoder.cpp
@@ -298,6 +299,7 @@ set(LASTUDIO_HEADERS
     src/controllers/models/ModelSessionRegistry.h
     src/controllers/app/StudioSessionViewModel.h
     src/controllers/models/StudioConfigurationResolver.h
+    src/controllers/models/CapabilitySettingsSchema.h
     src/controllers/stt/SttSessionController.h
     src/controllers/tts/SubtitleVoiceController.h
     src/controllers/stt/SttAudioDecoder.h

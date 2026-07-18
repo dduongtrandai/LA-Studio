@@ -50,7 +50,8 @@ public:
     void startTranscription(const QString &sourceLanguage, const QString &sourceMediaPath);
     void startTranslation(const QString &sourceLanguage, const QString &targetLanguage, const QVariantList &segments,
                           const QVariantMap &modelConfiguration = QVariantMap());
-    void startAudioGeneration(const QVariantList &segments, const QString &projectPath);
+    void startAudioGeneration(const QVariantList &segments, const QString &projectPath,
+                              const QVariantMap &synthesisSettings = QVariantMap());
     void cancel();
     bool renderPreview(const QVariantList &segments, const QString &projectPath, const QString &path = QString());
     bool startExport(const QString &sourceMediaPath, const QString &outputPath);
@@ -112,6 +113,7 @@ private:
     QString m_backgroundAudioPath;
     QString m_transcriptionAudioPath;
     QString m_transcriptionLanguage;
+    QVariantMap m_synthesisSettings;
 
     MediaToolService *m_mediaTools = nullptr;
     MediaIngestService *m_mediaIngest = nullptr;
