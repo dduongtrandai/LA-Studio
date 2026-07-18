@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import "../base"
 import "../shared"
@@ -13,8 +14,10 @@ Rectangle {
     required property var steps
     required property string statusText
     required property string defaultExportPath
+    property bool historyOpen: false
 
     signal stepSelected(string stepId)
+    signal historyToggled()
     signal generateRequested()
     signal workflowRequested()
     signal saveRequested()
@@ -37,9 +40,47 @@ Rectangle {
             spacing: Theme.paddingSmall
             LineIcon { name: "dubbing"; color: Theme.accentLight; Layout.preferredWidth: 21; Layout.preferredHeight: 21 }
             ColumnLayout {
+                Layout.fillWidth: true
                 spacing: 0
                 Text { text: qsTr("Dubbing Studio"); color: Theme.textPrimary; font.pixelSize: Theme.fontLarge; font.bold: true }
                 Text { text: root.dubbing.hasProject ? qsTr("Project workspace") : qsTr("New project"); color: Theme.textSecondary; font.pixelSize: 10 }
+            }
+            Button {
+                id: historyButton
+
+                implicitWidth: 32
+                implicitHeight: 32
+                flat: true
+                checkable: true
+                checked: root.historyOpen
+
+                AppToolTip {
+                    text: root.historyOpen ? qsTr("Hide dubbing history") : qsTr("Show dubbing history")
+                    visible: historyButton.hovered
+                }
+
+                contentItem: LineIcon {
+                    anchors.centerIn: parent
+                    name: "history"
+                    color: root.historyOpen ? Theme.accentLight
+                                            : (historyButton.hovered ? Theme.textPrimary : Theme.textSecondary)
+                    width: 18
+                    height: 18
+                }
+
+                background: Rectangle {
+                    radius: 7
+                    color: root.historyOpen
+                           ? Qt.rgba(0.49, 0.30, 1.0, 0.16)
+                           : (historyButton.hovered ? Qt.rgba(1, 1, 1, 0.055) : "transparent")
+                    border.color: root.historyOpen
+                                  ? Qt.rgba(0.49, 0.30, 1.0, 0.42)
+                                  : (historyButton.hovered ? Qt.rgba(1, 1, 1, 0.10) : "transparent")
+                    border.width: 1
+                }
+
+                onClicked: root.historyToggled()
+                HoverHandler { cursorShape: Qt.PointingHandCursor }
             }
         }
 

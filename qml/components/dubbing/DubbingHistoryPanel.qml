@@ -16,22 +16,18 @@ Rectangle {
     signal deleteRequested(string historyId)
     signal projectOpened()
 
-    Layout.preferredWidth: root.expanded ? 300 : 42
+    Layout.preferredWidth: 300
     Layout.fillHeight: true
+    visible: root.expanded
     color: Theme.surface
     radius: Theme.radiusMedium
     border.color: Qt.rgba(1, 1, 1, 0.08)
     border.width: 1
     clip: true
 
-    Behavior on Layout.preferredWidth {
-        NumberAnimation { duration: 180; easing.type: Easing.InOutQuad }
-    }
-
     Item {
         anchors.fill: parent
-        anchors.margins: root.expanded ? Theme.paddingMedium : 0
-        visible: root.expanded
+        anchors.margins: Theme.paddingMedium
 
         ColumnLayout {
             anchors.fill: parent
@@ -152,16 +148,4 @@ Rectangle {
         }
     }
 
-    Button {
-        anchors.top: parent.top
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.topMargin: Theme.paddingMedium
-        visible: !root.expanded
-        implicitWidth: 30
-        implicitHeight: 34
-        flat: true
-        contentItem: LineIcon { name: "history"; color: parent.hovered ? Theme.accent : Theme.textSecondary; width: 18; height: 18 }
-        background: Rectangle { radius: 7; color: parent.hovered ? Qt.rgba(1, 1, 1, 0.05) : "transparent" }
-        onClicked: root.expanded = true
-    }
 }

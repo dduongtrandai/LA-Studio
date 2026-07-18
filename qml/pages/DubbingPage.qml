@@ -310,7 +310,9 @@ Item {
             ]
             statusText: root.dubbing.processing ? qsTr("%1 · %2%").arg(root.stepTitle(root.dubbing.currentStepId)).arg(root.dubbing.progress) : (root.dubbing.workflowMode === "step" ? qsTr("Ready for node run") : qsTr("Ready"))
             defaultExportPath: root.defaultExportPath()
+            historyOpen: root.isHistoryOpen
             onStepSelected: root.reviewStepId = stepId
+            onHistoryToggled: root.isHistoryOpen = !root.isHistoryOpen
             onGenerateRequested: root.dubbing.startAutomaticWorkflow(root.defaultExportPath())
             onWorkflowRequested: root.openWorkflowCanvas()
             onSaveRequested: root.dubbing.saveProject()
