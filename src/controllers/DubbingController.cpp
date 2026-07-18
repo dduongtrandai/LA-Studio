@@ -9,6 +9,7 @@
 #include "core/PathUtils.h"
 #include "core/Logger.h"
 #include "controllers/AppController.h"
+#include "controllers/ModelSessionRegistry.h"
 #include "controllers/StudioConfigurationResolver.h"
 
 #include <QFileInfo>
@@ -119,6 +120,17 @@ DubbingController::DubbingController(SttSessionController *sttSession, TtsEngine
 {
     m_translation = translation;
     m_runner = new DubbingJobRunner(sttSession, tts, translation, models, runtimes, this);
+    if (AppController::instance() && AppController::instance()->sessionRegistry()) {
+        for (IModelSession *session : AppController::instance()->sessionRegistry()->sessions()) {
+            if (!session) continue;
+            connect(session, &IModelSession::stateChanged, this, [this]() {
+                emit workflowChanged();
+            });
+            connect(session, &IModelSession::activeConfigurationChanged, this, [this]() {
+                emit workflowChanged();
+            });
+        }
+    }
     m_workflowRegistry = new NodeRegistry(this);
     registerDubbingWorkflowNodes(*m_workflowRegistry, m_runner);
     loadHistory();
@@ -326,7 +338,10 @@ QVariantList DubbingController::workflowNodes() const
         QVariantMap item = node(definition.id, definition.title, state, detail, provider).toMap();
         item.insert(QStringLiteral("typeId"), definition.typeId);
         item.insert(QStringLiteral("typeVersion"), definition.typeVersion);
-        if (definition.id == QStringLiteral("transcribe")) {
+        if (definition.id == QStringLiteral("source-separate")) {
+            item.insert(QStringLiteral("configurable"), true);
+            item.insert(QStringLiteral("capabilityId"), QStringLiteral("voice-isolation"));
+        } else if (definition.id == QStringLiteral("transcribe")) {
             item.insert(QStringLiteral("configurable"), true);
             item.insert(QStringLiteral("capabilityId"), QStringLiteral("stt"));
         } else if (definition.id == QStringLiteral("translate")) {
@@ -376,7 +391,8 @@ bool DubbingController::setWorkflowNodeModel(const QString &nodeId,
                                              const QVariantMap &selectedFiles)
 {
     QString capabilityId;
-    if (nodeId == QStringLiteral("transcribe")) capabilityId = QStringLiteral("stt");
+    if (nodeId == QStringLiteral("source-separate")) capabilityId = QStringLiteral("voice-isolation");
+    else if (nodeId == QStringLiteral("transcribe")) capabilityId = QStringLiteral("stt");
     else if (nodeId == QStringLiteral("translate")) capabilityId = QStringLiteral("translation");
     else if (nodeId == QStringLiteral("synthesize")) capabilityId = QStringLiteral("tts");
     else {
@@ -387,6 +403,7 @@ bool DubbingController::setWorkflowNodeModel(const QString &nodeId,
     AppController *app = AppController::instance();
     if (!app || !app->registry() || !app->sessionRegistry()) return false;
     const QVariantList families = capabilityId == QStringLiteral("stt")
+            || capabilityId == QStringLiteral("voice-isolation")
         ? app->registry()->sttFamilies()
         : (capabilityId == QStringLiteral("translation") ? app->registry()->translationFamilies()
                                                            : app->registry()->ttsFamilies());
@@ -572,6 +589,7 @@ bool DubbingController::runWorkflow(const QString &outputPath)
             node.parameters.insert(QStringLiteral("familyId"), modelConfig.value(QStringLiteral("familyId")));
             node.parameters.insert(QStringLiteral("runtimeId"), modelConfig.value(QStringLiteral("runtimeId")));
             node.parameters.insert(QStringLiteral("runtimeVersion"), modelConfig.value(QStringLiteral("runtimeVersion")));
+            node.parameters.insert(QStringLiteral("selectedFiles"), modelConfig.value(QStringLiteral("selectedFiles")));
             node.properties = node.parameters;
         }
         if (node.id == QStringLiteral("media-input")) {
@@ -646,7 +664,9 @@ bool DubbingController::runCurrentStep(const QString &outputPath)
         return m_runner->processing();
     }
     if (step == QStringLiteral("source-separate")) {
-        m_runner->startSourceSeparation(m_project.masterAudioPath);
+        m_runner->startSourceSeparation(
+            m_project.masterAudioPath,
+            m_workflowNodeConfigurations.value(QStringLiteral("source-separate")).toMap());
         return m_runner->processing() || !m_project.masterAudioPath.isEmpty();
     }
     if (step == QStringLiteral("transcribe")) {

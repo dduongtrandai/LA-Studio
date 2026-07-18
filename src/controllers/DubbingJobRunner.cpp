@@ -160,7 +160,8 @@ void DubbingJobRunner::startIngest(const QString &path)
     m_mediaIngest->ingest(path);
 }
 
-void DubbingJobRunner::startSourceSeparation(const QString &audioPath)
+void DubbingJobRunner::startSourceSeparation(const QString &audioPath,
+                                             const QVariantMap &modelConfiguration)
 {
     if (m_processing) {
         setBusyError(QStringLiteral("A dubbing operation is already running."));
@@ -175,58 +176,97 @@ void DubbingJobRunner::startSourceSeparation(const QString &audioPath)
                  QStringLiteral("[source-separate] requested audio=%1 size=%2 bytes")
                      .arg(audioPath).arg(QFileInfo(audioPath).size()));
 
-    QString runtimePath = qEnvironmentVariable("SHERPA_ONNX_RUNTIME");
-    QString modelPath = qEnvironmentVariable("SHERPA_ONNX_UVR_MODEL");
+    SeparationConfiguration config;
+    QString runtimePath;
+    QString modelPath;
     AppController *app = AppController::instance();
-    if (runtimePath.isEmpty() || !QFileInfo(runtimePath).isFile()) {
-        if (app && app->runtimes()) {
-            for (const auto &rtVal : app->runtimes()->allRuntimes()) {
-                const QString rtId = rtVal.toMap().value(QStringLiteral("id")).toString();
-                if (rtId != QStringLiteral("sherpa-onnx-win-x86_64-cpu")
-                    && rtId != QStringLiteral("sherpa-onnx-source-separation-win-x86_64-cpu")) continue;
-                const QString path = app->runtimes()->getRuntimePath(rtId);
-                if (!path.isEmpty() && QFileInfo(path).isFile()) { runtimePath = path; break; }
-            }
-        }
-    }
-    if (modelPath.isEmpty() || !QFileInfo(modelPath).isFile()) {
-        if (app && app->models()) {
-            for (const QString &modelId : {QStringLiteral("k2-fsa/sherpa-onnx-uvr-vocals-ft"),
-                                          QStringLiteral("k2-fsa/sherpa-onnx-source-separation")}) {
-                const QString path = app->models()->filePath(modelId, QStringLiteral("UVR-MDX-NET-Voc_FT.onnx"));
-                if (!path.isEmpty() && QFileInfo(path).isFile()) { modelPath = path; break; }
-            }
-        }
-    }
 
-    if (runtimePath.isEmpty() || modelPath.isEmpty()
-        || !QFileInfo(runtimePath).isFile() || !QFileInfo(modelPath).isFile()) {
-        const QVariantMap outputs{{QStringLiteral("vocals"), audioPath},
-                                  {QStringLiteral("background"), audioPath},
-                                  {QStringLiteral("warning"), QStringLiteral("Voice isolation runtime or model is unavailable; using normalized audio.")}};
-        Logger::warning(QStringLiteral("DubbingPipeline"),
-                        QStringLiteral("[source-separate] runtime/model unavailable; using normalized audio"));
-        emit sourceSeparationFinished(outputs);
-        emit stageCompleted(QStringLiteral("source-separate"), outputs);
-        return;
+    if (!modelConfiguration.value(QStringLiteral("familyId")).toString().isEmpty()) {
+        StudioConfiguration selection;
+        selection.capabilityId = QStringLiteral("voice-isolation");
+        selection.familyId = modelConfiguration.value(QStringLiteral("familyId")).toString();
+        selection.runtimeId = modelConfiguration.value(QStringLiteral("runtimeId")).toString();
+        selection.runtimeVersion = modelConfiguration.value(QStringLiteral("runtimeVersion")).toString();
+        selection.selectedFiles = modelConfiguration.value(QStringLiteral("selectedFiles")).toMap();
+
+        const ResolvedConfiguration resolved = StudioConfigurationResolver::resolve(selection);
+        if (!resolved.isValid || !QFileInfo(resolved.runtimePath).isFile()) {
+            setError(QStringLiteral("The selected voice isolation model or runtime is unavailable."));
+            return;
+        }
+
+        config.backendId = resolved.resolvedPaths.value(
+            QStringLiteral("backend"), QStringLiteral("sherpa-onnx")).toString();
+        config.pipelineProfile = resolved.resolvedPaths.value(QStringLiteral("pipelineProfile")).toString();
+        config.runtimeId = selection.runtimeId;
+        config.runtimeVersion = selection.runtimeVersion;
+        config.runtimePath = resolved.runtimePath;
+        config.familyId = selection.familyId;
+        config.configurationSignature = resolved.signature;
+
+        const QVariantList requiredFiles = resolved.family.value(QStringLiteral("requiredFiles")).toList();
+        for (const QVariant &requiredValue : requiredFiles) {
+            const QString role = requiredValue.toMap().value(QStringLiteral("role")).toString();
+            const QString path = resolved.resolvedPaths.value(role).toString();
+            if (role.isEmpty() || path.isEmpty() || !QFileInfo(path).isFile()) {
+                setError(QStringLiteral("A required voice isolation model file is unavailable: %1").arg(role));
+                return;
+            }
+            config.modelFilesByRole.insert(role, path);
+        }
+    } else {
+        runtimePath = qEnvironmentVariable("SHERPA_ONNX_RUNTIME");
+        modelPath = qEnvironmentVariable("SHERPA_ONNX_UVR_MODEL");
+        if (runtimePath.isEmpty() || !QFileInfo(runtimePath).isFile()) {
+            if (app && app->runtimes()) {
+                for (const auto &rtVal : app->runtimes()->allRuntimes()) {
+                    const QString rtId = rtVal.toMap().value(QStringLiteral("id")).toString();
+                    if (rtId != QStringLiteral("sherpa-onnx-win-x86_64-cpu")
+                        && rtId != QStringLiteral("sherpa-onnx-source-separation-win-x86_64-cpu")) continue;
+                    const QString path = app->runtimes()->getRuntimePath(rtId);
+                    if (!path.isEmpty() && QFileInfo(path).isFile()) { runtimePath = path; break; }
+                }
+            }
+        }
+        if (modelPath.isEmpty() || !QFileInfo(modelPath).isFile()) {
+            if (app && app->models()) {
+                for (const QString &modelId : {QStringLiteral("k2-fsa/sherpa-onnx-uvr-vocals-ft"),
+                                              QStringLiteral("k2-fsa/sherpa-onnx-source-separation")}) {
+                    const QString path = app->models()->filePath(modelId, QStringLiteral("UVR-MDX-NET-Voc_FT.onnx"));
+                    if (!path.isEmpty() && QFileInfo(path).isFile()) { modelPath = path; break; }
+                }
+            }
+        }
+
+        if (runtimePath.isEmpty() || modelPath.isEmpty()
+            || !QFileInfo(runtimePath).isFile() || !QFileInfo(modelPath).isFile()) {
+            const QVariantMap outputs{{QStringLiteral("vocals"), audioPath},
+                                      {QStringLiteral("background"), audioPath},
+                                      {QStringLiteral("warning"), QStringLiteral("Voice isolation runtime or model is unavailable; using normalized audio.")}};
+            Logger::warning(QStringLiteral("DubbingPipeline"),
+                            QStringLiteral("[source-separate] runtime/model unavailable; using normalized audio"));
+            emit sourceSeparationFinished(outputs);
+            emit stageCompleted(QStringLiteral("source-separate"), outputs);
+            return;
+        }
+
+        config.backendId = QStringLiteral("sherpa-onnx");
+        config.pipelineProfile = QStringLiteral("uvr-2stems");
+        config.runtimeId = QStringLiteral("sherpa-onnx-win-x86_64-cpu");
+        config.runtimeVersion = QStringLiteral("v1.13.4");
+        config.runtimePath = runtimePath;
+        config.familyId = QStringLiteral("k2-fsa/sherpa-onnx-uvr-vocals-ft");
+        config.configurationSignature = QStringLiteral("uvr-vocals-ft");
+        config.modelFilesByRole.insert(QStringLiteral("model"), modelPath);
     }
 
     if (m_runId.isEmpty()) m_runId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     m_activeNodeRunId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     m_pendingSourceAudioPath = audioPath;
     Logger::info(QStringLiteral("DubbingPipeline"),
-                 QStringLiteral("[source-separate] runtime=%1 model=%2").arg(runtimePath, modelPath));
+                 QStringLiteral("[source-separate] runtime=%1 family=%2")
+                     .arg(config.runtimePath, config.familyId));
     setProcessing(true, QStringLiteral("source-separation"), 0);
-
-    SeparationConfiguration config;
-    config.backendId = QStringLiteral("sherpa-onnx");
-    config.pipelineProfile = QStringLiteral("uvr-2stems");
-    config.runtimeId = QStringLiteral("sherpa-onnx-win-x86_64-cpu");
-    config.runtimeVersion = QStringLiteral("v1.13.4");
-    config.runtimePath = runtimePath;
-    config.familyId = QStringLiteral("k2-fsa/sherpa-onnx-uvr-vocals-ft");
-    config.configurationSignature = QStringLiteral("uvr-vocals-ft");
-    config.modelFilesByRole.insert(QStringLiteral("model"), modelPath);
 
     SeparationRequest request;
     request.sourcePath = audioPath;

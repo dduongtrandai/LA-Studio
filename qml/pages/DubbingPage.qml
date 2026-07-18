@@ -127,25 +127,8 @@ Item {
         return next[nodeId] || ""
     }
 
-    function nextNodeLabel(nodeId) {
-        var next = nextNodeId(nodeId)
-        if (next === "transcribe") return qsTr("Transcribe")
-        if (next === "translate") return qsTr("Translate")
-        if (next === "synthesize") return qsTr("Generate voice")
-        if (next === "mix") return qsTr("Render mix")
-        if (next === "export") return qsTr("Export output")
-        return qsTr("Next")
-    }
-
     function nextNodeReady(nodeId) {
-        if (!root.stepComplete(nodeId)) return false
-        var next = root.nextNodeId(nodeId)
-        if (next === "translate") return dubbing.targetLanguage && dubbing.targetLanguage.length > 0
-        if (next === "synthesize") {
-            var voiceNode = root.workflowNode("synthesize")
-            return voiceNode && voiceNode.state !== "missing" && voiceNode.state !== "blocked"
-        }
-        return true
+        return root.nextNodeId(nodeId) !== "" && root.stepComplete(nodeId)
     }
 
     function runNextNode(nodeId) {
@@ -153,7 +136,6 @@ Item {
         if (next === "") return
         root.reviewStepId = next
         dubbing.startStepByStep()
-        dubbing.runCurrentStep(root.defaultExportPath())
     }
 
     function stepComplete(stepId) {
@@ -180,6 +162,24 @@ Item {
 
     function canRerunStep(stepId) {
         return stepId !== "import" && stepId !== "completed" && root.stepComplete(stepId)
+    }
+
+    function canRunStep(stepId) {
+        return ["ingest", "source-separate", "transcribe", "translate",
+                "synthesize", "mix", "export"].indexOf(stepId) >= 0
+            && !root.stepComplete(stepId)
+    }
+
+    function stepRunReady(stepId) {
+        var node = root.workflowNode(stepId)
+        if (!node || node.state === "missing" || node.state === "blocked") return false
+        if (node.configurable === true && node.selectedFamilyId
+                && node.providerState !== "ready") return false
+        return true
+    }
+
+    function runStep(stepId) {
+        dubbing.rerunStep(stepId, root.defaultExportPath())
     }
 
     function generatedClipCount() {
@@ -260,8 +260,25 @@ Item {
                 onClicked: nodeModelDialog.openFor(settingsPanel.nodeId)
             }
             PrimaryButton {
+                visible: root.canRunStep(settingsPanel.nodeId)
+                text: qsTr("Run")
+                iconName: "play"
+                enabled: !dubbing.processing && root.stepRunReady(settingsPanel.nodeId)
+                Layout.preferredWidth: 104
+                onClicked: root.runStep(settingsPanel.nodeId)
+            }
+            PrimaryButton {
+                visible: root.canRerunStep(settingsPanel.nodeId)
+                text: qsTr("Run Again")
+                iconName: "refresh"
+                quiet: true
+                enabled: !dubbing.processing && root.stepRunReady(settingsPanel.nodeId)
+                Layout.preferredWidth: 104
+                onClicked: root.runStep(settingsPanel.nodeId)
+            }
+            PrimaryButton {
                 visible: root.nextNodeId(settingsPanel.nodeId) !== "" && root.nextNodeReady(settingsPanel.nodeId)
-                text: root.nextNodeLabel(settingsPanel.nodeId)
+                text: qsTr("Next")
                 iconName: "chevron-right"
                 enabled: !dubbing.processing
                 onClicked: root.runNextNode(settingsPanel.nodeId)
@@ -352,8 +369,27 @@ Item {
                 onClicked: nodeModelDialog.openFor("translate")
             }
             PrimaryButton {
+                visible: root.canRunStep("translate")
+                text: qsTr("Run")
+                iconName: "play"
+                enabled: !dubbing.processing && translationPanel.ready
+                    && root.stepRunReady("translate")
+                Layout.preferredWidth: 104
+                onClicked: root.runStep("translate")
+            }
+            PrimaryButton {
+                visible: root.canRerunStep("translate")
+                text: qsTr("Run Again")
+                iconName: "refresh"
+                quiet: true
+                enabled: !dubbing.processing && translationPanel.ready
+                    && root.stepRunReady("translate")
+                Layout.preferredWidth: 104
+                onClicked: root.runStep("translate")
+            }
+            PrimaryButton {
                 visible: root.nextNodeReady("translate")
-                text: qsTr("Generate voice")
+                text: qsTr("Next")
                 iconName: "chevron-right"
                 enabled: !dubbing.processing
                 onClicked: root.runNextNode("translate")
@@ -824,8 +860,6 @@ Item {
                             Text { text: qsTr("Review and edit every segment before continuing."); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
                         }
                         PrimaryButton { text: qsTr("Add segment"); iconName: "more-horizontal"; quiet: true; enabled: dubbing.hasProject && !dubbing.processing; onClicked: dubbing.addSegment(0, 2000, "") }
-                        PrimaryButton { visible: root.canRerunStep(root.reviewStepId); text: qsTr("Run again"); iconName: "refresh"; quiet: true; enabled: !dubbing.processing; Layout.preferredWidth: 104; onClicked: dubbing.rerunStep(root.reviewStepId, root.defaultExportPath()) }
-                        PrimaryButton { visible: dubbing.workflowMode === "step"; text: qsTr("Run: %1").arg(root.stepTitle(dubbing.currentStepId)); iconName: "play"; enabled: !dubbing.processing && dubbing.currentStepId !== "completed"; onClicked: dubbing.runCurrentStep(root.defaultExportPath()) }
                     }
                     RowLayout { Layout.fillWidth: true; spacing: Theme.paddingSmall
                         Field { Layout.fillWidth: true; placeholderText: qsTr("Search segments...") }
@@ -874,14 +908,15 @@ Item {
                 ColumnLayout {
                     anchors.fill: parent; anchors.margins: Theme.paddingLarge; spacing: Theme.paddingMedium
                     visible: root.reviewStepId !== "transcribe" && root.reviewStepId !== "translate"
-                    NodeSettingsPanel { nodeId: root.reviewStepId; visible: ["import", "ingest", "source-separate", "synthesize"].indexOf(root.reviewStepId) >= 0 }
+                    NodeSettingsPanel {
+                        nodeId: root.reviewStepId
+                        visible: ["import", "ingest", "source-separate", "synthesize", "mix", "export"].indexOf(root.reviewStepId) >= 0
+                    }
                     RowLayout { Layout.fillWidth: true
                         ColumnLayout { Layout.fillWidth: true; spacing: 1
                             Text { text: root.stepTitle(root.reviewStepId).toUpperCase(); color: Theme.textPrimary; font.pixelSize: Theme.fontLarge; font.bold: true }
                             Text { text: root.reviewStepId === "import" ? qsTr("Import only selects the source; no processing starts automatically.") : qsTr("Review this step output before continuing."); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
                         }
-                        PrimaryButton { visible: root.canRerunStep(root.reviewStepId); text: qsTr("Run again"); iconName: "refresh"; quiet: true; enabled: !dubbing.processing; Layout.preferredWidth: 104; onClicked: dubbing.rerunStep(root.reviewStepId, root.defaultExportPath()) }
-                        PrimaryButton { visible: dubbing.workflowMode === "step"; text: qsTr("Run: %1").arg(root.stepTitle(dubbing.currentStepId)); iconName: "play"; enabled: !dubbing.processing && dubbing.currentStepId !== "completed"; onClicked: dubbing.runCurrentStep(root.defaultExportPath()) }
                     }
                     Item { Layout.fillHeight: true; visible: root.reviewStepId !== "synthesize" }
                     VoiceSeparationOutput {

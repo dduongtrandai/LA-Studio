@@ -45,7 +45,8 @@ public:
     QString nodeRunId() const { return m_activeNodeRunId; }
 
     void startIngest(const QString &path);
-    void startSourceSeparation(const QString &audioPath);
+    void startSourceSeparation(const QString &audioPath,
+                               const QVariantMap &modelConfiguration = QVariantMap());
     void startTranscription(const QString &sourceLanguage, const QString &sourceMediaPath);
     void startTranslation(const QString &sourceLanguage, const QString &targetLanguage, const QVariantList &segments,
                           const QVariantMap &modelConfiguration = QVariantMap());

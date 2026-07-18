@@ -13,6 +13,7 @@ private slots:
     void mergesSegmentPatchesByStableId();
     void rejectsUnknownAndDuplicateSegmentPatches();
     void importingMediaDoesNotStartProcessing();
+    void sourceSeparationExposesModelSelection();
     void rejectsRerunningUnsupportedStep();
     void transcriptionRequiresReadyModel();
     void alignmentRefinementFallsBackWithoutDependencies();

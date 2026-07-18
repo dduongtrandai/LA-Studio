@@ -103,6 +103,24 @@ void TestDubbingProject::importingMediaDoesNotStartProcessing()
     QCOMPARE(controller.currentStepId(), QStringLiteral("ingest"));
 }
 
+void TestDubbingProject::sourceSeparationExposesModelSelection()
+{
+    DubbingController controller(nullptr, nullptr);
+    QVariantMap sourceSeparationNode;
+    for (const QVariant &value : controller.workflowNodes()) {
+        const QVariantMap node = value.toMap();
+        if (node.value(QStringLiteral("id")).toString() == QStringLiteral("source-separate")) {
+            sourceSeparationNode = node;
+            break;
+        }
+    }
+
+    QVERIFY(!sourceSeparationNode.isEmpty());
+    QVERIFY(sourceSeparationNode.value(QStringLiteral("configurable")).toBool());
+    QCOMPARE(sourceSeparationNode.value(QStringLiteral("capabilityId")).toString(),
+             QStringLiteral("voice-isolation"));
+}
+
 void TestDubbingProject::rejectsRerunningUnsupportedStep()
 {
     DubbingController controller(nullptr, nullptr);
