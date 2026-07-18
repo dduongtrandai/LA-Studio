@@ -443,7 +443,8 @@ void TestModelsAndRuntimes::testForcedAlignmentCatalogEntry()
             QVERIFY2(runtime.value(QStringLiteral("disabledReason")).toString().isEmpty(),
                      "Published CPU alignment runtime should be enabled");
             QCOMPARE(runtime.value(QStringLiteral("sha256")).toString(),
-                     QStringLiteral("ca5a992b08671d835c802a01c0e701fd278797f0ba78bd683a350450b209ab63"));
+                     QStringLiteral("0e9f7e233e58087eec890640d66977b8703f60721d13cb527894a612d2f8beff"));
+            QCOMPARE(runtime.value(QStringLiteral("size")).toLongLong(), 36794521LL);
         } else if (runtime.value(QStringLiteral("id")).toString() == QStringLiteral("mms-aligner-win-x86_64-cuda-12")) {
             foundDisabledCudaRuntime = true;
             QVERIFY2(!runtime.value(QStringLiteral("disabledReason")).toString().isEmpty(),
