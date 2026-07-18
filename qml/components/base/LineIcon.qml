@@ -392,6 +392,24 @@ Canvas {
             ctx.lineTo(cx + 3 * u, cy - 10 * u)
             ctx.closePath()
             ctx.fill()
+        } else if (name === "run-again") {
+            // A rerun combines the repeat arrow with a play marker so it is
+            // visually distinct from reloading a model.
+            ctx.beginPath()
+            ctx.arc(cx, cy, 7 * u, Math.PI * 0.15, Math.PI * 1.72)
+            ctx.stroke()
+            ctx.beginPath()
+            ctx.moveTo(cx - 8 * u, cy - 1 * u)
+            ctx.lineTo(cx - 4 * u, cy - 2 * u)
+            ctx.lineTo(cx - 6 * u, cy - 6 * u)
+            ctx.closePath()
+            ctx.fill()
+            ctx.beginPath()
+            ctx.moveTo(cx + 1 * u, cy - 4 * u)
+            ctx.lineTo(cx + 7 * u, cy)
+            ctx.lineTo(cx + 1 * u, cy + 4 * u)
+            ctx.closePath()
+            ctx.fill()
         } else if (name === "eject") {
             // Arrow pointing up
             ctx.beginPath()

@@ -44,15 +44,19 @@ Rectangle {
         PrimaryButton {
             text: root.modelActionText()
             iconName: root.modelActionIcon()
+            iconOnly: root.modelState() === 3
+            toolTip: root.modelState() === 3 ? root.modelActionText() : ""
             visible: root.node && root.node.configurable === true
+            Layout.preferredWidth: root.modelState() === 3 ? 38 : 132
+            Layout.minimumWidth: root.modelState() === 3 ? 38 : 132
             enabled: !root.lifecycleBusy()
             quiet: root.modelState() === 3
             onClicked: root.runModelAction()
         }
-        PrimaryButton { text: qsTr("Reload"); iconName: "refresh"; quiet: true; visible: root.canReload(); enabled: !root.lifecycleBusy(); onClicked: root.reloadRequested() }
-        PrimaryButton { text: qsTr("Unload"); iconName: "power"; quiet: true; visible: root.canUnload(); enabled: !root.lifecycleBusy(); onClicked: root.unloadRequested() }
-        PrimaryButton { visible: root.canRun; text: qsTr("Run"); iconName: "play"; enabled: !root.dubbing.processing && root.runReady; Layout.preferredWidth: 104; onClicked: root.runRequested() }
-        PrimaryButton { visible: root.canRerun; text: qsTr("Run Again"); iconName: "refresh"; quiet: true; enabled: !root.dubbing.processing && root.runReady; Layout.preferredWidth: 104; onClicked: root.runRequested() }
+        PrimaryButton { iconName: "refresh"; iconOnly: true; toolTip: qsTr("Reload model"); quiet: true; visible: root.canReload(); enabled: !root.lifecycleBusy(); onClicked: root.reloadRequested() }
+        PrimaryButton { iconName: "power"; iconOnly: true; toolTip: qsTr("Unload model"); quiet: true; visible: root.canUnload(); enabled: !root.lifecycleBusy(); onClicked: root.unloadRequested() }
+        PrimaryButton { visible: root.canRun; iconName: "play"; iconOnly: true; toolTip: qsTr("Run"); enabled: !root.dubbing.processing && root.runReady; onClicked: root.runRequested() }
+        PrimaryButton { visible: root.canRerun; iconName: "run-again"; iconOnly: true; toolTip: qsTr("Run again"); quiet: true; enabled: !root.dubbing.processing && root.runReady; onClicked: root.runRequested() }
         PrimaryButton { visible: root.nextNodeId !== "" && root.nextReady; text: qsTr("Next"); iconName: "chevron-right"; enabled: !root.dubbing.processing; onClicked: root.nextRequested() }
     }
 
