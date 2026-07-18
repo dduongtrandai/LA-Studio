@@ -232,13 +232,9 @@ static QStringList splitVieneuV3TextForSafeDecode(const QString &text, const QVa
 
 static int adaptiveVieneuV3FrameCap(const QString &text, int requestedFrames)
 {
-    if (requestedFrames > 0) {
-        return qBound(16, requestedFrames, 1200);
-    }
-
     const QString trimmed = text.trimmed();
     if (trimmed.isEmpty()) {
-        return requestedFrames;
+        return requestedFrames > 0 ? qBound(16, requestedFrames, 1200) : requestedFrames;
     }
 
     const QStringList words = trimmed.split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
@@ -259,7 +255,12 @@ static int adaptiveVieneuV3FrameCap(const QString &text, int requestedFrames)
 
     const int estimatedCap = qBound(96, wordCount * 9 + charCount / 3 + sentenceBreaks * 8 + 24, 1200);
     if (requestedFrames > 0) {
-        return qMin(qMax(requestedFrames, estimatedCap), 1200);
+        // The v3 native decoder allocates its decode state from this value.  A
+        // fixed UI default (currently 300) is unnecessarily large for short
+        // dubbing segments and has caused the native runtime to fail before it
+        // can return an error. Keep the user's value as an upper bound while
+        // sizing short requests from their actual text length.
+        return qBound(16, qMin(requestedFrames, estimatedCap), 1200);
     }
     return estimatedCap;
 }
@@ -1338,6 +1339,10 @@ bool VieneuTtsBackend::synthesize(const QString &text, float speed, const QVaria
                                QVector<float> &samples, int &sampleRate, QString &error)
 {
     Q_UNUSED(speed);
+    if (text.trimmed().isEmpty()) {
+        error = QStringLiteral("VieNeu TTS cannot synthesize empty text.");
+        return false;
+    }
     const bool internalChunk = settings.value(QStringLiteral("__lastudio_internal_chunk"), false).toBool();
     if (!internalChunk) {
         m_cancelRequested = false;

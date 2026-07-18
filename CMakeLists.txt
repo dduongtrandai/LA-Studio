@@ -410,6 +410,13 @@ qt_add_qml_module(LAStudio
         qml/components/alignment/AlignmentPlayerButton.qml
         qml/components/alignment/AlignmentResultMetric.qml
         qml/components/dubbing/DubbingExportDialog.qml
+        qml/components/dubbing/DubbingHistoryPanel.qml
+        qml/components/dubbing/DubbingProjectStatusPanel.qml
+        qml/components/dubbing/DubbingNodeSettingsPanel.qml
+        qml/components/dubbing/DubbingWorkflowStep.qml
+        qml/components/dubbing/DubbingWorkflowHeader.qml
+        qml/components/dubbing/DubbingSourceMediaPanel.qml
+        qml/components/dubbing/DubbingVoiceClipReview.qml
         qml/components/shared/WorkflowPipelineDialog.qml
         qml/components/shared/WorkflowNodeModelDialog.qml
         qml/components/voicecloning/VoiceSettingsPanel.qml

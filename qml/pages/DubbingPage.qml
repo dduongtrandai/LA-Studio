@@ -52,47 +52,6 @@ Item {
         }
     }
 
-    MediaPlayer {
-        id: videoPlayer
-        source: dubbing.sourceMediaUrl
-        audioOutput: AudioOutput {}
-        videoOutput: videoOutput
-    }
-
-    Connections {
-        target: videoPlayer
-        function onPositionChanged() {
-            if (videoPlayer.playbackState !== MediaPlayer.PlayingState) return
-            var pos = videoPlayer.position
-            for (var i = 0; i < dubbing.segments.length; i++) {
-                var seg = dubbing.segments[i]
-                if (pos >= seg.startMs && pos <= seg.endMs) {
-                    if (root.selectedSegment !== i) {
-                        root.selectedSegment = i
-                    }
-                    break
-                }
-            }
-        }
-    }
-
-    function formatTime(ms) {
-        if (isNaN(ms) || ms < 0) return "00:00";
-        var totalSec = Math.floor(ms / 1000);
-        var hr = Math.floor(totalSec / 3600);
-        var min = Math.floor((totalSec - (hr * 3600)) / 60);
-        var sec = totalSec - (hr * 3600) - (min * 60);
-
-        var minStr = min < 10 ? "0" + min : min.toString();
-        var secStr = sec < 10 ? "0" + sec : sec.toString();
-
-        if (hr > 0) {
-            var hrStr = hr < 10 ? "0" + hr : hr.toString();
-            return hrStr + ":" + minStr + ":" + secStr;
-        }
-        return minStr + ":" + secStr;
-    }
-
     function defaultExportPath() {
         var isVideo = /\.(mp4|mkv|mov|webm|avi)$/i.test(dubbing.sourceMediaPath)
         return dubbing.projectPath.replace(/\.json$/i, isVideo ? "-dubbed.mp4" : "-dubbed.wav")
@@ -189,18 +148,6 @@ Item {
         return count
     }
 
-    function segmentStateColor(segment) {
-        if (!segment || !(segment.clipPath || "")) return Theme.textSecondary
-        if (segment.state === "failed" || segment.state === "error") return Theme.danger
-        if (segment.timingConflict || segment.state === "conflict") return Theme.warning
-        return Theme.success
-    }
-
-    function historySourceLabel(item) {
-        if (!item) return qsTr("No source media")
-        return item.sourceName || item.sourceMediaPath || qsTr("No source media")
-    }
-
     function languageDisplayName(code) {
         for (var i = 0; i < root.languageCatalog.length; ++i) {
             if (root.languageCatalog[i].value === code)
@@ -231,60 +178,7 @@ Item {
         border.width: 1
     }
 
-    component NodeSettingsPanel: Rectangle {
-        id: settingsPanel
-        property string nodeId: ""
-        readonly property var node: root.workflowNode(nodeId)
-        Layout.fillWidth: true
-        Layout.preferredHeight: 52
-        radius: Theme.radiusSmall
-        color: Theme.surfaceAlt
-        border.color: Qt.rgba(1, 1, 1, 0.08)
-        RowLayout {
-            anchors.fill: parent
-            anchors.margins: Theme.paddingSmall
-            spacing: Theme.paddingSmall
-            LineIcon { name: "settings"; color: Theme.accentLight; width: 16; height: 16 }
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 1
-                Text { text: qsTr("%1").arg(settingsPanel.node && settingsPanel.node.configurable ? qsTr("%1 settings").arg(root.stepTitle(settingsPanel.nodeId)) : qsTr("%1 actions").arg(root.stepTitle(settingsPanel.nodeId))); color: Theme.textPrimary; font.pixelSize: Theme.fontSmall; font.bold: true }
-                Text { Layout.fillWidth: true; text: settingsPanel.node && settingsPanel.node.providerName ? settingsPanel.node.providerName : qsTr("Use the workflow default model"); color: Theme.textSecondary; font.pixelSize: 10; elide: Text.ElideRight }
-            }
-            PrimaryButton {
-                text: qsTr("Configure")
-                iconName: "settings"
-                quiet: true
-                visible: settingsPanel.node && settingsPanel.node.configurable === true
-                enabled: !dubbing.processing
-                onClicked: nodeModelDialog.openFor(settingsPanel.nodeId)
-            }
-            PrimaryButton {
-                visible: root.canRunStep(settingsPanel.nodeId)
-                text: qsTr("Run")
-                iconName: "play"
-                enabled: !dubbing.processing && root.stepRunReady(settingsPanel.nodeId)
-                Layout.preferredWidth: 104
-                onClicked: root.runStep(settingsPanel.nodeId)
-            }
-            PrimaryButton {
-                visible: root.canRerunStep(settingsPanel.nodeId)
-                text: qsTr("Run Again")
-                iconName: "refresh"
-                quiet: true
-                enabled: !dubbing.processing && root.stepRunReady(settingsPanel.nodeId)
-                Layout.preferredWidth: 104
-                onClicked: root.runStep(settingsPanel.nodeId)
-            }
-            PrimaryButton {
-                visible: root.nextNodeId(settingsPanel.nodeId) !== "" && root.nextNodeReady(settingsPanel.nodeId)
-                text: qsTr("Next")
-                iconName: "chevron-right"
-                enabled: !dubbing.processing
-                onClicked: root.runNextNode(settingsPanel.nodeId)
-            }
-        }
-    }
+    // Workflow node settings are rendered by DubbingNodeSettingsPanel.
 
     component TranslationSettingsPanel: Rectangle {
         id: translationPanel
@@ -397,439 +291,60 @@ Item {
         }
     }
 
-    component Step: Item {
-        property string stepId: ""
-        property string title: ""
-        property string iconName: "check"
-        property bool complete: false
-        property bool active: false
-        implicitWidth: stepRow.implicitWidth
-        implicitHeight: 32
-        signal selected(string stepId)
-
-        RowLayout {
-            id: stepRow
-            anchors.fill: parent
-            spacing: 6
-            Rectangle {
-                Layout.preferredWidth: 25; Layout.preferredHeight: 25; radius: 13
-                color: active ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.20) : "transparent"
-                border.color: complete || active ? Theme.accentLight : Qt.rgba(1, 1, 1, 0.16)
-                border.width: 1
-                LineIcon { anchors.centerIn: parent; width: 13; height: 13; name: complete ? "check" : iconName; color: complete || active ? Theme.accentLight : Theme.textSecondary }
-            }
-            Text { text: title; color: active ? Theme.textPrimary : Theme.textSecondary; font.pixelSize: Theme.fontSmall; font.bold: active || complete }
-        }
-        TapHandler { onTapped: parent.selected(parent.stepId) }
-        HoverHandler { cursorShape: Qt.PointingHandCursor }
-    }
-
     Rectangle { anchors.fill: parent; color: Theme.background }
 
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
 
-        // The workflow header makes the current stage visible without taking focus from the edit surface.
-        Rectangle {
-            Layout.fillWidth: true; Layout.preferredHeight: 58
-            color: Qt.rgba(0, 0, 0, 0.10)
-            border.color: Qt.rgba(1, 1, 1, 0.06); border.width: 1
-            RowLayout {
-                anchors.fill: parent; anchors.leftMargin: Theme.paddingLarge; anchors.rightMargin: Theme.paddingLarge
-                spacing: Theme.paddingMedium
-                RowLayout {
-                    Layout.preferredWidth: 205; spacing: Theme.paddingSmall
-                    LineIcon { name: "dubbing"; color: Theme.accentLight; Layout.preferredWidth: 21; Layout.preferredHeight: 21 }
-                    ColumnLayout { spacing: 0
-                        Text { text: qsTr("Dubbing Studio"); color: Theme.textPrimary; font.pixelSize: Theme.fontLarge; font.bold: true }
-                        Text { text: dubbing.hasProject ? qsTr("Project workspace") : qsTr("New project"); color: Theme.textSecondary; font.pixelSize: 10 }
-                    }
-                }
-                Step { stepId: "import"; title: qsTr("Import"); iconName: "folder"; complete: root.stepComplete(stepId); active: dubbing.currentStepId === stepId; onSelected: function(id) { root.reviewStepId = id } }
-                Rectangle { Layout.preferredWidth: 16; Layout.preferredHeight: 1; color: Qt.rgba(1, 1, 1, 0.14) }
-                Step { stepId: "ingest"; title: qsTr("Normalize"); iconName: "activity"; complete: root.stepComplete(stepId); active: dubbing.currentStepId === stepId; onSelected: function(id) { root.reviewStepId = id } }
-                Rectangle { Layout.preferredWidth: 16; Layout.preferredHeight: 1; color: Qt.rgba(1, 1, 1, 0.14) }
-                Step { stepId: "source-separate"; title: qsTr("Separate"); iconName: "waves"; complete: root.stepComplete(stepId); active: dubbing.currentStepId === stepId; onSelected: function(id) { root.reviewStepId = id } }
-                Rectangle { Layout.preferredWidth: 16; Layout.preferredHeight: 1; color: Qt.rgba(1, 1, 1, 0.14) }
-                Step { stepId: "transcribe"; title: qsTr("Transcribe"); iconName: "mic"; complete: root.stepComplete(stepId); active: dubbing.currentStepId === stepId; onSelected: function(id) { root.reviewStepId = id } }
-                Rectangle { Layout.preferredWidth: 16; Layout.preferredHeight: 1; color: Qt.rgba(1, 1, 1, 0.14) }
-                Step { stepId: "translate"; title: qsTr("Translate"); iconName: "translate"; complete: root.stepComplete(stepId); active: dubbing.currentStepId === stepId; onSelected: function(id) { root.reviewStepId = id } }
-                Rectangle { Layout.preferredWidth: 16; Layout.preferredHeight: 1; color: Qt.rgba(1, 1, 1, 0.14) }
-                Step { stepId: "synthesize"; title: qsTr("Voice"); iconName: "volume"; complete: root.stepComplete(stepId); active: dubbing.currentStepId === stepId; onSelected: function(id) { root.reviewStepId = id } }
-                Rectangle { Layout.preferredWidth: 16; Layout.preferredHeight: 1; color: Qt.rgba(1, 1, 1, 0.14) }
-                Step { stepId: "export"; title: qsTr("Output"); iconName: "download"; complete: root.stepComplete(stepId); active: dubbing.currentStepId === "mix" || dubbing.currentStepId === stepId || dubbing.currentStepId === "completed"; onSelected: function(id) { root.reviewStepId = id } }
-                Item { Layout.fillWidth: true }
-                PrimaryButton {
-                    text: dubbing.processing ? qsTr("Running…") : qsTr("Generate Final Dub")
-                    iconName: dubbing.processing ? "activity" : "play"
-                    enabled: !dubbing.processing && dubbing.workflowReady
-                    onClicked: if (!dubbing.processing) dubbing.startAutomaticWorkflow(root.defaultExportPath())
-                    AppToolTip {
-                        text: qsTr("Run every stage automatically and create the final dubbed output")
-                        visible: parent.hovered
-                    }
-                }
-                PrimaryButton {
-                    text: qsTr("Workflow")
-                    iconName: "workflow"
-                    quiet: true
-                    onClicked: root.openWorkflowCanvas()
-                    AppToolTip {
-                        text: qsTr("View and configure workflow")
-                        visible: parent.hovered
-                    }
-                }
-                Rectangle { implicitWidth: statusRow.implicitWidth + 16; implicitHeight: 28; radius: 14; color: Qt.rgba(dubbing.processing ? Theme.warning.r : Theme.success.r, dubbing.processing ? Theme.warning.g : Theme.success.g, dubbing.processing ? Theme.warning.b : Theme.success.b, 0.12)
-                    RowLayout { id: statusRow; anchors.centerIn: parent; spacing: 5
-                        Rectangle { width: 6; height: 6; radius: 3; color: dubbing.processing ? Theme.warning : Theme.success }
-                        Text { text: dubbing.processing ? qsTr("%1 · %2%").arg(root.stepTitle(dubbing.currentStepId)).arg(dubbing.progress) : (dubbing.workflowMode === "step" ? qsTr("Ready for node run") : qsTr("Ready")); color: dubbing.processing ? Theme.warning : Theme.success; font.pixelSize: Theme.fontSmall; font.bold: true }
-                    }
-                }
-                PrimaryButton { text: qsTr("Save"); iconName: "save"; quiet: true; enabled: dubbing.hasProject; onClicked: dubbing.saveProject() }
-                PrimaryButton { text: qsTr("Export"); iconName: "download"; enabled: dubbing.hasProject && !dubbing.processing; onClicked: exportOptionsDialog.open() }
-            }
+        DubbingWorkflowHeader {
+            dubbing: root.dubbing
+            steps: [
+                { stepId: "import", title: qsTr("Import"), iconName: "folder", complete: root.stepComplete("import"), active: root.dubbing.currentStepId === "import" },
+                { stepId: "ingest", title: qsTr("Normalize"), iconName: "activity", complete: root.stepComplete("ingest"), active: root.dubbing.currentStepId === "ingest" },
+                { stepId: "source-separate", title: qsTr("Separate"), iconName: "waves", complete: root.stepComplete("source-separate"), active: root.dubbing.currentStepId === "source-separate" },
+                { stepId: "transcribe", title: qsTr("Transcribe"), iconName: "mic", complete: root.stepComplete("transcribe"), active: root.dubbing.currentStepId === "transcribe" },
+                { stepId: "translate", title: qsTr("Translate"), iconName: "translate", complete: root.stepComplete("translate"), active: root.dubbing.currentStepId === "translate" },
+                { stepId: "synthesize", title: qsTr("Voice"), iconName: "volume", complete: root.stepComplete("synthesize"), active: root.dubbing.currentStepId === "synthesize" },
+                { stepId: "export", title: qsTr("Output"), iconName: "download", complete: root.stepComplete("export"), active: ["mix", "export", "completed"].indexOf(root.dubbing.currentStepId) >= 0 }
+            ]
+            statusText: root.dubbing.processing ? qsTr("%1 · %2%").arg(root.stepTitle(root.dubbing.currentStepId)).arg(root.dubbing.progress) : (root.dubbing.workflowMode === "step" ? qsTr("Ready for node run") : qsTr("Ready"))
+            defaultExportPath: root.defaultExportPath()
+            onStepSelected: root.reviewStepId = stepId
+            onGenerateRequested: root.dubbing.startAutomaticWorkflow(root.defaultExportPath())
+            onWorkflowRequested: root.openWorkflowCanvas()
+            onSaveRequested: root.dubbing.saveProject()
+            onExportRequested: exportOptionsDialog.open()
         }
 
         RowLayout {
             Layout.fillWidth: true; Layout.fillHeight: true
             Layout.margins: Theme.paddingMedium; spacing: Theme.paddingMedium
 
-            Rectangle {
-                id: leftHistoryRail
-                Layout.preferredWidth: root.isHistoryOpen ? 300 : 42
-                Layout.fillHeight: true
-                color: Theme.surface
-                radius: Theme.radiusMedium
-                border.color: Qt.rgba(1, 1, 1, 0.08)
-                border.width: 1
-                clip: true
-                Behavior on Layout.preferredWidth { NumberAnimation { duration: 180; easing.type: Easing.InOutQuad } }
-
-                Item {
-                    anchors.fill: parent
-                    anchors.margins: root.isHistoryOpen ? Theme.paddingMedium : 0
-                    visible: root.isHistoryOpen
-
-                    ColumnLayout {
-                        anchors.fill: parent
-                        spacing: Theme.paddingSmall
-                        RowLayout {
-                            Layout.fillWidth: true
-                            LineIcon { name: "history"; color: Theme.accent; Layout.preferredWidth: 18; Layout.preferredHeight: 18 }
-                            Text { text: qsTr("Dubbing History"); color: Theme.textPrimary; font.pixelSize: Theme.fontMedium; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
-                            PrimaryButton { visible: dubbing.history.length > 0; text: qsTr("Clear"); iconName: "trash"; quiet: true; textColor: Theme.danger; borderColor: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.38); implicitWidth: 72; implicitHeight: 30; onClicked: clearHistoryDialog.open() }
-                            Button {
-                                implicitWidth: 30; implicitHeight: 30; flat: true
-                                contentItem: LineIcon { name: "chevron-left"; color: parent.hovered ? Theme.accent : Theme.textSecondary; width: 16; height: 16 }
-                                background: Rectangle { radius: 7; color: parent.hovered ? Qt.rgba(1,1,1,0.05) : "transparent" }
-                                onClicked: root.isHistoryOpen = false
-                            }
-                        }
-                        Rectangle { Layout.fillWidth: true; height: 1; color: Qt.rgba(1, 1, 1, 0.07) }
-                        Item {
-                            Layout.fillWidth: true; Layout.fillHeight: true
-                            ColumnLayout {
-                                anchors.centerIn: parent; width: parent.width - Theme.paddingLarge * 2; spacing: Theme.paddingSmall
-                                visible: dubbing.history.length === 0
-                                LineIcon { name: "history"; color: Theme.textSecondary; opacity: 0.6; Layout.alignment: Qt.AlignHCenter; Layout.preferredWidth: 30; Layout.preferredHeight: 30 }
-                                Text { Layout.fillWidth: true; text: qsTr("No saved projects"); color: Theme.textPrimary; font.pixelSize: Theme.fontMedium; font.bold: true; horizontalAlignment: Text.AlignHCenter }
-                                Text { Layout.fillWidth: true; text: qsTr("Saved dubbing projects will appear here."); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall; wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter }
-                            }
-                            ListView {
-                                anchors.fill: parent; visible: dubbing.history.length > 0; model: dubbing.history; spacing: Theme.paddingSmall; clip: true
-                                delegate: Rectangle {
-                                    required property var modelData
-                                    width: ListView.view.width; height: historyEntry.implicitHeight + Theme.paddingMedium * 2
-                                    radius: Theme.radiusSmall; color: Qt.rgba(1, 1, 1, 0.025); border.color: Qt.rgba(1, 1, 1, 0.07); border.width: 1
-                                    ColumnLayout {
-                                        id: historyEntry; anchors.fill: parent; anchors.margins: Theme.paddingMedium; spacing: 3
-                                        Text { Layout.fillWidth: true; text: modelData.projectName || qsTr("Untitled project"); color: Theme.textPrimary; font.pixelSize: Theme.fontSmall; font.bold: true; elide: Text.ElideRight }
-                                        Text { Layout.fillWidth: true; text: root.historySourceLabel(modelData); color: Theme.textSecondary; font.pixelSize: 10; elide: Text.ElideMiddle }
-                                        Text { Layout.fillWidth: true; text: (modelData.sourceLanguage || "") + " → " + (modelData.targetLanguage || "") + " · " + (modelData.segmentCount || 0) + qsTr(" segments"); color: Theme.textSecondary; font.pixelSize: 10; elide: Text.ElideRight }
-                                        Text { Layout.fillWidth: true; text: modelData.timestamp || ""; color: Theme.textSecondary; font.pixelSize: 10; elide: Text.ElideRight }
-                                        RowLayout {
-                                            Layout.fillWidth: true; Item { Layout.fillWidth: true }
-                                            PrimaryButton { text: qsTr("Open"); iconName: "edit"; quiet: true; textColor: Theme.accentLight; borderColor: Qt.rgba(Theme.accentLight.r, Theme.accentLight.g, Theme.accentLight.b, 0.42); implicitWidth: 82; implicitHeight: 30; enabled: !dubbing.processing; onClicked: { if (dubbing.openProject(modelData.projectPath || "")) root.isHistoryOpen = false } }
-                                            PrimaryButton { text: qsTr("Delete"); iconName: "trash"; quiet: true; textColor: Theme.danger; borderColor: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.42); implicitWidth: 82; implicitHeight: 30; onClicked: { root.pendingHistoryDeleteId = modelData.id || ""; deleteHistoryDialog.open() } }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+            DubbingHistoryPanel {
+                id: historyPanel
+                dubbing: root.dubbing
+                expanded: root.isHistoryOpen
+                onClearRequested: clearHistoryDialog.open()
+                onDeleteRequested: function(historyId) {
+                    root.pendingHistoryDeleteId = historyId
+                    deleteHistoryDialog.open()
                 }
-
-                Button {
-                    anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; anchors.topMargin: Theme.paddingMedium
-                    visible: !root.isHistoryOpen; implicitWidth: 30; implicitHeight: 34; flat: true
-                    contentItem: LineIcon { name: "history"; color: parent.hovered ? Theme.accent : Theme.textSecondary; width: 18; height: 18 }
-                    background: Rectangle { radius: 7; color: parent.hovered ? Qt.rgba(1,1,1,0.05) : "transparent" }
-                    onClicked: root.isHistoryOpen = true
-                }
+                onProjectOpened: root.isHistoryOpen = false
+                onExpandedChanged: root.isHistoryOpen = expanded
             }
 
             ColumnLayout {
                 Layout.fillWidth: true; Layout.fillHeight: true; Layout.preferredWidth: 500; spacing: Theme.paddingMedium
 
-                Panel {
-                    Layout.fillWidth: true; Layout.fillHeight: true; Layout.minimumHeight: 300
-                    ColumnLayout { anchors.fill: parent; anchors.margins: Theme.paddingMedium; spacing: Theme.paddingSmall
-                        RowLayout { Layout.fillWidth: true
-                            Text { text: qsTr("SOURCE MEDIA"); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall; font.bold: true; font.letterSpacing: 1.1; Layout.fillWidth: true }
-                            Text { text: dubbing.sourceMediaPath.length > 0 ? qsTr("Loaded") : qsTr("No media"); color: dubbing.sourceMediaPath.length > 0 ? Theme.success : Theme.textSecondary; font.pixelSize: Theme.fontSmall }
-                        }
-                        Rectangle { Layout.fillWidth: true; height: 1; color: Qt.rgba(1, 1, 1, 0.07) }
-                        Rectangle {
-                            Layout.fillWidth: true; Layout.fillHeight: true; radius: Theme.radiusSmall; color: Qt.rgba(0, 0, 0, 0.30)
-                            border.color: Qt.rgba(1, 1, 1, 0.06); border.width: 1
-                            clip: true
-
-                            // Empty placeholder state
-                            Column {
-                                anchors.centerIn: parent; width: parent.width - Theme.paddingXL * 2; spacing: Theme.paddingSmall
-                                visible: dubbing.sourceMediaPath.length === 0
-                                LineIcon { anchors.horizontalCenter: parent.horizontalCenter; name: "folder"; color: Theme.accentLight; width: 38; height: 38 }
-                                Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("Add source media"); color: Theme.textPrimary; font.pixelSize: Theme.fontMedium; font.bold: true; elide: Text.ElideMiddle; width: parent.width; horizontalAlignment: Text.AlignHCenter }
-                                Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("WAV, MP3, MP4 or MKV"); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
-                            }
-
-                            // Video Output Renderer
-                            VideoOutput {
-                                id: videoOutput
-                                anchors.fill: parent
-                                visible: isVideoSource
-                                fillMode: VideoOutput.PreserveAspectFit
-                            }
-
-                            // Audio track placeholder
-                            Rectangle {
-                                anchors.fill: parent
-                                color: Qt.rgba(0.06, 0.06, 0.09, 0.95)
-                                visible: dubbing.sourceMediaPath.length > 0 && !isVideoSource
-
-                                Column {
-                                    anchors.centerIn: parent; width: parent.width - Theme.paddingXL * 2; spacing: Theme.paddingSmall
-                                    LineIcon { anchors.horizontalCenter: parent.horizontalCenter; name: "volume"; color: Theme.accentLight; width: 42; height: 42 }
-                                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: dubbing.sourceMediaPath.split(/[\\/]/).pop(); color: Theme.textPrimary; font.pixelSize: Theme.fontMedium; font.bold: true; elide: Text.ElideMiddle; width: parent.width; horizontalAlignment: Text.AlignHCenter }
-                                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("Audio track playing"); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
-                                }
-                            }
-
-                            // Mouse Area to load file on empty state click
-                            MouseArea {
-                                anchors.fill: parent
-                                enabled: dubbing.sourceMediaPath.length === 0
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: mediaFileDialog.open()
-                            }
-
-                            // Controls and Hover Area when media is loaded
-                            MouseArea {
-                                id: videoHoverArea
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                visible: dubbing.sourceMediaPath.length > 0
-                                preventStealing: true
-                                onPositionChanged: controlsTimer.restart()
-                            }
-
-                            Timer {
-                                id: controlsTimer
-                                interval: 2500
-                                repeat: false
-                                running: videoPlayer.playbackState === MediaPlayer.PlayingState
-                            }
-
-                            Rectangle {
-                                id: controlsOverlay
-                                anchors.left: parent.left
-                                anchors.right: parent.right
-                                anchors.bottom: parent.bottom
-                                height: 44
-                                visible: opacity > 0.0
-                                opacity: (videoHoverArea.containsMouse || seekBarMouseArea.isDraggingSeekBar || !controlsTimer.running || videoPlayer.playbackState !== MediaPlayer.PlayingState) ? 1.0 : 0.0
-                                Behavior on opacity { NumberAnimation { duration: 250 } }
-
-                                gradient: Gradient {
-                                    GradientStop { position: 0.0; color: "transparent" }
-                                    GradientStop { position: 1.0; color: Qt.rgba(0.06, 0.06, 0.09, 0.92) }
-                                }
-
-                                // Full-width seek timeline
-                                Item {
-                                    id: seekBar
-                                    anchors.top: parent.top
-                                    anchors.left: parent.left
-                                    anchors.right: parent.right
-                                    anchors.topMargin: -8
-                                    height: 16
-                                    z: 10
-
-                                    Rectangle {
-                                        id: seekBarTrack
-                                        anchors.left: parent.left
-                                        anchors.right: parent.right
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        height: seekBarMouseArea.containsMouse || seekBarMouseArea.pressed ? 5 : 3
-                                        color: Qt.rgba(255, 255, 255, 0.2)
-                                        Behavior on height { NumberAnimation { duration: 100 } }
-
-                                        Rectangle {
-                                            id: seekBarProgress
-                                            anchors.left: parent.left
-                                            height: parent.height
-                                            color: Theme.accentLight
-                                            width: {
-                                                if (videoPlayer.duration <= 0) return 0;
-                                                var pos = seekBarMouseArea.isDraggingSeekBar ? seekBarMouseArea.dragPositionMs : videoPlayer.position;
-                                                return (pos / videoPlayer.duration) * parent.width;
-                                            }
-                                        }
-
-                                        Rectangle {
-                                            id: seekBarHandle
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            x: {
-                                                if (videoPlayer.duration <= 0) return -width/2;
-                                                var pos = seekBarMouseArea.isDraggingSeekBar ? seekBarMouseArea.dragPositionMs : videoPlayer.position;
-                                                return (pos / videoPlayer.duration) * seekBarTrack.width - width/2;
-                                            }
-                                            width: seekBarMouseArea.containsMouse || seekBarMouseArea.pressed ? 12 : 0
-                                            height: width
-                                            radius: width / 2
-                                            color: Theme.textPrimary
-                                            Behavior on width { NumberAnimation { duration: 100 } }
-                                        }
-                                    }
-
-                                    MouseArea {
-                                        id: seekBarMouseArea
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-
-                                        property bool isDraggingSeekBar: false
-                                        property real dragPositionMs: 0.0
-                                        property bool wasPlayingBeforeDrag: false
-
-                                        function updatePosition(mouseX) {
-                                            if (videoPlayer.duration > 0) {
-                                                var ratio = Math.max(0.0, Math.min(1.0, mouseX / width));
-                                                dragPositionMs = ratio * videoPlayer.duration;
-                                                videoPlayer.position = dragPositionMs;
-                                            }
-                                        }
-
-                                        onPressed: {
-                                            isDraggingSeekBar = true;
-                                            wasPlayingBeforeDrag = (videoPlayer.playbackState === MediaPlayer.PlayingState);
-                                            if (wasPlayingBeforeDrag) {
-                                                videoPlayer.pause();
-                                            }
-                                            controlsTimer.restart();
-                                            updatePosition(mouseX);
-                                        }
-                                        onPositionChanged: {
-                                            if (pressed) {
-                                                controlsTimer.restart();
-                                                updatePosition(mouseX);
-                                            }
-                                        }
-                                        onReleased: {
-                                            isDraggingSeekBar = false;
-                                            if (wasPlayingBeforeDrag) {
-                                                videoPlayer.play();
-                                            }
-                                        }
-                                    }
-                                }
-
-                                RowLayout {
-                                    anchors.left: parent.left
-                                    anchors.right: parent.right
-                                    anchors.bottom: parent.bottom
-                                    height: 36
-                                    anchors.leftMargin: Theme.paddingMedium
-                                    anchors.rightMargin: Theme.paddingMedium
-                                    spacing: Theme.paddingMedium
-
-                                    // Play/Pause borderless circular button
-                                    Rectangle {
-                                        id: playPauseBtn
-                                        width: 28; height: 28; radius: 14
-                                        color: playPauseMouseArea.containsMouse ? Qt.rgba(255, 255, 255, 0.08) : "transparent"
-                                        LineIcon {
-                                            anchors.centerIn: parent
-                                            name: videoPlayer.playbackState === MediaPlayer.PlayingState ? "pause" : "play"
-                                            color: Theme.textPrimary
-                                            width: 14; height: 14
-                                        }
-                                        MouseArea {
-                                            id: playPauseMouseArea
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: {
-                                                if (videoPlayer.playbackState === MediaPlayer.PlayingState) {
-                                                    videoPlayer.pause()
-                                                } else {
-                                                    videoPlayer.play()
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    // Mute / Volume borderless button with cross overlay
-                                    Rectangle {
-                                        id: muteBtn
-                                        width: 28; height: 28; radius: 14
-                                        color: muteMouseArea.containsMouse ? Qt.rgba(255, 255, 255, 0.08) : "transparent"
-                                        LineIcon {
-                                            anchors.centerIn: parent
-                                            name: "volume"
-                                            color: videoPlayer.audioOutput.muted ? Theme.textSecondary : Theme.textPrimary
-                                            width: 14; height: 14
-                                        }
-                                        Rectangle {
-                                            anchors.centerIn: parent
-                                            width: 16
-                                            height: 1.5
-                                            color: Theme.danger
-                                            rotation: -45
-                                            visible: videoPlayer.audioOutput.muted
-                                        }
-                                        MouseArea {
-                                            id: muteMouseArea
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: {
-                                                videoPlayer.audioOutput.muted = !videoPlayer.audioOutput.muted
-                                            }
-                                        }
-                                    }
-
-                                    Item { Layout.fillWidth: true }
-
-                                    Text {
-                                        text: {
-                                            var pos = seekBarMouseArea.isDraggingSeekBar ? seekBarMouseArea.dragPositionMs : videoPlayer.position;
-                                            return "%1 / %2".arg(formatTime(pos)).arg(formatTime(videoPlayer.duration));
-                                        }
-                                        color: Theme.textSecondary
-                                        font.pixelSize: 11
-                                        font.family: "Monospace"
-                                    }
-                                }
-                            }
-                        }
-                        RowLayout { Layout.fillWidth: true; spacing: Theme.paddingSmall
-                            Field { id: mediaPath; Layout.fillWidth: true; text: dubbing.sourceMediaPath; placeholderText: qsTr("Media file path"); readOnly: true }
-                            PrimaryButton { text: qsTr("Browse"); iconName: "folder"; quiet: true; enabled: !dubbing.processing; onClicked: mediaFileDialog.open() }
-                        }
-                    }
+                DubbingSourceMediaPanel {
+                    id: sourceMediaPanel
+                    dubbing: root.dubbing
+                    selectedSegment: root.selectedSegment
+                    onBrowseRequested: mediaFileDialog.open()
+                    onSegmentSelected: root.selectedSegment = index
+                    onSelectedSegmentChanged: root.selectedSegment = selectedSegment
                 }
-
                 Panel {
                     Layout.fillWidth: true; Layout.preferredHeight: 146
                     ColumnLayout { anchors.fill: parent; anchors.margins: Theme.paddingMedium; spacing: Theme.paddingSmall
@@ -852,7 +367,21 @@ Item {
                 ColumnLayout {
                     anchors.fill: parent; anchors.margins: Theme.paddingMedium; spacing: Theme.paddingSmall
                     visible: root.reviewStepId === "transcribe" || root.reviewStepId === "translate"
-                    NodeSettingsPanel { nodeId: root.reviewStepId; visible: root.reviewStepId === "transcribe" }
+                    DubbingNodeSettingsPanel {
+                        dubbing: root.dubbing
+                        nodeId: root.reviewStepId
+                        node: root.workflowNode(nodeId)
+                        nodeTitle: root.stepTitle(nodeId)
+                        canRun: root.canRunStep(nodeId)
+                        canRerun: root.canRerunStep(nodeId)
+                        runReady: root.stepRunReady(nodeId)
+                        nextNodeId: root.nextNodeId(nodeId)
+                        nextReady: root.nextNodeReady(nodeId)
+                        visible: root.reviewStepId === "transcribe"
+                        onConfigureRequested: nodeModelDialog.openFor(nodeId)
+                        onRunRequested: root.runStep(nodeId)
+                        onNextRequested: root.runNextNode(nodeId)
+                    }
                     TranslationSettingsPanel { visible: root.reviewStepId === "translate" }
                     RowLayout { Layout.fillWidth: true
                         ColumnLayout { Layout.fillWidth: true; spacing: 1
@@ -883,9 +412,7 @@ Item {
                                 anchors.fill: parent; z: -1
                                 onClicked: {
                                     root.selectedSegment = index
-                                    if (videoPlayer.seekable && modelData.startMs !== undefined) {
-                                        videoPlayer.position = modelData.startMs
-                                    }
+                                    sourceMediaPanel.seekToSegment(index)
                                 }
                             }
                             RowLayout { anchors.fill: parent; anchors.margins: Theme.paddingSmall; spacing: Theme.paddingSmall
@@ -908,9 +435,20 @@ Item {
                 ColumnLayout {
                     anchors.fill: parent; anchors.margins: Theme.paddingLarge; spacing: Theme.paddingMedium
                     visible: root.reviewStepId !== "transcribe" && root.reviewStepId !== "translate"
-                    NodeSettingsPanel {
+                    DubbingNodeSettingsPanel {
+                        dubbing: root.dubbing
                         nodeId: root.reviewStepId
+                        node: root.workflowNode(nodeId)
+                        nodeTitle: root.stepTitle(nodeId)
+                        canRun: root.canRunStep(nodeId)
+                        canRerun: root.canRerunStep(nodeId)
+                        runReady: root.stepRunReady(nodeId)
+                        nextNodeId: root.nextNodeId(nodeId)
+                        nextReady: root.nextNodeReady(nodeId)
                         visible: ["import", "ingest", "source-separate", "synthesize", "mix", "export"].indexOf(root.reviewStepId) >= 0
+                        onConfigureRequested: nodeModelDialog.openFor(nodeId)
+                        onRunRequested: root.runStep(nodeId)
+                        onNextRequested: root.runNextNode(nodeId)
                     }
                     RowLayout { Layout.fillWidth: true
                         ColumnLayout { Layout.fillWidth: true; spacing: 1
@@ -941,196 +479,15 @@ Item {
                             }
                         }
                     }
-                    ColumnLayout {
+                    DubbingVoiceClipReview {
                         visible: root.reviewStepId === "synthesize"
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        spacing: Theme.paddingSmall
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Text {
-                                Layout.fillWidth: true
-                                text: qsTr("%1 of %2 segment clips generated")
-                                      .arg(root.generatedClipCount()).arg(dubbing.segments.length)
-                                color: root.stepComplete("synthesize") ? Theme.success : Theme.warning
-                                font.pixelSize: Theme.fontSmall
-                                font.bold: true
-                            }
-                            Text {
-                                text: qsTr("Click a waveform or Play to review")
-                                color: Theme.textSecondary
-                                font.pixelSize: Theme.fontSmall
-                            }
-                        }
-
-                        Rectangle {
-                            Layout.fillWidth: true
-                            height: 1
-                            color: Qt.rgba(1, 1, 1, 0.07)
-                        }
-
-                        ListView {
-                            id: generatedVoiceList
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            clip: true
-                            spacing: Theme.paddingSmall
-                            model: dubbing.segments
-                            ScrollBar.vertical: ScrollBar {}
-
-                            delegate: Rectangle {
-                                id: voiceClipCard
-                                required property int index
-                                required property var modelData
-                                readonly property string clipPath: modelData.clipPath || ""
-                                readonly property bool hasAudio: clipPath !== ""
-                                readonly property bool ownsPlayback: hasAudio
-                                                                        && root.playingVoiceClipPath === clipPath
-                                                                        && AppController.player.playing
-                                readonly property real playbackProgress: ownsPlayback
-                                                                          && AppController.player.playbackDurationMs > 0
-                                                                        ? AppController.player.playbackPositionMs
-                                                                          / AppController.player.playbackDurationMs
-                                                                        : 0
-
-                                width: ListView.view.width
-                                height: 116
-                                radius: Theme.radiusSmall
-                                color: ownsPlayback
-                                       ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.12)
-                                       : Qt.rgba(1, 1, 1, 0.025)
-                                border.color: ownsPlayback
-                                              ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.55)
-                                              : Qt.rgba(1, 1, 1, 0.07)
-                                border.width: 1
-
-                                ColumnLayout {
-                                    anchors.fill: parent
-                                    anchors.margins: Theme.paddingSmall
-                                    spacing: 6
-
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        spacing: Theme.paddingSmall
-                                        Text {
-                                            text: qsTr("Segment %1").arg(voiceClipCard.index + 1)
-                                            color: Theme.textPrimary
-                                            font.pixelSize: Theme.fontSmall
-                                            font.bold: true
-                                        }
-                                        Text {
-                                            text: "%1 – %2".arg(root.formatTime(modelData.startMs || 0))
-                                                           .arg(root.formatTime(modelData.endMs || 0))
-                                            color: Theme.textSecondary
-                                            font.pixelSize: 10
-                                        }
-                                        Text {
-                                            Layout.fillWidth: true
-                                            text: modelData.targetText || qsTr("No translated text")
-                                            color: Theme.textPrimary
-                                            font.pixelSize: Theme.fontSmall
-                                            elide: Text.ElideRight
-                                        }
-                                        Rectangle {
-                                            implicitWidth: voiceStateText.implicitWidth + 14
-                                            implicitHeight: 22
-                                            radius: 11
-                                            color: Qt.rgba(root.segmentStateColor(modelData).r,
-                                                           root.segmentStateColor(modelData).g,
-                                                           root.segmentStateColor(modelData).b, 0.12)
-                                            Text {
-                                                id: voiceStateText
-                                                anchors.centerIn: parent
-                                                text: !voiceClipCard.hasAudio ? qsTr("Missing")
-                                                      : modelData.timingConflict ? qsTr("Timing conflict")
-                                                      : qsTr("Ready")
-                                                color: root.segmentStateColor(modelData)
-                                                font.pixelSize: 10
-                                                font.bold: true
-                                            }
-                                        }
-                                    }
-
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        Layout.fillHeight: true
-                                        spacing: Theme.paddingSmall
-
-                                        WaveformView {
-                                            Layout.fillWidth: true
-                                            Layout.fillHeight: true
-                                            Layout.minimumHeight: 52
-                                            samples: modelData.waveformSamples || []
-                                            framed: true
-                                            placeholderText: voiceClipCard.hasAudio
-                                                             ? qsTr("Audio clip ready")
-                                                             : qsTr("Voice has not been generated")
-                                            showPlaceholder: !samples || samples.length === 0
-                                            barWidth: 2
-                                            barGap: 2
-                                            verticalScale: 0.76
-                                            waveColor: voiceClipCard.ownsPlayback ? Theme.accentLight : Theme.accent
-                                            playedWaveColor: Theme.accentLight
-                                            playbackProgress: voiceClipCard.playbackProgress
-                                            showPlaybackProgress: voiceClipCard.ownsPlayback
-                                            seekEnabled: voiceClipCard.hasAudio
-                                            onSeekRequested: function(progress) {
-                                                if (!voiceClipCard.ownsPlayback) {
-                                                    videoPlayer.pause()
-                                                    root.playingSeparationStem = ""
-                                                    AppController.player.playFile(voiceClipCard.clipPath)
-                                                    root.playingVoiceClipPath = voiceClipCard.clipPath
-                                                }
-                                                AppController.player.seek(
-                                                    Math.round(progress * AppController.player.playbackDurationMs))
-                                            }
-                                        }
-
-                                        AlignmentPlayerButton {
-                                            iconName: voiceClipCard.ownsPlayback && !AppController.player.paused
-                                                      ? "pause" : "play"
-                                            toolTip: voiceClipCard.ownsPlayback && !AppController.player.paused
-                                                     ? qsTr("Pause segment") : qsTr("Play segment")
-                                            highlighted: voiceClipCard.ownsPlayback
-                                            enabled: voiceClipCard.hasAudio
-                                            onClicked: {
-                                                if (voiceClipCard.ownsPlayback) {
-                                                    if (AppController.player.paused)
-                                                        AppController.player.resume()
-                                                    else
-                                                        AppController.player.pause()
-                                                } else {
-                                                    videoPlayer.pause()
-                                                    root.playingSeparationStem = ""
-                                                    AppController.player.playFile(voiceClipCard.clipPath)
-                                                    root.playingVoiceClipPath = voiceClipCard.clipPath
-                                                }
-                                            }
-                                        }
-
-                                        AlignmentPlayerButton {
-                                            iconName: "stop"
-                                            toolTip: qsTr("Stop segment")
-                                            enabled: voiceClipCard.ownsPlayback
-                                            onClicked: AppController.player.stop()
-                                        }
-
-                                        Text {
-                                            Layout.preferredWidth: 52
-                                            text: voiceClipCard.ownsPlayback
-                                                  ? root.formatTime(AppController.player.playbackPositionMs)
-                                                  : root.formatTime(modelData.durationMs
-                                                                    || modelData.sourceDurationMs || 0)
-                                            color: voiceClipCard.ownsPlayback
-                                                   ? Theme.accentLight : Theme.textSecondary
-                                            font.pixelSize: 10
-                                            horizontalAlignment: Text.AlignRight
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        dubbing: root.dubbing
+                        sourceMediaPanel: sourceMediaPanel
+                        playingVoiceClipPath: root.playingVoiceClipPath
+                        generatedClipCount: root.generatedClipCount()
+                        synthesisComplete: root.stepComplete("synthesize")
+                        onVoiceClipPlaybackRequested: root.playingVoiceClipPath = path
+                        onSeparationPlaybackStopped: root.playingSeparationStem = ""
                     }
                     ColumnLayout {
                         visible: root.reviewStepId !== "source-separate"
@@ -1158,171 +515,10 @@ Item {
             }
         }
 
-        Panel {
-            Layout.fillWidth: true; Layout.preferredHeight: 136; Layout.leftMargin: Theme.paddingMedium; Layout.rightMargin: Theme.paddingMedium; Layout.bottomMargin: Theme.paddingMedium
-            RowLayout { anchors.fill: parent; anchors.margins: Theme.paddingMedium; spacing: Theme.paddingMedium
-                ColumnLayout { Layout.preferredWidth: 270; Layout.fillHeight: true; spacing: 4
-                    Text { text: qsTr("LANGUAGE & VOICE"); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall; font.bold: true; font.letterSpacing: 1.1 }
-                    RowLayout { Layout.fillWidth: true
-                        AppComboBox {
-                            id: sourceLanguageCombo
-                            Layout.fillWidth: true
-                            model: root.languageCatalog
-                            textRole: "text"
-                            secondaryTextRole: "detail"
-                            searchable: model.length > 6
-                            currentIndex: {
-                                for (var i = 0; i < model.length; ++i)
-                                    if (model[i].value === dubbing.sourceLanguage) return i
-                                return 0
-                            }
-                            onActivated: function(index) {
-                                if (index >= 0 && index < model.length) dubbing.sourceLanguage = model[index].value
-                            }
-                        }
-                        LineIcon { name: "chevron-right"; color: Theme.textSecondary; Layout.preferredWidth: 16; Layout.preferredHeight: 16 }
-                        AppComboBox {
-                            id: targetLanguageCombo
-                            Layout.fillWidth: true
-                            model: root.languageCatalog
-                            textRole: "text"
-                            secondaryTextRole: "detail"
-                            searchable: model.length > 6
-                            currentIndex: {
-                                for (var i = 0; i < model.length; ++i)
-                                    if (model[i].value === dubbing.targetLanguage) return i
-                                return 0
-                            }
-                            onActivated: function(index) {
-                                if (index >= 0 && index < model.length) dubbing.targetLanguage = model[index].value
-                            }
-                        }
-                    }
-                    PrimaryButton { text: qsTr("Add speaker"); iconName: "users"; quiet: true; onClicked: dubbing.addSpeaker() }
-                }
-                Rectangle { Layout.fillHeight: true; Layout.preferredWidth: 1; color: Qt.rgba(1, 1, 1, 0.08) }
-                ColumnLayout { Layout.fillWidth: true; Layout.fillHeight: true; spacing: 4
-                    RowLayout { Layout.fillWidth: true
-                        Text { text: qsTr("SPEAKERS"); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall; font.bold: true; font.letterSpacing: 1.1; Layout.fillWidth: true }
-                        Text { text: dubbing.speakers.length; color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
-                    }
-                    Flow { Layout.fillWidth: true; spacing: Theme.paddingSmall
-                        Repeater { model: dubbing.speakers; delegate: Rectangle { width: speakerLabel.implicitWidth + 22; height: 29; radius: 14; color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.12); border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.28); border.width: 1
-                            Text { id: speakerLabel; anchors.centerIn: parent; text: modelData.name || qsTr("Speaker %1").arg(index + 1); color: Theme.textPrimary; font.pixelSize: Theme.fontSmall }
-                        } }
-                        Text { visible: dubbing.speakers.length === 0; text: qsTr("No speakers assigned"); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
-                    }
-                    Text { visible: dubbing.lastError.length > 0; text: dubbing.lastError; color: Theme.danger; font.pixelSize: Theme.fontSmall; elide: Text.ElideRight; Layout.fillWidth: true }
-                }
-                Rectangle { Layout.fillHeight: true; Layout.preferredWidth: 1; color: Qt.rgba(1, 1, 1, 0.08) }
-                ColumnLayout { Layout.preferredWidth: 340; Layout.fillHeight: true; spacing: Theme.paddingSmall
-                    Text { text: qsTr("OUTPUT"); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall; font.bold: true; font.letterSpacing: 1.1 }
-                    Text { text: dubbing.workflowMode === "automatic" ? qsTr("Full workflow") : (dubbing.workflowMode === "step" ? qsTr("Manual node run") : qsTr("Choose an action")); color: dubbing.workflowMode === "idle" ? Theme.textSecondary : Theme.accentLight; font.pixelSize: Theme.fontSmall; font.bold: true }
-                    Text { Layout.fillWidth: true; text: qsTr("Current: %1").arg(root.stepTitle(dubbing.currentStepId)); color: dubbing.processing ? Theme.warning : Theme.textSecondary; font.pixelSize: Theme.fontSmall; elide: Text.ElideRight }
-                    Text { Layout.fillWidth: true; text: dubbing.exportPath.length > 0 ? dubbing.exportPath : (dubbing.previewPath.length > 0 ? dubbing.previewPath : qsTr("Final output has not been created.")); color: dubbing.exportPath.length > 0 ? Theme.success : Theme.textSecondary; font.pixelSize: 10; elide: Text.ElideMiddle }
-                     PrimaryButton { text: qsTr("Cancel processing"); visible: dubbing.processing; buttonColor: Theme.danger; onClicked: dubbing.cancelProcessing() }
-                 }
-
-                Rectangle {
-                    id: historyRail
-                    visible: false
-                    Layout.preferredWidth: root.isHistoryOpen ? 318 : 42
-                    Layout.fillHeight: true
-                    color: Theme.surface
-                    radius: Theme.radiusMedium
-                    border.color: Qt.rgba(1, 1, 1, 0.08)
-                    border.width: 1
-                    clip: true
-                    Behavior on Layout.preferredWidth { NumberAnimation { duration: 180; easing.type: Easing.InOutQuad } }
-
-                    Item {
-                        anchors.fill: parent
-                        anchors.margins: root.isHistoryOpen ? Theme.paddingMedium : 0
-                        visible: root.isHistoryOpen
-
-                        ColumnLayout {
-                            anchors.fill: parent
-                            spacing: Theme.paddingSmall
-                            RowLayout {
-                                Layout.fillWidth: true
-                                LineIcon { name: "history"; color: Theme.accent; Layout.preferredWidth: 18; Layout.preferredHeight: 18 }
-                                Text { text: qsTr("Dubbing History"); color: Theme.textPrimary; font.pixelSize: Theme.fontMedium; font.bold: true; Layout.fillWidth: true }
-                                PrimaryButton {
-                                    visible: dubbing.history.length > 0
-                                    text: qsTr("Clear")
-                                    iconName: "trash"
-                                    quiet: true
-                                    textColor: Theme.danger
-                                    borderColor: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.38)
-                                    implicitWidth: 70
-                                    implicitHeight: 30
-                                    onClicked: clearHistoryDialog.open()
-                                }
-                                Button {
-                                    implicitWidth: 30; implicitHeight: 30; flat: true
-                                    contentItem: LineIcon { name: "chevron-right"; color: parent.hovered ? Theme.accent : Theme.textSecondary; width: 16; height: 16 }
-                                    background: Rectangle { radius: 7; color: parent.hovered ? Qt.rgba(1,1,1,0.05) : "transparent" }
-                                    onClicked: root.isHistoryOpen = false
-                                }
-                            }
-                            Rectangle { Layout.fillWidth: true; height: 1; color: Qt.rgba(1, 1, 1, 0.07) }
-                            Item {
-                                Layout.fillWidth: true; Layout.fillHeight: true
-                                ColumnLayout {
-                                    anchors.centerIn: parent
-                                    width: parent.width - Theme.paddingLarge * 2
-                                    spacing: Theme.paddingSmall
-                                    visible: dubbing.history.length === 0
-                                    LineIcon { name: "history"; color: Theme.textSecondary; opacity: 0.6; Layout.alignment: Qt.AlignHCenter; Layout.preferredWidth: 30; Layout.preferredHeight: 30 }
-                                    Text { Layout.fillWidth: true; text: qsTr("No saved projects"); color: Theme.textPrimary; font.pixelSize: Theme.fontMedium; font.bold: true; horizontalAlignment: Text.AlignHCenter }
-                                    Text { Layout.fillWidth: true; text: qsTr("Saved dubbing projects will appear here."); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall; wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter }
-                                }
-                                ListView {
-                                    anchors.fill: parent
-                                    visible: dubbing.history.length > 0
-                                    model: dubbing.history
-                                    spacing: Theme.paddingSmall
-                                    clip: true
-                                    delegate: Rectangle {
-                                        required property var modelData
-                                        width: ListView.view.width
-                                        height: entry.implicitHeight + Theme.paddingMedium * 2
-                                        radius: Theme.radiusSmall
-                                        color: Qt.rgba(1, 1, 1, 0.025)
-                                        border.color: Qt.rgba(1, 1, 1, 0.07)
-                                        border.width: 1
-                                        ColumnLayout {
-                                            id: entry
-                                            anchors.fill: parent
-                                            anchors.margins: Theme.paddingMedium
-                                            spacing: 3
-                                            Text { Layout.fillWidth: true; text: modelData.projectName || qsTr("Untitled project"); color: Theme.textPrimary; font.pixelSize: Theme.fontSmall; font.bold: true; elide: Text.ElideRight }
-                                            Text { Layout.fillWidth: true; text: root.historySourceLabel(modelData); color: Theme.textSecondary; font.pixelSize: 10; elide: Text.ElideMiddle }
-                                            Text { Layout.fillWidth: true; text: (modelData.sourceLanguage || "") + " → " + (modelData.targetLanguage || "") + " · " + (modelData.segmentCount || 0) + qsTr(" segments"); color: Theme.textSecondary; font.pixelSize: 10; elide: Text.ElideRight }
-                                            Text { Layout.fillWidth: true; text: modelData.timestamp || ""; color: Theme.textSecondary; font.pixelSize: 10; elide: Text.ElideRight }
-                                            RowLayout {
-                                                Layout.fillWidth: true
-                                                Item { Layout.fillWidth: true }
-                                    PrimaryButton { text: qsTr("Open"); iconName: "edit"; quiet: true; textColor: Theme.accentLight; borderColor: Qt.rgba(Theme.accentLight.r, Theme.accentLight.g, Theme.accentLight.b, 0.42); implicitWidth: 82; implicitHeight: 30; enabled: !dubbing.processing; onClicked: { if (dubbing.openProject(modelData.projectPath || "")) root.isHistoryOpen = false } }
-                                    PrimaryButton { text: qsTr("Delete"); iconName: "trash"; quiet: true; textColor: Theme.danger; borderColor: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.42); implicitWidth: 82; implicitHeight: 30; onClicked: { root.pendingHistoryDeleteId = modelData.id || ""; deleteHistoryDialog.open() } }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Button {
-                        anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; anchors.topMargin: Theme.paddingMedium
-                        visible: !root.isHistoryOpen
-                        implicitWidth: 30; implicitHeight: 34; flat: true
-                        contentItem: LineIcon { name: "history"; color: parent.hovered ? Theme.accent : Theme.textSecondary; width: 18; height: 18 }
-                        background: Rectangle { radius: 7; color: parent.hovered ? Qt.rgba(1,1,1,0.05) : "transparent" }
-                        onClicked: root.isHistoryOpen = true
-                    }
-                }
-             }
+        DubbingProjectStatusPanel {
+            dubbing: root.dubbing
+            languageCatalog: root.languageCatalog
+            currentStepTitle: root.stepTitle(root.dubbing.currentStepId)
         }
     }
 
