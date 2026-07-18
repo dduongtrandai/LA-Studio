@@ -1,7 +1,7 @@
 #include "test_AlignmentWorkflow.h"
 
-#include "controllers/AlignmentExecutionService.h"
-#include "workflows/AlignmentWorkflowResolver.h"
+#include "controllers/alignment/AlignmentExecutionService.h"
+#include "alignment/AlignmentWorkflowResolver.h"
 #include "workflows/WorkflowSession.h"
 #include "core/ModelManager.h"
 #include <QtTest>

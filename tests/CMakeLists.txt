@@ -31,27 +31,27 @@ set(TEST_SOURCES
 
     ../src/api/ApiServerService.cpp
 
-    ../src/controllers/FileAccessService.cpp
-    ../src/controllers/AppUpdateService.cpp
-    ../src/controllers/ExampleManager.cpp
-    ../src/controllers/DownloadInstallService.cpp
-    ../src/controllers/AlignmentExecutionService.cpp
-    ../src/controllers/AlignmentRefinementService.cpp
-    ../src/controllers/DubbingSegmentNormalizer.cpp
-    ../src/controllers/AlignmentTranscriptMatcher.cpp
-    ../src/controllers/CrispAlignmentInterface.cpp
+    ../src/controllers/shared/FileAccessService.cpp
+    ../src/controllers/shared/AppUpdateService.cpp
+    ../src/controllers/shared/ExampleManager.cpp
+    ../src/controllers/models/DownloadInstallService.cpp
+    ../src/controllers/alignment/AlignmentExecutionService.cpp
+    ../src/dubbing/AlignmentRefinementService.cpp
+    ../src/dubbing/DubbingSegmentNormalizer.cpp
+    ../src/controllers/alignment/AlignmentTranscriptMatcher.cpp
+    ../src/alignment/CrispAlignmentInterface.cpp
     ../src/translation/CrispTranslationInterface.cpp
     ../src/translation/LlamaTranslationInterface.cpp
-    ../src/controllers/ModelsPathMigrator.cpp
-    ../src/controllers/ModelsPathMigrationService.cpp
-    ../src/controllers/HistoryRepository.cpp
-    ../src/controllers/HistoryService.cpp
-    ../src/controllers/AudioPreviewService.cpp
-    ../src/controllers/StudioActions.cpp
-    ../src/controllers/VoiceClonePresetService.cpp
-    ../src/controllers/VoiceDesignPresetService.cpp
-    ../src/controllers/AlignmentModelSession.cpp
-    ../src/controllers/TranslationModelSession.cpp
+    ../src/controllers/models/ModelsPathMigrator.cpp
+    ../src/controllers/models/ModelsPathMigrationService.cpp
+    ../src/controllers/shared/HistoryRepository.cpp
+    ../src/controllers/shared/HistoryService.cpp
+    ../src/controllers/shared/AudioPreviewService.cpp
+    ../src/controllers/app/StudioActions.cpp
+    ../src/controllers/shared/VoiceClonePresetService.cpp
+    ../src/controllers/shared/VoiceDesignPresetService.cpp
+    ../src/controllers/alignment/AlignmentModelSession.cpp
+    ../src/controllers/translation/TranslationModelSession.cpp
     ../src/translation/TranslationProject.cpp
     ../src/translation/TranslationEngine.cpp
     ../src/translation/TranslationEngineInstance.cpp
@@ -60,48 +60,48 @@ set(TEST_SOURCES
     ../src/translation/backends/CrispTranslationBackend.cpp
     ../src/translation/backends/LlamaTranslationBackend.cpp
     ../src/translation/TranslationService.cpp
-    ../src/controllers/TranslationController.cpp
-    ../src/controllers/VoiceIsolatorModelSession.cpp
-    ../src/controllers/ModelLifecycleController.cpp
-    ../src/controllers/SttModelSession.cpp
-    ../src/controllers/TtsSharedModelSession.cpp
-    ../src/controllers/ModelSessionRegistry.cpp
-    ../src/controllers/StudioConfigurationResolver.cpp
-    ../src/controllers/SttSessionController.cpp
-    ../src/controllers/SubtitleVoiceController.cpp
+    ../src/controllers/translation/TranslationController.cpp
+    ../src/controllers/separation/VoiceIsolatorModelSession.cpp
+    ../src/controllers/models/ModelLifecycleController.cpp
+    ../src/controllers/stt/SttModelSession.cpp
+    ../src/controllers/tts/TtsSharedModelSession.cpp
+    ../src/controllers/models/ModelSessionRegistry.cpp
+    ../src/controllers/models/StudioConfigurationResolver.cpp
+    ../src/controllers/stt/SttSessionController.cpp
+    ../src/controllers/tts/SubtitleVoiceController.cpp
     ../src/subtitles/SrtTimelineParser.cpp
     ../src/tts/SubtitleSmartFitPlanner.cpp
     ../src/tts/TimedSpeechPipeline.cpp
     ../src/audio/AudioTimelineRenderer.cpp
-    ../src/controllers/SttAudioDecoder.cpp
-    ../src/controllers/DubbingProject.cpp
-    ../src/controllers/DubbingController.cpp
-    ../src/controllers/AudioTimelineMixer.cpp
-    ../src/controllers/DubbingJobRunner.cpp
-    ../src/translation/DubbingTranslationService.cpp
-    ../src/controllers/MediaToolService.cpp
-    ../src/controllers/MediaIngestService.cpp
+    ../src/controllers/stt/SttAudioDecoder.cpp
+    ../src/dubbing/DubbingProject.cpp
+    ../src/controllers/dubbing/DubbingController.cpp
+    ../src/dubbing/AudioTimelineMixer.cpp
+    ../src/controllers/dubbing/DubbingJobRunner.cpp
+    ../src/dubbing/DubbingTranslationService.cpp
+    ../src/dubbing/media/MediaToolService.cpp
+    ../src/dubbing/media/MediaIngestService.cpp
     ../src/separation/SeparationAudioIO.cpp
     ../src/separation/SourceSeparationService.cpp
     ../src/separation/SeparationWorker.cpp
     ../src/separation/backends/SeparationBackendFactory.cpp
     ../src/separation/backends/sherpa/SherpaOnnxRuntime.cpp
     ../src/separation/backends/sherpa/SherpaOnnxSeparationBackend.cpp
-    ../src/controllers/VoiceIsolatorController.cpp
-    ../src/controllers/WorkflowActivityManager.cpp
+    ../src/controllers/separation/VoiceIsolatorController.cpp
+    ../src/controllers/app/WorkflowActivityManager.cpp
     ../src/workflows/WorkflowTypes.cpp
     ../src/workflows/WorkflowSession.cpp
     ../src/workflows/WorkflowGraph.cpp
-    ../src/workflows/DubbingWorkflowDefinition.cpp
+    ../src/dubbing/workflow/DubbingWorkflowDefinition.cpp
     ../src/workflows/WorkflowArtifact.cpp
     ../src/workflows/WorkflowRun.cpp
     ../src/workflows/WorkflowRunJournal.cpp
     ../src/workflows/WorkflowTranscript.cpp
-    ../src/workflows/DubbingWorkflowNodes.cpp
-    ../src/workflows/DubbingWorkflowAdapter.cpp
+    ../src/dubbing/workflow/DubbingWorkflowNodes.cpp
+    ../src/dubbing/workflow/DubbingWorkflowAdapter.cpp
     ../src/workflows/NodeRegistry.cpp
     ../src/workflows/WorkflowGraphRunner.cpp
-    ../src/workflows/AlignmentWorkflowResolver.cpp
+    ../src/alignment/AlignmentWorkflowResolver.cpp
     ../src/core/LogViewService.cpp
     ../src/core/PathUtils.cpp
     ../src/core/Logger.cpp
@@ -130,18 +130,18 @@ set(TEST_SOURCES
     ../src/audio/AudioRecorder.h
     ../src/audio/AudioPlayer.h
     ../src/core/HFHubClient.h
-    ../src/controllers/AppController.h
-    ../src/controllers/AppUpdateService.h
-    ../src/controllers/ExampleManager.h
-    ../src/controllers/IStudioAction.h
-    ../src/controllers/StudioActions.h
-    ../src/controllers/IModelSession.h
+    ../src/controllers/app/AppController.h
+    ../src/controllers/shared/AppUpdateService.h
+    ../src/controllers/shared/ExampleManager.h
+    ../src/controllers/app/IStudioAction.h
+    ../src/controllers/app/StudioActions.h
+    ../src/controllers/models/IModelSession.h
     ../src/inference/WorkerThreadHost.h
-    ../src/controllers/ModelLifecycleController.h
-    ../src/controllers/SttModelSession.h
-    ../src/controllers/TtsSharedModelSession.h
-    ../src/controllers/AlignmentModelSession.h
-    ../src/controllers/TranslationModelSession.h
+    ../src/controllers/models/ModelLifecycleController.h
+    ../src/controllers/stt/SttModelSession.h
+    ../src/controllers/tts/TtsSharedModelSession.h
+    ../src/controllers/alignment/AlignmentModelSession.h
+    ../src/controllers/translation/TranslationModelSession.h
     ../src/translation/TranslationProject.h
     ../src/translation/TranslationEngine.h
     ../src/translation/TranslationEngineInstance.h
@@ -151,25 +151,25 @@ set(TEST_SOURCES
     ../src/translation/backends/CrispTranslationBackend.h
     ../src/translation/backends/LlamaTranslationBackend.h
     ../src/translation/TranslationService.h
-    ../src/controllers/TranslationController.h
-    ../src/controllers/VoiceIsolatorModelSession.h
-    ../src/controllers/ModelSessionRegistry.h
-    ../src/controllers/WorkflowActivityManager.h
+    ../src/controllers/translation/TranslationController.h
+    ../src/controllers/separation/VoiceIsolatorModelSession.h
+    ../src/controllers/models/ModelSessionRegistry.h
+    ../src/controllers/app/WorkflowActivityManager.h
     ../src/workflows/WorkflowTypes.h
     ../src/workflows/IWorkflowResolver.h
     ../src/workflows/WorkflowSession.h
     ../src/workflows/WorkflowGraph.h
-    ../src/workflows/DubbingWorkflowDefinition.h
+    ../src/dubbing/workflow/DubbingWorkflowDefinition.h
     ../src/workflows/WorkflowArtifact.h
     ../src/workflows/WorkflowRun.h
     ../src/workflows/WorkflowRunJournal.h
     ../src/workflows/WorkflowTranscript.h
-    ../src/workflows/DubbingWorkflowNodes.h
+    ../src/dubbing/workflow/DubbingWorkflowNodes.h
     ../src/workflows/WorkflowExecutionAdapter.h
-    ../src/workflows/DubbingWorkflowAdapter.h
+    ../src/dubbing/workflow/DubbingWorkflowAdapter.h
     ../src/workflows/NodeRegistry.h
     ../src/workflows/WorkflowGraphRunner.h
-    ../src/workflows/AlignmentWorkflowResolver.h
+    ../src/alignment/AlignmentWorkflowResolver.h
     ../include/runtimes/CrispTranslationInterface.h
     ../src/separation/SeparationTypes.h
     ../src/separation/SeparationAudioIO.h
@@ -181,7 +181,7 @@ set(TEST_SOURCES
     ../src/separation/backends/sherpa/SherpaOnnxSeparationBackend.h
     test_SourceSeparation.h
     test_TranslationProject.h
-    ../src/controllers/VoiceIsolatorController.h
+    ../src/controllers/separation/VoiceIsolatorController.h
 )
 
 add_executable(LAStudioUnitTests ${TEST_SOURCES})
@@ -197,6 +197,19 @@ target_include_directories(LAStudioUnitTests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/core
     ${CMAKE_SOURCE_DIR}/src/audio
     ${CMAKE_SOURCE_DIR}/src/controllers
+    ${CMAKE_SOURCE_DIR}/src/controllers/app
+    ${CMAKE_SOURCE_DIR}/src/controllers/alignment
+    ${CMAKE_SOURCE_DIR}/src/controllers/dubbing
+    ${CMAKE_SOURCE_DIR}/src/controllers/stt
+    ${CMAKE_SOURCE_DIR}/src/controllers/tts
+    ${CMAKE_SOURCE_DIR}/src/controllers/translation
+    ${CMAKE_SOURCE_DIR}/src/controllers/separation
+    ${CMAKE_SOURCE_DIR}/src/controllers/models
+    ${CMAKE_SOURCE_DIR}/src/controllers/shared
+    ${CMAKE_SOURCE_DIR}/src/dubbing
+    ${CMAKE_SOURCE_DIR}/src/dubbing/media
+    ${CMAKE_SOURCE_DIR}/src/dubbing/workflow
+    ${CMAKE_SOURCE_DIR}/src/alignment
     ${CMAKE_SOURCE_DIR}/src/separation
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/mocks

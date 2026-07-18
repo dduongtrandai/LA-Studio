@@ -4,10 +4,10 @@
 #include <QThreadPool>
 #include <QUrl>
 
-#include "controllers/AppController.h"
-#include "controllers/SttSessionController.h"
-#include "controllers/SttAudioDecoder.h"
-#include "controllers/ModelLifecycleController.h"
+#include "controllers/app/AppController.h"
+#include "controllers/stt/SttSessionController.h"
+#include "controllers/stt/SttAudioDecoder.h"
+#include "controllers/models/ModelLifecycleController.h"
 #include "core/StudioCapabilityRegistry.h"
 #include "stt/SttEngine.h"
 

@@ -1,12 +1,12 @@
 #include "test_WorkflowGraph.h"
 
 #include "workflows/WorkflowGraphRunner.h"
-#include "workflows/DubbingWorkflowDefinition.h"
+#include "dubbing/workflow/DubbingWorkflowDefinition.h"
 #include "workflows/WorkflowArtifact.h"
-#include "workflows/DubbingWorkflowNodes.h"
+#include "dubbing/workflow/DubbingWorkflowNodes.h"
 #include "workflows/WorkflowTranscript.h"
 #include "workflows/WorkflowRunJournal.h"
-#include "controllers/DubbingJobRunner.h"
+#include "controllers/dubbing/DubbingJobRunner.h"
 
 #include <QFile>
 #include <QFileInfo>

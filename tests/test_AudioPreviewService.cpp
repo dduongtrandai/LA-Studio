@@ -3,7 +3,7 @@
 #include <QSignalSpy>
 #include <QThreadPool>
 
-#include "controllers/AudioPreviewService.h"
+#include "controllers/shared/AudioPreviewService.h"
 #include "tts/TtsEngine.h"
 #include "audio/AudioPlayer.h"
 #include "audio/WaveformProvider.h"

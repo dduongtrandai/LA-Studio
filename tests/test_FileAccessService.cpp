@@ -2,7 +2,7 @@
 #include <QtTest>
 #include <QFile>
 #include <QTextStream>
-#include "controllers/FileAccessService.h"
+#include "controllers/shared/FileAccessService.h"
 
 namespace LAStudio {
 

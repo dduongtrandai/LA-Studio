@@ -178,8 +178,19 @@ LA-Studio/
 |-- scripts/                    # Bootstrap, build, test, package, and catalog scripts
 |-- src/                        # C++ application source
 |   |-- audio/
-|   |-- controllers/
+|   |-- alignment/              # Alignment domain and workflow resolver
+|   |-- controllers/            # QML/application adapters grouped by feature
+|   |   |-- app/
+|   |   |-- alignment/
+|   |   |-- dubbing/
+|   |   |-- models/
+|   |   |-- separation/
+|   |   |-- shared/
+|   |   |-- stt/
+|   |   |-- translation/
+|   |   `-- tts/
 |   |-- core/
+|   |-- dubbing/                # Dubbing project, media, and feature workflows
 |   |-- stt/
 |   `-- tts/
 `-- tests/                      # Unit tests and mocks
@@ -261,7 +272,9 @@ Local model files and runtime libraries
 
 Key source areas:
 
-- `src/controllers/` bridges QML screens to application services.
+- `src/controllers/` bridges QML screens to application services; files are grouped under `app/`, feature, `models/`, and `shared/` boundaries.
+- `src/dubbing/` owns dubbing project/media logic and dubbing-specific workflow definitions; the reusable workflow engine remains in `src/workflows/`.
+- `src/alignment/` owns alignment-specific domain and workflow resolution logic, while QML-facing alignment adapters remain in `src/controllers/alignment/`.
 - `src/core/` manages catalogs, models, downloads, settings, runtimes, registry, hardware, and logging.
 - `src/audio/` provides recording, playback, WAV handling, and waveform support.
 - `src/stt/` contains speech-to-text engine and backend selection.

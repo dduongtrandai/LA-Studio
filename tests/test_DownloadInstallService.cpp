@@ -4,7 +4,7 @@
 #include <QFile>
 #include <QThreadPool>
 
-#include "controllers/DownloadInstallService.h"
+#include "controllers/models/DownloadInstallService.h"
 #include "core/HFHubClient.h"
 #include "core/DownloadManager.h"
 #include "core/ModelManager.h"

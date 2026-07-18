@@ -1,5 +1,5 @@
 #include "test_AlignmentTranscriptMatcher.h"
-#include "controllers/AlignmentTranscriptMatcher.h"
+#include "controllers/alignment/AlignmentTranscriptMatcher.h"
 #include <QtTest>
 
 namespace LAStudio {

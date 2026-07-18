@@ -8,8 +8,8 @@
 #include <runtimes/VibevoiceInterface.h>
 #include "core/CatalogManager.h"
 #include "core/Settings.h"
-#include "controllers/AppController.h"
-#include "controllers/ModelSessionRegistry.h"
+#include "controllers/app/AppController.h"
+#include "controllers/models/ModelSessionRegistry.h"
 
 #include <QThreadPool>
 #include <QFile>

@@ -1,8 +1,8 @@
 #include "ModelManager.h"
 #include "PathUtils.h"
 #include "Logger.h"
-#include "controllers/AppController.h"
-#include "controllers/ModelSessionRegistry.h"
+#include "controllers/app/AppController.h"
+#include "controllers/models/ModelSessionRegistry.h"
 #include <QThreadPool>
 
 #include <QFile>

@@ -1,11 +1,11 @@
 #include "test_DubbingProject.h"
 
-#include "controllers/DubbingProject.h"
-#include "controllers/DubbingController.h"
-#include "controllers/DubbingJobRunner.h"
-#include "controllers/AlignmentRefinementService.h"
-#include "controllers/DubbingSegmentNormalizer.h"
-#include "controllers/AppController.h"
+#include "dubbing/DubbingProject.h"
+#include "controllers/dubbing/DubbingController.h"
+#include "controllers/dubbing/DubbingJobRunner.h"
+#include "dubbing/AlignmentRefinementService.h"
+#include "dubbing/DubbingSegmentNormalizer.h"
+#include "controllers/app/AppController.h"
 #include "stt/SttEngine.h"
 #include "tts/TtsEngine.h"
 

@@ -1,4 +1,4 @@
-#include "controllers/AppController.h"
+#include "controllers/app/AppController.h"
 #include "core/PathUtils.h"
 
 namespace LAStudio {

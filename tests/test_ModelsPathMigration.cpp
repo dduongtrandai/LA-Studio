@@ -6,8 +6,8 @@
 #include <QThreadPool>
 #include <QUrl>
 
-#include "controllers/ModelsPathMigrator.h"
-#include "controllers/ModelsPathMigrationService.h"
+#include "controllers/models/ModelsPathMigrator.h"
+#include "controllers/models/ModelsPathMigrationService.h"
 #include "core/Settings.h"
 #include "core/ModelManager.h"
 #include "core/PathUtils.h"

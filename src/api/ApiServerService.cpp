@@ -2,7 +2,7 @@
 
 #include "core/Logger.h"
 #include "core/Settings.h"
-#include "controllers/SttAudioDecoder.h"
+#include "controllers/stt/SttAudioDecoder.h"
 #include "stt/SttEngine.h"
 #include "stt/SttEngineInstance.h"
 #include "tts/TtsEngine.h"

@@ -3,8 +3,8 @@
 #include <QSignalSpy>
 #include <QThreadPool>
 
-#include "controllers/HistoryRepository.h"
-#include "controllers/HistoryService.h"
+#include "controllers/shared/HistoryRepository.h"
+#include "controllers/shared/HistoryService.h"
 #include "tts/TtsEngine.h"
 #include "audio/AudioRecorder.h"
 

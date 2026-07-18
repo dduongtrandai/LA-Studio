@@ -3,8 +3,8 @@
 #include <QtTest>
 
 #include "core/StudioCapabilityRegistry.h"
-#include "controllers/AppController.h"
-#include "controllers/ModelSessionRegistry.h"
+#include "controllers/app/AppController.h"
+#include "controllers/models/ModelSessionRegistry.h"
 
 namespace LAStudio {
 

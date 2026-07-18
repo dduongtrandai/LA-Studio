@@ -7,7 +7,7 @@
 #include <QVector>
 #include <QHash>
 #include <QtQml/qqml.h>
-#include "controllers/IModelSession.h"
+#include "controllers/models/IModelSession.h"
 #include "inference/InstanceRegistry.h"
 #include "SttEngineInstance.h"
 

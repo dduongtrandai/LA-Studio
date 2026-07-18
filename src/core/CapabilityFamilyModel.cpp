@@ -8,7 +8,7 @@
 #include "core/Logger.h"
 #include "core/StudioSelectionRepository.h"
 #include "core/StudioCapabilityRegistry.h"
-#include "controllers/AppController.h"
+#include "controllers/app/AppController.h"
 #include <algorithm>
 #include <QStringList>
 #include <QFile>

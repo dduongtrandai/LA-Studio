@@ -2002,60 +2002,60 @@
 <context>
     <name>LAStudio::AppUpdateService</name>
     <message>
-        <location filename="../src/controllers/AppUpdateService.cpp" line="140"/>
+        <location filename="../src/controllers/shared/AppUpdateService.cpp" line="140"/>
         <source>Checking GitHub releases...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/controllers/AppUpdateService.cpp" line="156"/>
+        <location filename="../src/controllers/shared/AppUpdateService.cpp" line="156"/>
         <source>No update installer is available to download.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/controllers/AppUpdateService.cpp" line="173"/>
+        <location filename="../src/controllers/shared/AppUpdateService.cpp" line="173"/>
         <source>Downloading LA Studio v%1...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/controllers/AppUpdateService.cpp" line="180"/>
+        <location filename="../src/controllers/shared/AppUpdateService.cpp" line="180"/>
         <source>Downloaded installer was not found.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/controllers/AppUpdateService.cpp" line="201"/>
-        <location filename="../src/controllers/AppUpdateService.cpp" line="203"/>
+        <location filename="../src/controllers/shared/AppUpdateService.cpp" line="201"/>
+        <location filename="../src/controllers/shared/AppUpdateService.cpp" line="203"/>
         <source>Failed to start the update installer.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/controllers/AppUpdateService.cpp" line="208"/>
+        <location filename="../src/controllers/shared/AppUpdateService.cpp" line="208"/>
         <source>Installer started. LA Studio will close now.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/controllers/AppUpdateService.cpp" line="228"/>
-        <location filename="../src/controllers/AppUpdateService.cpp" line="353"/>
+        <location filename="../src/controllers/shared/AppUpdateService.cpp" line="228"/>
+        <location filename="../src/controllers/shared/AppUpdateService.cpp" line="353"/>
         <source>LA Studio v%1 is ready to install.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/controllers/AppUpdateService.cpp" line="287"/>
-        <location filename="../src/controllers/AppUpdateService.cpp" line="295"/>
+        <location filename="../src/controllers/shared/AppUpdateService.cpp" line="287"/>
+        <location filename="../src/controllers/shared/AppUpdateService.cpp" line="295"/>
         <source>Update check failed.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/controllers/AppUpdateService.cpp" line="296"/>
+        <location filename="../src/controllers/shared/AppUpdateService.cpp" line="296"/>
         <source>GitHub returned an invalid releases response.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/controllers/AppUpdateService.cpp" line="336"/>
+        <location filename="../src/controllers/shared/AppUpdateService.cpp" line="336"/>
         <source>LA Studio is up to date.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/controllers/AppUpdateService.cpp" line="356"/>
+        <location filename="../src/controllers/shared/AppUpdateService.cpp" line="356"/>
         <source>LA Studio v%1 is available.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2746,22 +2746,22 @@ Path: %2</source>
 <context>
     <name>QObject</name>
     <message>
-        <location filename="../src/controllers/AppUpdateService.cpp" line="67"/>
+        <location filename="../src/controllers/shared/AppUpdateService.cpp" line="67"/>
         <source>Windows elevation was cancelled.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/controllers/AppUpdateService.cpp" line="70"/>
+        <location filename="../src/controllers/shared/AppUpdateService.cpp" line="70"/>
         <source>Downloaded installer was not found.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/controllers/AppUpdateService.cpp" line="72"/>
+        <location filename="../src/controllers/shared/AppUpdateService.cpp" line="72"/>
         <source>Windows denied permission to start the installer.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/controllers/AppUpdateService.cpp" line="74"/>
+        <location filename="../src/controllers/shared/AppUpdateService.cpp" line="74"/>
         <source>Windows failed to start the installer. Error code: %1</source>
         <translation type="unfinished"></translation>
     </message>

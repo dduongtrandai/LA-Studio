@@ -10,7 +10,7 @@
 #include "core/RuntimeManager.h"
 #include "core/ModelManager.h"
 #include "core/LogViewService.h"
-#include "controllers/StudioConfigurationResolver.h"
+#include "controllers/models/StudioConfigurationResolver.h"
 #include "runtimes/LlamaTranslationInterface.h"
 
 #include <QDir>
