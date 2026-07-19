@@ -679,18 +679,20 @@ Rectangle {
                     onCountChanged: root.ensureSelection()
 
                     delegate: Rectangle {
+                        id: familyDelegate
                         width: familyList.width
                         height: root.modalMode ? 84 : 96
+                        property string familyId: model.familyId || ""
                         radius: 7
-                        color: root.selectedFamilyId === model.familyId ? Qt.rgba(1, 1, 1, 0.035) : (itemHover.hovered ? Qt.rgba(1, 1, 1, 0.025) : "transparent")
-                        border.color: root.selectedFamilyId === model.familyId ? (model.accent || Theme.accent) : (itemHover.hovered ? Qt.rgba(1, 1, 1, 0.06) : "transparent")
+                        color: root.selectedFamilyId === familyDelegate.familyId ? Qt.rgba(1, 1, 1, 0.035) : (itemHover.hovered ? Qt.rgba(1, 1, 1, 0.025) : "transparent")
+                        border.color: root.selectedFamilyId === familyDelegate.familyId ? (model.accent || Theme.accent) : (itemHover.hovered ? Qt.rgba(1, 1, 1, 0.06) : "transparent")
                         border.width: 1
 
                         HoverHandler { id: itemHover }
                         TapHandler {
                             onTapped: {
-                                root.selectedFamilyId = model.familyId
-                                root.familySelected(model.familyId)
+                                root.selectedFamilyId = familyDelegate.familyId
+                                root.familySelected(familyDelegate.familyId)
                             }
                         }
 
@@ -1230,6 +1232,7 @@ Rectangle {
                                     }
 
                                     AppComboBox {
+                                        id: requiredFileCombo
                                         visible: modelData.candidates !== undefined && modelData.candidates.length > 0
                                         Layout.preferredWidth: detailPanel.requiredFileComboWidth
                                         Layout.minimumWidth: detailPanel.requiredFileComboWidth
@@ -1244,19 +1247,29 @@ Rectangle {
                                         modelRequirement: modelData
                                         defaultFile: modelData.file
                                         defaultSize: modelData.size || ""
+                                        property var gallery: root
+                                        property var familyItem: family
+                                        property var requirementItem: modelData
 
-                                        onActivated: (index) => {
-                                            if (root.activeModel && family) {
-                                                var selected = model[index]
-                                                root.activeModel.selectFileForRequirement(family.familyId, modelData.file, selected)
-                                                if (root.activeModel.saveSelectionForFamily) {
-                                                    var runtimeId = root.pendingRuntimeId !== "" ? root.pendingRuntimeId : family.preferredRuntimeId
-                                                    var runtimeVersion = root.pendingRuntimeVersion !== "" ? root.pendingRuntimeVersion : family.preferredRuntimeVersion
-                                                    root.activeModel.saveSelectionForFamily(
-                                                        family.familyId,
+                                        onActivated: function(index) {
+                                            var galleryModel = requiredFileCombo.gallery
+                                            var selectedFamily = requiredFileCombo.familyItem
+                                            var requirement = requiredFileCombo.requirementItem
+                                            if (galleryModel && galleryModel.activeModel && selectedFamily && requirement) {
+                                                var selected = requiredFileCombo.model[index]
+                                                galleryModel.activeModel.selectFileForRequirement(
+                                                    selectedFamily.familyId, requirement.file, selected)
+                                                if (galleryModel.activeModel.saveSelectionForFamily) {
+                                                    var runtimeId = galleryModel.pendingRuntimeId !== ""
+                                                        ? galleryModel.pendingRuntimeId : selectedFamily.preferredRuntimeId
+                                                    var runtimeVersion = galleryModel.pendingRuntimeVersion !== ""
+                                                        ? galleryModel.pendingRuntimeVersion : selectedFamily.preferredRuntimeVersion
+                                                    galleryModel.activeModel.saveSelectionForFamily(
+                                                        selectedFamily.familyId,
                                                         runtimeId,
                                                         runtimeVersion,
-                                                        root.selectedFilesWithOverride(family, modelData.role, selected))
+                                                        galleryModel.selectedFilesWithOverride(
+                                                            selectedFamily, requirement.role, selected))
                                                 }
                                             }
                                         }

@@ -433,6 +433,9 @@ QString WorkflowActivityManager::iconForCapability(const QString &capabilityId)
     if (capabilityId == QStringLiteral("forced-alignment")) {
         return QStringLiteral("sliders");
     }
+    if (capabilityId == QStringLiteral("translation")) {
+        return QStringLiteral("translate");
+    }
     return QStringLiteral("volume");
 }
 
@@ -449,6 +452,9 @@ QString WorkflowActivityManager::fallbackTitleForCapability(const QString &capab
     }
     if (capabilityId == QStringLiteral("forced-alignment")) {
         return QStringLiteral("Alignment");
+    }
+    if (capabilityId == QStringLiteral("translation")) {
+        return QStringLiteral("Translation");
     }
     return QStringLiteral("Text to Speech");
 }
@@ -478,6 +484,9 @@ QString WorkflowActivityManager::studioRouteForCapability(const QString &capabil
     }
     if (normalized == QStringLiteral("forced-alignment")) {
         return QStringLiteral("studio-alignment");
+    }
+    if (normalized == QStringLiteral("translation")) {
+        return QStringLiteral("studio-translation");
     }
     return QStringLiteral("studio-tts");
 }

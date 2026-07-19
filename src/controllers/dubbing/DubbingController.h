@@ -35,6 +35,7 @@ class DubbingController : public QObject
     Q_PROPERTY(QString backgroundPath READ backgroundPath NOTIFY projectChanged)
     Q_PROPERTY(QString sourceLanguage READ sourceLanguage WRITE setSourceLanguage NOTIFY projectChanged)
     Q_PROPERTY(QString targetLanguage READ targetLanguage WRITE setTargetLanguage NOTIFY projectChanged)
+    Q_PROPERTY(QVariantMap durationControl READ durationControl WRITE setDurationControl NOTIFY projectChanged)
     Q_PROPERTY(QVariantList speakers READ speakers NOTIFY projectChanged)
     Q_PROPERTY(QVariantList segments READ segments NOTIFY segmentsChanged)
     Q_PROPERTY(bool processing READ processing NOTIFY processingChanged)
@@ -81,6 +82,7 @@ public:
     }
     QString sourceLanguage() const { return m_project.sourceLanguage; }
     QString targetLanguage() const { return m_project.targetLanguage; }
+    QVariantMap durationControl() const { return m_project.durationControl; }
     QVariantList speakers() const { return m_project.speakers; }
     QVariantList segments() const { return m_project.segments; }
     bool processing() const;
@@ -108,6 +110,7 @@ public:
 
     void setSourceLanguage(const QString &value);
     void setTargetLanguage(const QString &value);
+    void setDurationControl(const QVariantMap &value);
 
     Q_INVOKABLE bool newProject(const QString &path = QString());
     Q_INVOKABLE bool openProject(const QString &path);

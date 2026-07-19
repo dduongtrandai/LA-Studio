@@ -43,10 +43,6 @@ public:
             emit completed({{QStringLiteral("transcript"), inputs.value(QStringLiteral("transcript"))}});
             return;
         }
-        if (m_typeId == QStringLiteral("dubbing.fit-timing")) {
-            emit completed({{QStringLiteral("timeline"), inputs.value(QStringLiteral("timeline"))}});
-            return;
-        }
         if (!m_adapter) {
             emit failed(QStringLiteral("Workflow execution capability is unavailable."));
             return;
@@ -98,6 +94,7 @@ private:
             : m_typeId == QStringLiteral("audio.transcribe") ? QStringLiteral("transcribe")
             : m_typeId == QStringLiteral("text.translate-transcript") ? QStringLiteral("translate")
             : m_typeId == QStringLiteral("dubbing.synthesize-segments") ? QStringLiteral("synthesize")
+            : m_typeId == QStringLiteral("dubbing.fit-timing") ? QStringLiteral("fit-timing")
             : m_typeId == QStringLiteral("audio.mix-timeline") ? QStringLiteral("mix")
             : m_typeId == QStringLiteral("media.export") ? QStringLiteral("export") : QString();
         if (nodeId != expected) return;
@@ -115,6 +112,8 @@ private:
         } else if (m_typeId == QStringLiteral("audio.transcribe") || m_typeId == QStringLiteral("text.translate-transcript")) {
             emit completed({{QStringLiteral("transcript"), outputs.value(QStringLiteral("transcript"))}});
         } else if (m_typeId == QStringLiteral("dubbing.synthesize-segments")) {
+            emit completed({{QStringLiteral("timeline"), outputs.value(QStringLiteral("timeline"))}});
+        } else if (m_typeId == QStringLiteral("dubbing.fit-timing")) {
             emit completed({{QStringLiteral("timeline"), outputs.value(QStringLiteral("timeline"))}});
         } else if (m_typeId == QStringLiteral("audio.mix-timeline")) {
             emit completed({{QStringLiteral("audio"), outputs.value(QStringLiteral("audio"))}});

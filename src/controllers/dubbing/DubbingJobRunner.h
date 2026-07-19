@@ -2,13 +2,17 @@
 
 #include <QObject>
 #include <QString>
+#include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
 #include <QFutureWatcher>
 #include <QElapsedTimer>
 #include <QAtomicInteger>
 #include <memory>
+#include <QVector>
 #include "separation/SeparationTypes.h"
+#include "dubbing/DubbingDuration.h"
+#include "translation/backends/TranslationBackend.h"
 
 namespace LAStudio {
 
@@ -52,6 +56,7 @@ public:
                           const QVariantMap &modelConfiguration = QVariantMap());
     void startAudioGeneration(const QVariantList &segments, const QString &projectPath,
                               const QVariantMap &synthesisSettings = QVariantMap());
+    void fitTiming(const QVariantList &segments, const QString &projectPath);
     void cancel();
     bool renderPreview(const QVariantList &segments, const QString &projectPath, const QString &path = QString());
     bool startExport(const QString &sourceMediaPath, const QString &outputPath);
@@ -88,6 +93,11 @@ private:
     void setBusyError(const QString &message);
     void startAlignmentRefinement(const QString &audioPath, const QString &language,
                                   const QVariantList &segments);
+    void requestDurationCandidates();
+    void requestPauseAlignment();
+    void finishDurationTranslation();
+    void startCurrentTtsChunk();
+    void fitGeneratedSegments();
 
     SttSessionController *m_sttSession = nullptr;
     TtsEngine *m_tts = nullptr;
@@ -108,6 +118,13 @@ private:
     QVariantList m_activeSegments;
     QString m_projectPath;
     QVariantList m_translationInputSegments;
+    DubbingDurationSettings m_durationSettings;
+    double m_durationRate = 10.0;
+    int m_durationIteration = 0;
+    bool m_durationAware = false;
+    QString m_translationPhase;
+    QString m_translationSourceLanguage;
+    QString m_translationTargetLanguage;
     QString m_runId;
     QString m_activeNodeRunId;
     QString m_backgroundAudioPath;
@@ -122,13 +139,19 @@ private:
     bool m_waitingForTranscriptionInput = false;
     QElapsedTimer m_stageTimer;
     TranslationEngineInstance *m_translationInstance = nullptr;
+    TranslationInferenceRequest m_pendingTranslationRequest;
     QVariantList m_translationResult;
     QMetaObject::Connection m_translationFinishedConnection;
     QMetaObject::Connection m_translationErrorConnection;
     QMetaObject::Connection m_translationLoadedConnection;
+    QMetaObject::Connection m_translationProgressConnection;
     QFutureWatcher<QVariantMap> *m_alignmentWatcher = nullptr;
     std::shared_ptr<QAtomicInteger<bool>> m_alignmentCancel;
     quint64 m_translationGeneration = 0;
+    QVariantList m_ttsChunks;
+    int m_ttsChunkIndex = -1;
+    QVector<float> m_ttsChunkSamples;
+    int m_ttsChunkSampleRate = 0;
 };
 
 } // namespace LAStudio

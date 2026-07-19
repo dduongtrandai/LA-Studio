@@ -38,7 +38,9 @@ bool LlamaTranslationBackend::translate(const TranslationInferenceRequest &reque
     }
     const QStringList translated = m_runtime.translateBatch(
         texts, request.sourceLanguage, request.targetLanguage, request.maxTokens,
-        request.cancellation.sharedFlag(), &error);
+        request.cancellation.sharedFlag(), &error,
+        request.task,
+        request.segments);
     if (translated.size() != ids.size()) {
         if (error.isEmpty()) error = QStringLiteral("Translation returned mismatched segment count.");
         return false;

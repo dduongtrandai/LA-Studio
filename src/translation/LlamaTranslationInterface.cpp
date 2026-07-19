@@ -7,6 +7,7 @@
 #include <QLibrary>
 #include <QLocale>
 #include <QThread>
+#include <QVariantMap>
 
 #include <algorithm>
 #include <vector>
@@ -191,8 +192,15 @@ bool LlamaTranslationInterface::load(const QString &libraryPath,
     params.n_gpu_layers = useGpu ? -1 : 0;
     const QByteArray nativeModelPath = PathUtils::toNativeShortPath(modelPath).toUtf8();
     m_api->model = m_api->modelLoad(nativeModelPath.constData(), params);
+    // A GPU runtime may be installed while the selected device cannot load
+    // this quantization. Retry on CPU before surfacing a hard model error.
+    if (!m_api->model && useGpu) {
+        params.n_gpu_layers = 0;
+        m_api->model = m_api->modelLoad(nativeModelPath.constData(), params);
+    }
     if (!m_api->model) {
-        setError(QStringLiteral("llama.cpp failed to load the Hy-MT2 model."), error);
+        setError(QStringLiteral("llama.cpp failed to load the translation model: %1")
+                     .arg(QDir::toNativeSeparators(modelPath)), error);
         unload();
         return false;
     }
@@ -219,7 +227,8 @@ bool LlamaTranslationInterface::isLoaded() const { return m_api && m_api->model;
 
 QStringList LlamaTranslationInterface::translateBatch(
     const QStringList &texts, const QString &sourceLanguage, const QString &targetLanguage,
-    int maxTokens, const std::shared_ptr<std::atomic_bool> &cancelToken, QString *error)
+    int maxTokens, const std::shared_ptr<std::atomic_bool> &cancelToken, QString *error,
+    const QString &task, const QVariantList &segments)
 {
     if (!isLoaded() || texts.isEmpty()) {
         setError(QStringLiteral("The llama.cpp DLL runtime is not loaded."), error);
@@ -238,10 +247,44 @@ QStringList LlamaTranslationInterface::translateBatch(
             return {};
         }
 
-        const QByteArray instruction = QStringLiteral(
-            "Translate the following text into %1. Note that you should only output the "
-            "translated result without any additional explanation:\n\n%2")
-            .arg(targetName, text).toUtf8();
+        QString userInstruction;
+        const QVariantMap segmentContext = (segments.size() == texts.size())
+            ? segments.at(results.size()).toMap() : QVariantMap();
+        if (task == QStringLiteral("duration-rewrite")) {
+            userInstruction = QStringLiteral(
+                "Produce one alternative Vietnamese translation. Rewrite it in a genuinely different "
+                "way so it is shorter or longer as requested. Preserve the full meaning and every "
+                "protected token. Output only the Vietnamese candidate.\n"
+                "Original source: %1\nReference translation: %2\nCurrent translation: %3\n"
+                "Constraint: %4\nProtected tokens: %5\nCandidate variant: %6")
+                .arg(segmentContext.value(QStringLiteral("sourceText")).toString(),
+                     segmentContext.value(QStringLiteral("referenceTranslation")).toString(),
+                     segmentContext.value(QStringLiteral("targetText")).toString(),
+                     segmentContext.value(QStringLiteral("durationPrompt")).toString(),
+                     segmentContext.value(QStringLiteral("protectedTokens")).toString(),
+                     QString::number(segmentContext.value(QStringLiteral("candidateIndex")).toInt() + 1));
+        } else if (task == QStringLiteral("pause-align")) {
+            userInstruction = QStringLiteral(
+                "Insert exactly %1 [[PAUSE]] markers into the Vietnamese translation at natural "
+                "phrase or clause boundaries. Keep every word unchanged and in the same order. "
+                "Do not add or remove words. Output only the marked translation.\n"
+                "Source text: %2\nTranslation: %3")
+                .arg(segmentContext.value(QStringLiteral("internalPauseCount")).toInt())
+                .arg(segmentContext.value(QStringLiteral("sourceText")).toString(),
+                     segmentContext.value(QStringLiteral("targetText")).toString());
+        } else if (task == QStringLiteral("duration-translate")) {
+            userInstruction = QStringLiteral(
+                "Translate the following text into %1. Keep the meaning and protected tokens. "
+                "The Vietnamese result must use no more than the requested maximum syllables. "
+                "Output only the translated result.\nConstraint: %2\n\n%3")
+                .arg(targetName, segmentContext.value(QStringLiteral("durationPrompt")).toString(), text);
+        } else {
+            userInstruction = QStringLiteral(
+                "Translate the following text into %1. Note that you should only output the "
+                "translated result without any additional explanation:\n\n%2")
+                .arg(targetName, text);
+        }
+        const QByteArray instruction = userInstruction.toUtf8();
         QByteArray prompt = instruction;
         const char *chatTemplate = m_api->modelChatTemplate(m_api->model, nullptr);
         if (chatTemplate) {
@@ -268,7 +311,13 @@ QStringList LlamaTranslationInterface::translateBatch(
             return {};
         }
 
-        const int outputLimit = qMin(qMax(1, maxTokens), qMax(64, text.size() * 2 + 32));
+        int requestedLimit = qMax(32, text.size() * 2 + 24);
+        if (task == QStringLiteral("duration-rewrite")) {
+            const int targetPhonemes = segmentContext.value(QStringLiteral("durationBudget"))
+                                            .toMap().value(QStringLiteral("targetUnits")).toInt();
+            requestedLimit = qMax(24, targetPhonemes * 2 + 16);
+        }
+        const int outputLimit = qMin(qMax(1, maxTokens), requestedLimit);
         llama_context_params contextParams = m_api->contextDefaultParams();
         contextParams.n_ctx = static_cast<uint32_t>(qMax(512, tokenCount + outputLimit + 8));
         contextParams.n_batch = static_cast<uint32_t>(qMax(512, tokenCount));
@@ -285,7 +334,10 @@ QStringList LlamaTranslationInterface::translateBatch(
         m_api->samplerChainAdd(sampler, m_api->samplerTopK(20));
         m_api->samplerChainAdd(sampler, m_api->samplerTopP(0.6f, 1));
         m_api->samplerChainAdd(sampler, m_api->samplerTemp(0.7f));
-        m_api->samplerChainAdd(sampler, m_api->samplerDist(LLAMA_DEFAULT_SEED));
+        const uint32_t candidateSeed = static_cast<uint32_t>(
+            qMax(0, segmentContext.value(QStringLiteral("candidateIndex")).toInt())
+            + 17 * qMax(0, segmentContext.value(QStringLiteral("durationIteration")).toInt()));
+        m_api->samplerChainAdd(sampler, m_api->samplerDist(LLAMA_DEFAULT_SEED + candidateSeed));
 
         llama_batch batch = m_api->batchGetOne(tokens.data(), tokenCount);
         QByteArray translatedUtf8;

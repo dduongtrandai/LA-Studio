@@ -47,6 +47,7 @@ QJsonObject DubbingProject::toJson() const
     json.insert(QStringLiteral("sourceIsVideo"), sourceIsVideo);
     json.insert(QStringLiteral("sourceLanguage"), sourceLanguage);
     json.insert(QStringLiteral("targetLanguage"), targetLanguage);
+    json.insert(QStringLiteral("durationControl"), QJsonObject::fromVariantMap(durationControl));
     json.insert(QStringLiteral("speakers"), QJsonArray::fromVariantList(speakers));
     json.insert(QStringLiteral("segments"), QJsonArray::fromVariantList(segments));
     return json;
@@ -55,7 +56,7 @@ QJsonObject DubbingProject::toJson() const
 bool DubbingProject::fromJson(const QJsonObject &json, DubbingProject &project, QString *error)
 {
     const int version = json.value(QStringLiteral("schemaVersion")).toInt(-1);
-    if (version != 1 && version != CurrentSchemaVersion) {
+    if (version < 1 || version > CurrentSchemaVersion) {
         setError(error, QStringLiteral("Unsupported dubbing project schema version: %1").arg(version));
         return false;
     }
@@ -71,6 +72,11 @@ bool DubbingProject::fromJson(const QJsonObject &json, DubbingProject &project, 
     project.sourceIsVideo = json.value(QStringLiteral("sourceIsVideo")).toBool();
     project.sourceLanguage = json.value(QStringLiteral("sourceLanguage")).toString(QStringLiteral("en"));
     project.targetLanguage = json.value(QStringLiteral("targetLanguage")).toString(QStringLiteral("vi"));
+    project.durationControl = json.value(QStringLiteral("durationControl")).toObject().toVariantMap();
+    if (project.durationControl.isEmpty()) {
+        project.durationControl = QVariantMap{{QStringLiteral("enabled"), version >= 3},
+                                              {QStringLiteral("unit"), QStringLiteral("phoneme-v1")}};
+    }
     project.speakers = json.value(QStringLiteral("speakers")).toArray().toVariantList();
     project.segments = json.value(QStringLiteral("segments")).toArray().toVariantList();
     return true;

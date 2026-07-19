@@ -5,6 +5,7 @@
 #include "controllers/dubbing/DubbingJobRunner.h"
 #include "dubbing/AlignmentRefinementService.h"
 #include "dubbing/DubbingSegmentNormalizer.h"
+#include "dubbing/DubbingDuration.h"
 #include "controllers/app/AppController.h"
 #include "audio/WavIO.h"
 #include "stt/SttEngine.h"
@@ -349,5 +350,92 @@ void TestDubbingProject::segmentNormalizerUsesAlignedWordBoundaries()
     QCOMPARE(normalized.at(0).toMap().value(QStringLiteral("sourceText")).toString(), QStringLiteral("First sentence."));
     QCOMPARE(normalized.at(1).toMap().value(QStringLiteral("words")).toList().size(), 4);
 }
+
+void TestDubbingProject::countsVietnameseSyllablesAndPlansBudget()
+{
+    QCOMPARE(DubbingDurationPlanner::countVietnameseSyllables(QStringLiteral("Xin chào, thế giới!")), 4);
+    const QVariantMap segment{{QStringLiteral("startMs"), 0}, {QStringLiteral("endMs"), 2000}};
+    const DubbingSpeechBudget budget = DubbingDurationPlanner::plan(segment, 10.0);
+    QCOMPARE(budget.slotMs, qint64(2000));
+    QVERIFY(budget.targetUnits > 0);
+    QVERIFY(budget.minUnits <= budget.targetUnits);
+    QVERIFY(budget.targetUnits <= budget.maxUnits);
+}
+
+void TestDubbingProject::selectsImprovingDurationCandidate()
+{
+    const QString reference = QStringLiteral("Cuoc chien keo dai 100 nam");
+    const QString current =
+        QStringLiteral("Cuoc chien nay da keo dai trong suot 100 nam");
+    const int predicted = DubbingDurationPlanner::countPhonemes(
+        reference, QStringLiteral("vi"));
+    const QString selected = DubbingDurationPlanner::selectBestCandidate(
+        QStringLiteral("The war lasted 100 years."),
+        reference,
+        current,
+        {QStringLiteral("Cuoc chien keo dai 100 nam"),
+         QStringLiteral("Cuoc chien rat dai"),
+         QStringLiteral("Ban dich dai hon rat nhieu va van co 100 nam")},
+        predicted,
+        {QStringLiteral("100")},
+        QStringLiteral("vi"));
+    QCOMPARE(selected, reference);
+    QVERIFY(DubbingDurationPlanner::phonemeDistance(
+                selected, predicted, QStringLiteral("vi"))
+            < DubbingDurationPlanner::phonemeDistance(
+                current, predicted, QStringLiteral("vi")));
+}
+
+void TestDubbingProject::buildsPauseAlignedTtsChunks()
+{
+    const QVariantList pauses{
+        QVariantMap{{QStringLiteral("kind"), QStringLiteral("leading")},
+                    {QStringLiteral("durationMs"), 100}},
+        QVariantMap{{QStringLiteral("kind"), QStringLiteral("internal")},
+                    {QStringLiteral("durationMs"), 450}},
+        QVariantMap{{QStringLiteral("kind"), QStringLiteral("trailing")},
+                    {QStringLiteral("durationMs"), 200}}};
+    const QVariantList chunks = DubbingDurationPlanner::pauseChunks(
+        QStringLiteral("Xin chao [[PAUSE]] the gioi"), pauses);
+    QCOMPARE(chunks.size(), 2);
+    QCOMPARE(
+        chunks.at(0).toMap().value(QStringLiteral("leadingPauseMs")).toLongLong(),
+        qint64(100));
+    QCOMPARE(
+        chunks.at(0).toMap().value(QStringLiteral("pauseAfterMs")).toLongLong(),
+        qint64(450));
+    QCOMPARE(
+        chunks.at(1).toMap().value(QStringLiteral("pauseAfterMs")).toLongLong(),
+        qint64(200));
+}
+
+void TestDubbingProject::extractsAlignedPauses()
+{
+    const QVariantMap segment{{QStringLiteral("startMs"), 0}, {QStringLiteral("endMs"), 3000},
+        {QStringLiteral("words"), QVariantList{
+            QVariantMap{{QStringLiteral("startMs"), 100}, {QStringLiteral("endMs"), 500}},
+            QVariantMap{{QStringLiteral("startMs"), 1100}, {QStringLiteral("endMs"), 1500}},
+            QVariantMap{{QStringLiteral("startMs"), 1600}, {QStringLiteral("endMs"), 1900}}
+        }}};
+    const QVariantList pauses = DubbingDurationPlanner::extractPauses(segment);
+    QCOMPARE(pauses.size(), 2);
+    QCOMPARE(pauses.at(0).toMap().value(QStringLiteral("durationMs")).toLongLong(), qint64(600));
+}
+
+void TestDubbingProject::roundTripsDurationSettings()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    DubbingProject project;
+    project.projectPath = dir.filePath(QStringLiteral("duration.ladub.json"));
+    project.durationControl.insert(QStringLiteral("enabled"), true);
+    project.durationControl.insert(QStringLiteral("maxPreTtsIterations"), 3);
+    QString error;
+    QVERIFY2(project.save(&error), qPrintable(error));
+    DubbingProject loaded;
+    QVERIFY2(DubbingProject::load(project.projectPath, loaded, &error), qPrintable(error));
+    QCOMPARE(loaded.durationControl.value(QStringLiteral("maxPreTtsIterations")).toInt(), 3);
+}
+
 
 } // namespace LAStudio

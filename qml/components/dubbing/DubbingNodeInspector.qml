@@ -167,6 +167,38 @@ Rectangle {
                     }
                 }
 
+                SettingsSection {
+                    title: qsTr("Duration-aware dubbing")
+                    iconName: "clock"
+                    visible: root.nodeId === "translate"
+
+                    ToggleRow {
+                        text: qsTr("Constrain predicted phoneme count")
+                        checked: root.dubbing.durationControl.enabled !== false
+                        enabled: !root.dubbing.processing
+                        onToggled: {
+                            var next = root.dubbing.durationControl
+                            next.enabled = checked
+                            root.dubbing.durationControl = next
+                        }
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: qsTr("Predicts a phoneme target from source duration. Translation never invokes TTS.")
+                        color: Theme.textSecondary
+                        font.pixelSize: 10
+                        wrapMode: Text.WordWrap
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: qsTr("Target language: %1 · 3 candidates per round · pause-aware")
+                            .arg(root.dubbing.targetLanguage)
+                        color: Theme.textSecondary
+                        font.pixelSize: 10
+                        wrapMode: Text.WordWrap
+                    }
+                }
+
                 CollapsibleSettingsSection {
                     title: qsTr("Advanced")
                     iconName: "sliders"

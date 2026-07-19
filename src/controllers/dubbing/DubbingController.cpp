@@ -31,6 +31,38 @@ namespace LAStudio {
 
 namespace {
 
+void unloadConflictingDubbingRuntime(ModelSessionRegistry *registry,
+                                     const QString &capabilityId)
+{
+    if (!registry) return;
+
+    QString conflictingCapability;
+    if (capabilityId == QStringLiteral("tts")) {
+        conflictingCapability = QStringLiteral("translation");
+    } else if (capabilityId == QStringLiteral("translation")) {
+        conflictingCapability = QStringLiteral("tts");
+    } else {
+        return;
+    }
+
+    IModelSession *conflictingSession =
+        registry->sessionForCapability(conflictingCapability);
+    if (!conflictingSession) return;
+
+    const QList<SessionConfiguration> loaded =
+        conflictingSession->loadedConfigurations();
+    if (loaded.isEmpty()) return;
+
+    Logger::info(
+        QStringLiteral("DubbingController"),
+        QStringLiteral("Dubbing runtime handoff: unloading %1 before loading %2 "
+                       "to avoid incompatible shared DLLs in one process.")
+            .arg(conflictingCapability, capabilityId));
+    for (const SessionConfiguration &configuration : loaded) {
+        conflictingSession->requestUnloadConfiguration(configuration.signature);
+    }
+}
+
 QString subtitleTimestamp(qint64 milliseconds, bool webVtt)
 {
     const qint64 hours = milliseconds / 3600000;
@@ -404,9 +436,17 @@ bool DubbingController::workflowReady() const
         && AppController::instance()->sessionRegistry()->sessionForCapability(QStringLiteral("stt"))
         && AppController::instance()->sessionRegistry()->sessionForCapability(QStringLiteral("stt"))->canProcess();
     const bool translationConfigured = !m_workflowNodeConfigurations.value(QStringLiteral("translate")).toMap().isEmpty();
-    const bool translationReady = !translationConfigured || (AppController::instance() && AppController::instance()->sessionRegistry()
-        && AppController::instance()->sessionRegistry()->sessionForCapability(QStringLiteral("translation"))
-        && AppController::instance()->sessionRegistry()->sessionForCapability(QStringLiteral("translation"))->canProcess());
+    bool translatedArtifactReady = !m_project.segments.isEmpty();
+    for (const QVariant &entry : m_project.segments) {
+        if (entry.toMap().value(QStringLiteral("targetText")).toString().trimmed().isEmpty()) {
+            translatedArtifactReady = false;
+            break;
+        }
+    }
+    const bool translationReady = !translationConfigured || translatedArtifactReady
+        || (AppController::instance() && AppController::instance()->sessionRegistry()
+            && AppController::instance()->sessionRegistry()->sessionForCapability(QStringLiteral("translation"))
+            && AppController::instance()->sessionRegistry()->sessionForCapability(QStringLiteral("translation"))->canProcess());
     return workflowGraphValid()
         && !m_project.sourceMediaPath.isEmpty()
         && !m_project.targetLanguage.trimmed().isEmpty()
@@ -493,6 +533,7 @@ bool DubbingController::setWorkflowNodeModel(const QString &nodeId,
                           {QStringLiteral("studioConfig"),
                            family.value(QStringLiteral("studio")).toMap().value(capabilityId)}};
     m_workflowNodeConfigurations.insert(nodeId, selected);
+    unloadConflictingDubbingRuntime(app->sessionRegistry(), capabilityId);
     if (IModelSession *session = app->sessionRegistry()->sessionForCapability(capabilityId)) {
         session->requestLoad(capabilityId, config);
     }
@@ -672,6 +713,8 @@ bool DubbingController::runWorkflow(const QString &outputPath)
     }
     WorkflowGraph graph = DubbingWorkflowDefinition::create();
     for (auto &node : graph.nodes) {
+        if (node.id == QStringLiteral("translate"))
+            node.parameters.insert(QStringLiteral("durationControl"), m_project.durationControl);
         const QVariantMap modelConfig = m_workflowNodeConfigurations.value(node.id).toMap();
         if (!modelConfig.isEmpty()) {
             node.parameters.insert(QStringLiteral("familyId"), modelConfig.value(QStringLiteral("familyId")));
@@ -697,6 +740,9 @@ bool DubbingController::runWorkflow(const QString &outputPath)
             node.parameters.insert(QStringLiteral("projectPath"), m_project.projectPath);
             node.parameters.insert(QStringLiteral("synthesisSettings"),
                                    modelConfig.value(QStringLiteral("parameters")).toMap());
+            node.properties = node.parameters;
+        } else if (node.id == QStringLiteral("fit-timing")) {
+            node.parameters.insert(QStringLiteral("projectPath"), m_project.projectPath);
             node.properties = node.parameters;
         } else if (node.id == QStringLiteral("mix")) {
             node.parameters.insert(QStringLiteral("projectPath"), m_project.projectPath);
@@ -842,6 +888,14 @@ void DubbingController::setTargetLanguage(const QString &value)
     const QString normalized = value.trimmed().toLower();
     if (normalized.isEmpty() || normalized == m_project.targetLanguage) return;
     m_project.targetLanguage = normalized;
+    emit projectChanged();
+    emit workflowChanged();
+    persistAfterEdit();
+}
+
+void DubbingController::setDurationControl(const QVariantMap &value)
+{
+    m_project.durationControl = value;
     emit projectChanged();
     emit workflowChanged();
     persistAfterEdit();
@@ -1115,8 +1169,12 @@ void DubbingController::translateSource()
         setError(QStringLiteral("Transcribe the source before translating."));
         return;
     }
+    QVariantMap translationConfig = m_workflowNodeConfigurations.value(QStringLiteral("translate")).toMap();
+    QVariantMap parameters = translationConfig.value(QStringLiteral("parameters")).toMap();
+    parameters.insert(QStringLiteral("durationControl"), m_project.durationControl);
+    translationConfig.insert(QStringLiteral("parameters"), parameters);
     m_runner->startTranslation(m_project.sourceLanguage, m_project.targetLanguage, m_project.segments,
-                               m_workflowNodeConfigurations.value(QStringLiteral("translate")).toMap());
+                               translationConfig);
 }
 
 void DubbingController::generateAudio()
@@ -1286,9 +1344,26 @@ void DubbingController::updateSegment(int index, const QVariantMap &patch)
         segment.remove(QStringLiteral("alignmentRuntime"));
         segment.insert(QStringLiteral("timingSource"), QStringLiteral("asr"));
         segment.insert(QStringLiteral("alignmentStatus"), QStringLiteral("pending"));
+        segment.remove(QStringLiteral("durationBudget"));
+        segment.remove(QStringLiteral("durationUnits"));
+        segment.remove(QStringLiteral("durationStatus"));
+        segment.remove(QStringLiteral("phonemeDistance"));
+        segment.remove(QStringLiteral("referenceTranslation"));
+        segment.remove(QStringLiteral("targetChunks"));
+        segment.remove(QStringLiteral("pauseAligned"));
     }
     if (patch.contains(QStringLiteral("targetText")) || patch.contains(QStringLiteral("speakerId"))) {
         segment.insert(QStringLiteral("state"), QStringLiteral("stale"));
+        if (patch.contains(QStringLiteral("targetText"))) {
+            segment.remove(QStringLiteral("durationUnits"));
+            segment.remove(QStringLiteral("durationStatus"));
+            segment.remove(QStringLiteral("durationPrompt"));
+            segment.remove(QStringLiteral("targetChunks"));
+            segment.remove(QStringLiteral("phonemeDistance"));
+            segment.remove(QStringLiteral("referenceTranslation"));
+            segment.remove(QStringLiteral("pauseAligned"));
+            segment.remove(QStringLiteral("candidateSelectionMetric"));
+        }
     }
     m_project.segments[index] = segment;
     emit segmentsChanged();

@@ -2,6 +2,7 @@
 
 #include <QString>
 #include <QStringList>
+#include <QVariantList>
 #include <atomic>
 #include <memory>
 
@@ -29,7 +30,9 @@ public:
                                const QString &targetLanguage,
                                int maxTokens,
                                const std::shared_ptr<std::atomic_bool> &cancelToken,
-                               QString *error = nullptr);
+                               QString *error = nullptr,
+                               const QString &task = QStringLiteral("translate"),
+                               const QVariantList &segments = QVariantList());
 
 private:
     struct Api;

@@ -10,7 +10,7 @@ class DubbingWorkflowDefinition final
 {
 public:
     static constexpr const char *Id = "system.dubbing.default";
-    static constexpr int Version = 1;
+    static constexpr int Version = 2;
 
     static WorkflowGraph create();
 };

@@ -178,7 +178,9 @@ public:
         bool ok = false;
 #ifdef Q_OS_WIN
         const QString cleanLibPath = QDir::toNativeSeparators(QDir::cleanPath(libPath));
-        preloadRuntimeDlls(cleanLibPath);
+        if (!preloadRuntimeDlls(cleanLibPath)) {
+            return false;
+        }
         m_module = LoadLibraryExW(
             reinterpret_cast<LPCWSTR>(cleanLibPath.utf16()),
             NULL,
@@ -334,7 +336,27 @@ private:
         return 5;
     }
 
-    void preloadRuntimeDlls(const QString &mainLibPath) {
+    static QString loadedModulePath(HMODULE module) {
+        if (!module) return QString();
+        std::wstring buffer(32768, L'\0');
+        const DWORD length = GetModuleFileNameW(module, buffer.data(),
+                                                static_cast<DWORD>(buffer.size()));
+        if (length == 0 || length >= buffer.size()) return QString();
+        buffer.resize(length);
+        return QDir::toNativeSeparators(
+            QFileInfo(QString::fromStdWString(buffer)).absoluteFilePath());
+    }
+
+    void setRuntimeDependencyConflict(const QString &requestedPath,
+                                      const QString &loadedPath) {
+        m_lastError = QStringLiteral(
+            "Cannot safely load the VieNeu TTS runtime because dependency %1 "
+            "is already loaded from %2. Unload the other AI runtime first, "
+            "then load VieNeu again.")
+            .arg(QFileInfo(requestedPath).fileName(), loadedPath);
+    }
+
+    bool preloadRuntimeDlls(const QString &mainLibPath) {
         releasePreloadedDlls();
 
         const QFileInfo mainInfo(mainLibPath);
@@ -370,13 +392,37 @@ private:
             }
             loadedPaths.insert(dllPath);
 
+            const std::wstring fileName = dll.fileName().toStdWString();
+            if (HMODULE existing = GetModuleHandleW(fileName.c_str())) {
+                const QString existingPath = loadedModulePath(existing);
+                if (!existingPath.isEmpty()
+                    && QFileInfo(existingPath).absoluteFilePath().compare(
+                           QFileInfo(dllPath).absoluteFilePath(),
+                           Qt::CaseInsensitive) != 0) {
+                    releasePreloadedDlls();
+                    setRuntimeDependencyConflict(dllPath, existingPath);
+                    return false;
+                }
+            }
+
             HMODULE module = LoadLibraryExW(reinterpret_cast<LPCWSTR>(dllPath.utf16()),
                                             NULL,
                                             LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
             if (module) {
+                const QString actualPath = loadedModulePath(module);
+                if (!actualPath.isEmpty()
+                    && QFileInfo(actualPath).absoluteFilePath().compare(
+                           QFileInfo(dllPath).absoluteFilePath(),
+                           Qt::CaseInsensitive) != 0) {
+                    FreeLibrary(module);
+                    releasePreloadedDlls();
+                    setRuntimeDependencyConflict(dllPath, actualPath);
+                    return false;
+                }
                 m_preloadedDlls.append(module);
             }
         }
+        return true;
     }
 
     void releasePreloadedDlls() {

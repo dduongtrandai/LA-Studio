@@ -23,6 +23,11 @@ private slots:
     void exportsSubtitlesAndReviewPackage();
     void segmentNormalizerSplitsLongAsrTranscript();
     void segmentNormalizerUsesAlignedWordBoundaries();
+    void countsVietnameseSyllablesAndPlansBudget();
+    void selectsImprovingDurationCandidate();
+    void buildsPauseAlignedTtsChunks();
+    void extractsAlignedPauses();
+    void roundTripsDurationSettings();
 };
 
 } // namespace LAStudio

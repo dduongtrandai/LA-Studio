@@ -126,7 +126,7 @@ void TestWorkflowGraph::buildsCanonicalDubbingWorkflowDefinition()
 {
     const WorkflowGraph graph = DubbingWorkflowDefinition::create();
     QCOMPARE(graph.id, QStringLiteral("system.dubbing.default"));
-    QCOMPARE(graph.version, 1);
+    QCOMPARE(graph.version, DubbingWorkflowDefinition::Version);
     QCOMPARE(graph.kind, QStringLiteral("system"));
     QCOMPARE(graph.nodes.size(), 13);
     QCOMPARE(graph.edges.size(), 14);

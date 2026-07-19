@@ -23,6 +23,7 @@ struct TranslationInferenceRequest
     QVariantList segments;
     QString sourceLanguage;
     QString targetLanguage;
+    QString task = QStringLiteral("translate");
     int maxTokens = 4096;
     InferenceCancellationToken cancellation;
 };

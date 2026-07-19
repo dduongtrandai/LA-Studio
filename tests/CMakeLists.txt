@@ -76,6 +76,8 @@ set(TEST_SOURCES
     ../src/audio/AudioTimelineRenderer.cpp
     ../src/controllers/stt/SttAudioDecoder.cpp
     ../src/dubbing/DubbingProject.cpp
+    ../src/dubbing/DubbingDuration.cpp
+    ../src/dubbing/DubbingTimingProfile.cpp
     ../src/controllers/dubbing/DubbingController.cpp
     ../src/dubbing/AudioTimelineMixer.cpp
     ../src/controllers/dubbing/DubbingJobRunner.cpp

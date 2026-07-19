@@ -74,6 +74,12 @@ ComboBox {
         return getModelItem(root.currentIndex)
     }
 
+    function closePopup() {
+        if (root.popup) {
+            root.popup.close()
+        }
+    }
+
     function primaryTextFor(item) {
         if (item && typeof item === "object") {
             return item[root.textRole] || item.text || ""
@@ -211,7 +217,7 @@ ComboBox {
     }
 
     delegate: ItemDelegate {
-        width: comboPopup.width
+        width: root.popup ? root.popup.width : root.width
         height: root.isModelSelector ? 44 : 34
         highlighted: root.highlightedIndex === index
         background: Rectangle {
@@ -320,11 +326,11 @@ ComboBox {
                                     var targetIdx = root.filteredModel[0].originalIndex
                                     root.currentIndex = targetIdx
                                     root.activated(targetIdx)
-                                    comboPopup.close()
+                                    root.closePopup()
                                 }
                                 event.accepted = true
                             } else if (event.key === Qt.Key_Escape) {
-                                comboPopup.close()
+                                root.closePopup()
                                 event.accepted = true
                             }
                         }
@@ -384,7 +390,7 @@ ComboBox {
                         var originalIdx = modelData.originalIndex
                         root.currentIndex = originalIdx
                         root.activated(originalIdx)
-                        comboPopup.close()
+                        root.closePopup()
                     }
                 }
                 
@@ -401,7 +407,7 @@ ComboBox {
                             var originalIdx = model[currentIndex].originalIndex
                             root.currentIndex = originalIdx
                             root.activated(originalIdx)
-                            comboPopup.close()
+                            root.closePopup()
                         }
                         event.accepted = true
                     }
@@ -414,7 +420,7 @@ ComboBox {
                 implicitHeight: visible ? Math.min(contentHeight, 260) : 0
                 clip: true
                 visible: !root.searchable
-                model: comboPopup.visible ? root.model : null
+                model: root.popup && root.popup.visible ? root.model : null
                 currentIndex: root.highlightedIndex
                 boundsBehavior: Flickable.StopAtBounds
 
@@ -444,7 +450,7 @@ ComboBox {
                     onClicked: {
                         root.currentIndex = index
                         root.activated(index)
-                        comboPopup.close()
+                        root.closePopup()
                     }
                 }
             }

@@ -410,7 +410,7 @@ Item {
                     ListView {
                         Layout.fillWidth: true; Layout.fillHeight: true; clip: true; spacing: 5; model: dubbing.segments
                         delegate: Rectangle {
-                            width: ListView.view.width; height: 82; radius: Theme.radiusSmall
+                            width: ListView.view.width; height: 98; radius: Theme.radiusSmall
                             color: root.selectedSegment === index ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.12) : Qt.rgba(1, 1, 1, 0.025)
                             border.color: root.selectedSegment === index ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.55) : Qt.rgba(1, 1, 1, 0.06); border.width: 1
                             MouseArea {
@@ -425,6 +425,20 @@ Item {
                                 ColumnLayout { Layout.fillWidth: true; spacing: 3
                                     Field { text: modelData.sourceText || ""; placeholderText: qsTr("Source transcript"); implicitHeight: 30; Layout.fillWidth: true; onEditingFinished: dubbing.updateSegment(index, { sourceText: text }) }
                                     Field { text: modelData.targetText || ""; placeholderText: qsTr("Target translation"); implicitHeight: 30; Layout.fillWidth: true; onEditingFinished: dubbing.updateSegment(index, { targetText: text }) }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        visible: modelData.durationBudget !== undefined
+                                        text: modelData.durationBudget
+                                              ? qsTr("Budget %1–%2 phonemes · current %3 · %4")
+                                                    .arg(modelData.durationBudget.minUnits || 0)
+                                                    .arg(modelData.durationBudget.maxUnits || 0)
+                                                    .arg(modelData.durationUnits || 0)
+                                                    .arg(modelData.durationStatus || qsTr("pending"))
+                                              : ""
+                                        color: modelData.durationStatus === "within-budget" ? Theme.success : Theme.warning
+                                        font.pixelSize: 9
+                                        elide: Text.ElideRight
+                                    }
                                 }
                                 Text { text: modelData.state || qsTr("Ready"); color: modelData.state === "stale" ? Theme.warning : Theme.textSecondary; font.pixelSize: 10; Layout.preferredWidth: 64; horizontalAlignment: Text.AlignRight }
                                 PrimaryButton { text: qsTr("Remove"); quiet: true; Layout.preferredWidth: 64; onClicked: dubbing.removeSegment(index) }
