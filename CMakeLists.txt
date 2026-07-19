@@ -177,6 +177,12 @@ set(LASTUDIO_SOURCES
     src/tts/TimedSpeechPipeline.cpp
     src/audio/AudioTimelineRenderer.cpp
     src/controllers/dubbing/DubbingJobRunner.cpp
+    src/controllers/dubbing/DubbingRunCoordinator.cpp
+    src/controllers/dubbing/SourceSeparationConfigurationResolver.cpp
+    src/controllers/dubbing/DubbingTranscriptionJob.cpp
+    src/controllers/dubbing/DubbingSynthesisJob.cpp
+    src/controllers/dubbing/DubbingExportJob.cpp
+    src/controllers/dubbing/DubbingTranslationJob.cpp
     src/separation/SeparationAudioIO.cpp
     src/separation/SourceSeparationService.cpp
     src/separation/SeparationWorker.cpp
@@ -317,6 +323,12 @@ set(LASTUDIO_HEADERS
     src/tts/TimedSpeechPipeline.h
     src/audio/AudioTimelineRenderer.h
     src/controllers/dubbing/DubbingJobRunner.h
+    src/controllers/dubbing/DubbingRunCoordinator.h
+    src/controllers/dubbing/SourceSeparationConfigurationResolver.h
+    src/controllers/dubbing/DubbingTranscriptionJob.h
+    src/controllers/dubbing/DubbingSynthesisJob.h
+    src/controllers/dubbing/DubbingExportJob.h
+    src/controllers/dubbing/DubbingTranslationJob.h
     src/separation/SeparationTypes.h
     src/separation/SeparationAudioIO.h
     src/separation/SourceSeparationService.h

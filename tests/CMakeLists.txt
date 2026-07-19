@@ -82,6 +82,12 @@ set(TEST_SOURCES
     ../src/controllers/dubbing/DubbingController.cpp
     ../src/dubbing/AudioTimelineMixer.cpp
     ../src/controllers/dubbing/DubbingJobRunner.cpp
+    ../src/controllers/dubbing/DubbingRunCoordinator.cpp
+    ../src/controllers/dubbing/SourceSeparationConfigurationResolver.cpp
+    ../src/controllers/dubbing/DubbingTranscriptionJob.cpp
+    ../src/controllers/dubbing/DubbingSynthesisJob.cpp
+    ../src/controllers/dubbing/DubbingExportJob.cpp
+    ../src/controllers/dubbing/DubbingTranslationJob.cpp
     ../src/dubbing/DubbingTranslationService.cpp
     ../src/dubbing/media/MediaToolService.cpp
     ../src/dubbing/media/AtomicMediaCommit.cpp

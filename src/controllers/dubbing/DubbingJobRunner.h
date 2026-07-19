@@ -2,18 +2,14 @@
 
 #include <QObject>
 #include <QString>
-#include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
 #include <QFutureWatcher>
-#include <QElapsedTimer>
 #include <QAtomicInteger>
 #include <memory>
-#include <QVector>
 #include <QPointer>
 #include "separation/SeparationTypes.h"
-#include "dubbing/DubbingDuration.h"
-#include "translation/backends/TranslationBackend.h"
+#include "controllers/dubbing/DubbingRunCoordinator.h"
 
 namespace LAStudio {
 
@@ -22,26 +18,13 @@ class TtsEngine;
 class ModelManager;
 class RuntimeManager;
 class TranslationEngine;
-class TranslationEngineInstance;
 class MediaToolService;
 class MediaIngestService;
 class SourceSeparationService;
-
-enum class DubbingStage {
-    Idle,
-    Import,
-    SourceSeparation,
-    Transcription,
-    Alignment,
-    Translation,
-    Tts,
-    FitTiming,
-    Mix,
-    Export,
-    Cancelled,
-    Fitted,
-    Mixed
-};
+class DubbingTranscriptionJob;
+class DubbingSynthesisJob;
+class DubbingExportJob;
+class DubbingTranslationJob;
 
 class DubbingJobRunner : public QObject
 {
@@ -56,14 +39,14 @@ public:
                      QObject *parent = nullptr);
     ~DubbingJobRunner() override;
 
-    bool processing() const { return m_processing; }
-    QString stage() const { return m_stage; }
-    int progress() const { return m_progress; }
-    QString lastError() const { return m_lastError; }
+    bool processing() const { return m_run.processing(); }
+    QString stage() const { return m_run.stageName(); }
+    int progress() const { return m_run.progress(); }
+    QString lastError() const { return m_run.lastError(); }
     QString previewPath() const { return m_previewPath; }
     QString exportPath() const { return m_exportPath; }
-    QString runId() const { return m_runId; }
-    QString nodeRunId() const { return m_activeNodeRunId; }
+    QString runId() const { return m_run.runId(); }
+    QString nodeRunId() const { return m_run.nodeRunId(); }
 
     void startIngest(const QString &path);
     void startSourceSeparation(const QString &audioPath,
@@ -98,27 +81,13 @@ signals:
     void stageCompleted(const QString &nodeId, const QVariantMap &outputs);
 
 private slots:
-    void onTranscriptionFinished(const QString &text, const QVariantList &segments);
-    void onAlignmentFinished();
-    void onSynthesisFinished(const QByteArray &pcm16, int sampleRate);
-    void onTtsError(const QString &message);
-    void onMediaFinished(bool success, const QString &outputPath, const QString &error);
-    void onTranslationFinished();
     void onIngestFinished(bool success, const QVariantMap &manifest, const QString &error);
     void onSourceSeparationFinished(const SeparationResult &result);
-    void onRenderFinished();
     void onTimingFinished();
 
 private:
     void setProcessing(bool value, const QString &stage, int progress);
     void setBusyError(const QString &message);
-    void startAlignmentRefinement(const QString &audioPath, const QString &language,
-                                  const QVariantList &segments);
-    void requestDurationCandidates();
-    void requestPauseAlignment();
-    void finishDurationTranslation();
-    void startCurrentTtsChunk();
-    void fitGeneratedSegments();
 
     QPointer<SttSessionController> m_sttSession;
     QPointer<TtsEngine> m_tts;
@@ -126,60 +95,23 @@ private:
     QPointer<ModelManager> m_models;
     QPointer<RuntimeManager> m_runtimes;
 
-    bool m_processing = false;
-    DubbingStage m_stageId = DubbingStage::Idle;
-    QString m_stage;
-    int m_progress = 0;
-    QString m_lastError;
+    DubbingRunCoordinator m_run;
     QString m_previewPath;
     QString m_exportPath;
-    QString m_exportDestination;
-    QString m_exportStagingPath;
-    QString m_exportAudioPath;
-    QString m_renderStagingPath;
 
-    int m_generationIndex = -1;
     QVariantList m_activeSegments;
     QString m_projectPath;
-    QVariantList m_translationInputSegments;
-    DubbingDurationSettings m_durationSettings;
-    double m_durationRate = 10.0;
-    int m_durationIteration = 0;
-    bool m_durationAware = false;
-    QString m_translationPhase;
-    QString m_translationSourceLanguage;
-    QString m_translationTargetLanguage;
-    QString m_runId;
-    QString m_activeNodeRunId;
     QString m_backgroundAudioPath;
-    QString m_transcriptionAudioPath;
-    QString m_transcriptionLanguage;
-    QVariantMap m_synthesisSettings;
 
-    MediaToolService *m_mediaTools = nullptr;
     MediaIngestService *m_mediaIngest = nullptr;
     SourceSeparationService *m_sourceSeparation = nullptr;
+    DubbingTranscriptionJob *m_transcriptionJob = nullptr;
+    DubbingSynthesisJob *m_synthesisJob = nullptr;
+    DubbingExportJob *m_exportJob = nullptr;
+    DubbingTranslationJob *m_translationJob = nullptr;
     QString m_pendingSourceAudioPath;
-    bool m_waitingForTranscriptionInput = false;
-    QElapsedTimer m_stageTimer;
-    QPointer<TranslationEngineInstance> m_translationInstance;
-    TranslationInferenceRequest m_pendingTranslationRequest;
-    QVariantList m_translationResult;
-    QMetaObject::Connection m_translationFinishedConnection;
-    QMetaObject::Connection m_translationErrorConnection;
-    QMetaObject::Connection m_translationLoadedConnection;
-    QMetaObject::Connection m_translationProgressConnection;
-    QFutureWatcher<QVariantMap> *m_alignmentWatcher = nullptr;
-    QFutureWatcher<QVariantMap> *m_renderWatcher = nullptr;
     QFutureWatcher<QVariantList> *m_timingWatcher = nullptr;
-    std::shared_ptr<QAtomicInteger<bool>> m_alignmentCancel;
-    std::shared_ptr<QAtomicInteger<bool>> m_renderCancel;
     std::shared_ptr<QAtomicInteger<bool>> m_timingCancel;
-    quint64 m_translationGeneration = 0;
-    QVariantList m_ttsChunks;
-    int m_ttsChunkIndex = -1;
-    QVector<float> m_ttsChunkSamples;
-    int m_ttsChunkSampleRate = 0;
 };
 
 } // namespace LAStudio

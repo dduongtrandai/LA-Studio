@@ -1,40 +1,23 @@
 #include "controllers/dubbing/DubbingJobRunner.h"
-#include "controllers/models/StudioConfigurationResolver.h"
-#include "translation/TranslationService.h"
-#include "dubbing/DubbingProject.h"
-#include "dubbing/DubbingTranslationService.h"
+#include "controllers/dubbing/SourceSeparationConfigurationResolver.h"
+#include "controllers/dubbing/DubbingTranscriptionJob.h"
+#include "controllers/dubbing/DubbingSynthesisJob.h"
+#include "controllers/dubbing/DubbingExportJob.h"
+#include "controllers/dubbing/DubbingTranslationJob.h"
 #include "translation/TranslationEngine.h"
-#include "dubbing/AlignmentRefinementService.h"
-#include "dubbing/DubbingSegmentNormalizer.h"
-#include "dubbing/DubbingDuration.h"
-#include "dubbing/DubbingTimingProfile.h"
 #include "dubbing/DubbingTimingService.h"
-#include "workflows/WorkflowArtifact.h"
-#include "controllers/app/AppController.h"
 
 #include "SttSessionController.h"
 #include "tts/TtsEngine.h"
-#include "audio/WavIO.h"
-#include "dubbing/media/MediaToolService.h"
 #include "dubbing/media/MediaIngestService.h"
-#include "dubbing/media/AtomicMediaCommit.h"
 #include "separation/SourceSeparationService.h"
 #include "separation/SeparationTypes.h"
-#include "dubbing/AudioTimelineMixer.h"
 #include "core/PathUtils.h"
 #include "core/Logger.h"
 #include "core/ModelManager.h"
 #include "core/RuntimeManager.h"
 
 #include <QFileInfo>
-#include <QFile>
-#include <QDir>
-#include <QtMath>
-#include <QUuid>
-#include <QDirIterator>
-#include <QCryptographicHash>
-#include <QJsonDocument>
-#include <QJsonObject>
 #include <QtConcurrent>
 #include <QRegularExpression>
 
@@ -47,24 +30,6 @@ DubbingJobRunner::DubbingJobRunner(SttSessionController *sttSession, TtsEngine *
 }
 
 namespace {
-DubbingStage stageFromName(const QString &name)
-{
-    if (name == QStringLiteral("import")) return DubbingStage::Import;
-    if (name == QStringLiteral("source-separate") || name == QStringLiteral("source-separation"))
-        return DubbingStage::SourceSeparation;
-    if (name == QStringLiteral("transcription")) return DubbingStage::Transcription;
-    if (name == QStringLiteral("alignment")) return DubbingStage::Alignment;
-    if (name == QStringLiteral("translation")) return DubbingStage::Translation;
-    if (name == QStringLiteral("tts")) return DubbingStage::Tts;
-    if (name == QStringLiteral("fit-timing")) return DubbingStage::FitTiming;
-    if (name == QStringLiteral("mix")) return DubbingStage::Mix;
-    if (name == QStringLiteral("export")) return DubbingStage::Export;
-    if (name == QStringLiteral("cancelled")) return DubbingStage::Cancelled;
-    if (name == QStringLiteral("fitted")) return DubbingStage::Fitted;
-    if (name == QStringLiteral("mixed")) return DubbingStage::Mixed;
-    return DubbingStage::Idle;
-}
-
 QString protectedTokensFor(const QString &text)
 {
     QStringList tokens;
@@ -75,49 +40,6 @@ QString protectedTokensFor(const QString &text)
     return tokens.join(QStringLiteral(", "));
 }
 
-QVariantList buildWaveformPreview(const QVector<float> &samples, int maximumPoints = 360)
-{
-    QVariantList preview;
-    if (samples.isEmpty() || maximumPoints <= 0) return preview;
-
-    const int pointCount = qMin(samples.size(), maximumPoints);
-    preview.reserve(pointCount);
-    for (int point = 0; point < pointCount; ++point) {
-        const int begin = point * samples.size() / pointCount;
-        const int end = qMax(begin + 1, (point + 1) * samples.size() / pointCount);
-        float peak = 0.0f;
-        for (int sample = begin; sample < end; ++sample)
-            peak = qMax(peak, qAbs(samples.at(sample)));
-        preview.append(peak);
-    }
-    return preview;
-}
-
-QString synthesisFingerprint(const QVariantMap &segment, const QString &ttsSignature,
-                             const QVariantMap &synthesisSettings)
-{
-    const QVariantMap effective{{QStringLiteral("targetText"), segment.value(QStringLiteral("targetText"))},
-                                {QStringLiteral("startMs"), segment.value(QStringLiteral("startMs"))},
-                                {QStringLiteral("endMs"), segment.value(QStringLiteral("endMs"))},
-                                {QStringLiteral("speakerId"), segment.value(QStringLiteral("speakerId"))},
-                                {QStringLiteral("ttsSignature"), ttsSignature},
-                                {QStringLiteral("synthesisSettings"), synthesisSettings}};
-    return QString::fromLatin1(QCryptographicHash::hash(
-        QJsonDocument(QJsonObject::fromVariantMap(effective)).toJson(QJsonDocument::Compact),
-        QCryptographicHash::Sha256).toHex());
-}
-
-bool needsSynthesis(const QVariantMap &segment, const QString &ttsSignature,
-                    const QVariantMap &synthesisSettings)
-{
-    const QString targetText = segment.value(QStringLiteral("targetText")).toString().trimmed();
-    if (targetText.isEmpty()) return false;
-    const QString fingerprint = synthesisFingerprint(segment, ttsSignature, synthesisSettings);
-    return segment.value(QStringLiteral("state")).toString() != QStringLiteral("ready")
-        || !QFileInfo::exists(segment.value(QStringLiteral("clipPath")).toString())
-        || segment.value(QStringLiteral("cacheFingerprint")).toString() != fingerprint;
-}
-
 }
 
 DubbingJobRunner::DubbingJobRunner(SttSessionController *sttSession, TtsEngine *tts,
@@ -125,87 +47,98 @@ DubbingJobRunner::DubbingJobRunner(SttSessionController *sttSession, TtsEngine *
                                    ModelManager *models, RuntimeManager *runtimes, QObject *parent)
     : QObject(parent), m_sttSession(sttSession), m_tts(tts), m_translation(translation), m_models(models), m_runtimes(runtimes)
 {
-    m_alignmentWatcher = new QFutureWatcher<QVariantMap>(this);
-    connect(m_alignmentWatcher, &QFutureWatcher<QVariantMap>::finished,
-            this, &DubbingJobRunner::onAlignmentFinished);
-    m_renderWatcher = new QFutureWatcher<QVariantMap>(this);
-    connect(m_renderWatcher, &QFutureWatcher<QVariantMap>::finished,
-            this, &DubbingJobRunner::onRenderFinished);
     m_timingWatcher = new QFutureWatcher<QVariantList>(this);
     connect(m_timingWatcher, &QFutureWatcher<QVariantList>::finished,
             this, &DubbingJobRunner::onTimingFinished);
-    m_mediaTools = new MediaToolService(this);
-    connect(m_mediaTools, &MediaToolService::finished,
-            this, &DubbingJobRunner::onMediaFinished);
     m_mediaIngest = new MediaIngestService(this);
     connect(m_mediaIngest, &MediaIngestService::finished,
             this, &DubbingJobRunner::onIngestFinished);
     connect(m_mediaIngest, &MediaIngestService::progress, this, [this](int percent) {
-        if (m_processing && m_stageId == DubbingStage::Import) {
-            m_progress = percent;
+        if (m_run.processing() && m_run.stageId() == DubbingStage::Import) {
+            m_run.setProgress(percent);
             emit stateChanged();
         }
     });
     m_sourceSeparation = new SourceSeparationService(this);
     connect(m_sourceSeparation, &SourceSeparationService::finished, this, &DubbingJobRunner::onSourceSeparationFinished);
 
-    if (m_sttSession) {
-        connect(m_sttSession, &SttSessionController::transcriptionFinished,
-                this, &DubbingJobRunner::onTranscriptionFinished);
-        connect(m_sttSession, &SttSessionController::transcriptionFailed, this,
-                [this](const QString &message) {
-            if (!m_processing || m_stageId != DubbingStage::Transcription) return;
-            m_waitingForTranscriptionInput = false;
-            setError(message);
-        });
-        connect(m_sttSession, &SttSessionController::progressChanged, this, [this]() {
-            if (!m_processing || m_stageId != DubbingStage::Transcription
-                || m_waitingForTranscriptionInput) return;
-            const int progress = qBound(5, m_sttSession->progress(), 99);
-            if (progress == m_progress) return;
-            m_progress = progress;
-            emit stateChanged();
-        });
-        connect(m_sttSession, &SttSessionController::inputErrorChanged, this, [this]() {
-            if (m_processing && m_stageId == DubbingStage::Transcription
-                && !m_sttSession->inputError().isEmpty()) {
-                Logger::error(QStringLiteral("DubbingPipeline"),
-                              QStringLiteral("STT input decode failed: %1").arg(m_sttSession->inputError()));
-                m_waitingForTranscriptionInput = false;
-                setError(m_sttSession->inputError());
-            }
-        });
-        connect(m_sttSession, &SttSessionController::inputLoadingChanged, this, [this]() {
-            if (!m_processing || m_stageId != DubbingStage::Transcription
-                || !m_waitingForTranscriptionInput || m_sttSession->inputLoading()) return;
-            if (!m_sttSession->inputError().isEmpty()) return;
+    m_transcriptionJob = new DubbingTranscriptionJob(m_sttSession, m_models, m_runtimes, this);
+    connect(m_transcriptionJob, &DubbingTranscriptionJob::progressChanged, this, [this](int progress) {
+        if (!m_run.processing() || m_run.stageId() != DubbingStage::Transcription) return;
+        m_run.setProgress(progress);
+        emit stateChanged();
+    });
+    connect(m_transcriptionJob, &DubbingTranscriptionJob::failed,
+            this, &DubbingJobRunner::setError);
+    connect(m_transcriptionJob, &DubbingTranscriptionJob::completed, this,
+            [this](const QVariantList &segments) {
+        if (!m_run.processing() || m_run.stageId() != DubbingStage::Transcription) return;
+        setProcessing(false, QStringLiteral("transcribed"), 100);
+        emit segmentsUpdated(segments);
+        emit stageCompleted(QStringLiteral("transcribe"), {{QStringLiteral("transcript"), segments}});
+    });
 
-            m_waitingForTranscriptionInput = false;
-            Logger::info(QStringLiteral("DubbingPipeline"),
-                         QStringLiteral("STT input decoded; starting inference for %1").arg(m_sttSession->inputPath()));
-            m_progress = 5;
-            emit stateChanged();
-            m_sttSession->transcribeInput();
-        });
-    }
-    if (m_tts) {
-        connect(m_tts, &TtsEngine::synthesisFinished, this, &DubbingJobRunner::onSynthesisFinished);
-        connect(m_tts, &TtsEngine::errorOccurred, this, &DubbingJobRunner::onTtsError);
-    }
+    m_synthesisJob = new DubbingSynthesisJob(m_tts, this);
+    connect(m_synthesisJob, &DubbingSynthesisJob::progressChanged, this, [this](int progress) {
+        if (!m_run.processing() || m_run.stageId() != DubbingStage::Tts) return;
+        m_run.setProgress(progress);
+        emit stateChanged();
+    });
+    connect(m_synthesisJob, &DubbingSynthesisJob::segmentUpdated,
+            this, &DubbingJobRunner::segmentUpdated);
+    connect(m_synthesisJob, &DubbingSynthesisJob::failed,
+            this, &DubbingJobRunner::setError);
+    connect(m_synthesisJob, &DubbingSynthesisJob::completed, this,
+            [this](const QVariantList &segments) {
+        if (!m_run.processing() || m_run.stageId() != DubbingStage::Tts) return;
+        m_activeSegments = segments;
+        setProcessing(false, QStringLiteral("ready"), 100);
+        emit segmentsUpdated(m_activeSegments);
+        emit stageCompleted(QStringLiteral("synthesize"), {{QStringLiteral("timeline"), m_activeSegments}});
+    });
+
+    m_exportJob = new DubbingExportJob(this);
+    connect(m_exportJob, &DubbingExportJob::progressChanged, this,
+            [this](const QString &stage, int progress) {
+        if (!m_run.processing() || (stage == QStringLiteral("mix") && m_run.stageId() != DubbingStage::Mix)
+            || (stage == QStringLiteral("export") && m_run.stageId() != DubbingStage::Export)) return;
+        m_run.setProgress(progress);
+        emit stateChanged();
+    });
+    connect(m_exportJob, &DubbingExportJob::failed,
+            this, &DubbingJobRunner::setError);
+    connect(m_exportJob, &DubbingExportJob::previewReady, this, [this](const QString &path) {
+        m_previewPath = path;
+        setProcessing(false, QStringLiteral("mixed"), 100);
+        emit stageCompleted(QStringLiteral("mix"), {{QStringLiteral("audio"), path}});
+    });
+    connect(m_exportJob, &DubbingExportJob::exported, this, [this](const QString &path) {
+        m_exportPath = path;
+        setProcessing(false, QStringLiteral("exported"), 100);
+        emit stageCompleted(QStringLiteral("export"), {{QStringLiteral("media"), path}});
+    });
+
+    m_translationJob = new DubbingTranslationJob(m_translation, m_models, m_runtimes, m_tts, this);
+    connect(m_translationJob, &DubbingTranslationJob::progressChanged, this, [this](int progress) {
+        if (!m_run.processing() || m_run.stageId() != DubbingStage::Translation) return;
+        m_run.setProgress(progress);
+        emit stateChanged();
+    });
+    connect(m_translationJob, &DubbingTranslationJob::failed,
+            this, &DubbingJobRunner::setError);
+    connect(m_translationJob, &DubbingTranslationJob::completed, this,
+            [this](const QVariantList &segments) {
+        if (!m_run.processing() || m_run.stageId() != DubbingStage::Translation) return;
+        m_activeSegments = segments;
+        setProcessing(false, QStringLiteral("translated"), 100);
+        emit segmentsUpdated(segments);
+        emit stageCompleted(QStringLiteral("translate"), {{QStringLiteral("transcript"), segments}});
+    });
 }
 
 DubbingJobRunner::~DubbingJobRunner()
 {
     cancel();
-    if (m_alignmentWatcher) {
-        m_alignmentWatcher->cancel();
-        m_alignmentWatcher->waitForFinished();
-    }
-    if (m_renderWatcher) {
-        if (m_renderCancel) m_renderCancel->storeRelease(true);
-        m_renderWatcher->cancel();
-        m_renderWatcher->waitForFinished();
-    }
     if (m_timingWatcher) {
         if (m_timingCancel) m_timingCancel->storeRelease(true);
         m_timingWatcher->cancel();
@@ -215,15 +148,15 @@ DubbingJobRunner::~DubbingJobRunner()
 
 void DubbingJobRunner::startIngest(const QString &path)
 {
-    if (m_processing) {
+    if (m_run.processing()) {
         setBusyError(QStringLiteral("A dubbing operation is already running."));
         return;
     }
-    if (m_runId.isEmpty()) m_runId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    m_activeNodeRunId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    m_run.ensureRun();
+    m_run.beginNode();
     Logger::info(QStringLiteral("DubbingPipeline"),
                  QStringLiteral("[ingest] start run=%1 node=%2 input=%3")
-                     .arg(m_runId, m_activeNodeRunId, path));
+                     .arg(m_run.runId(), m_run.nodeRunId(), path));
     setProcessing(true, QStringLiteral("import"), 0);
     m_mediaIngest->ingest(path);
 }
@@ -231,7 +164,7 @@ void DubbingJobRunner::startIngest(const QString &path)
 void DubbingJobRunner::startSourceSeparation(const QString &audioPath,
                                              const QVariantMap &modelConfiguration)
 {
-    if (m_processing) {
+    if (m_run.processing()) {
         setBusyError(QStringLiteral("A dubbing operation is already running."));
         return;
     }
@@ -244,92 +177,26 @@ void DubbingJobRunner::startSourceSeparation(const QString &audioPath,
                  QStringLiteral("[source-separate] requested audio=%1 size=%2 bytes")
                      .arg(audioPath).arg(QFileInfo(audioPath).size()));
 
-    SeparationConfiguration config;
-    QString runtimePath;
-    QString modelPath;
-    AppController *app = AppController::instance();
-
-    if (!modelConfiguration.value(QStringLiteral("familyId")).toString().isEmpty()) {
-        StudioConfiguration selection;
-        selection.capabilityId = QStringLiteral("voice-isolation");
-        selection.familyId = modelConfiguration.value(QStringLiteral("familyId")).toString();
-        selection.runtimeId = modelConfiguration.value(QStringLiteral("runtimeId")).toString();
-        selection.runtimeVersion = modelConfiguration.value(QStringLiteral("runtimeVersion")).toString();
-        selection.selectedFiles = modelConfiguration.value(QStringLiteral("selectedFiles")).toMap();
-
-        const ResolvedConfiguration resolved = StudioConfigurationResolver::resolve(selection);
-        if (!resolved.isValid || !QFileInfo(resolved.runtimePath).isFile()) {
-            setError(QStringLiteral("The selected voice isolation model or runtime is unavailable."));
-            return;
-        }
-
-        config.backendId = resolved.resolvedPaths.value(
-            QStringLiteral("backend"), QStringLiteral("sherpa-onnx")).toString();
-        config.pipelineProfile = resolved.resolvedPaths.value(QStringLiteral("pipelineProfile")).toString();
-        config.runtimeId = selection.runtimeId;
-        config.runtimeVersion = selection.runtimeVersion;
-        config.runtimePath = resolved.runtimePath;
-        config.familyId = selection.familyId;
-        config.configurationSignature = resolved.signature;
-
-        const QVariantList requiredFiles = resolved.family.value(QStringLiteral("requiredFiles")).toList();
-        for (const QVariant &requiredValue : requiredFiles) {
-            const QString role = requiredValue.toMap().value(QStringLiteral("role")).toString();
-            const QString path = resolved.resolvedPaths.value(role).toString();
-            if (role.isEmpty() || path.isEmpty() || !QFileInfo(path).isFile()) {
-                setError(QStringLiteral("A required voice isolation model file is unavailable: %1").arg(role));
-                return;
-            }
-            config.modelFilesByRole.insert(role, path);
-        }
-    } else {
-        runtimePath = qEnvironmentVariable("SHERPA_ONNX_RUNTIME");
-        modelPath = qEnvironmentVariable("SHERPA_ONNX_UVR_MODEL");
-        if (runtimePath.isEmpty() || !QFileInfo(runtimePath).isFile()) {
-            if (app && app->runtimes()) {
-                for (const auto &rtVal : app->runtimes()->allRuntimes()) {
-                    const QString rtId = rtVal.toMap().value(QStringLiteral("id")).toString();
-                    if (rtId != QStringLiteral("sherpa-onnx-win-x86_64-cpu")
-                        && rtId != QStringLiteral("sherpa-onnx-source-separation-win-x86_64-cpu")) continue;
-                    const QString path = app->runtimes()->getRuntimePath(rtId);
-                    if (!path.isEmpty() && QFileInfo(path).isFile()) { runtimePath = path; break; }
-                }
-            }
-        }
-        if (modelPath.isEmpty() || !QFileInfo(modelPath).isFile()) {
-            if (app && app->models()) {
-                for (const QString &modelId : {QStringLiteral("k2-fsa/sherpa-onnx-uvr-vocals-ft"),
-                                              QStringLiteral("k2-fsa/sherpa-onnx-source-separation")}) {
-                    const QString path = app->models()->filePath(modelId, QStringLiteral("UVR-MDX-NET-Voc_FT.onnx"));
-                    if (!path.isEmpty() && QFileInfo(path).isFile()) { modelPath = path; break; }
-                }
-            }
-        }
-
-        if (runtimePath.isEmpty() || modelPath.isEmpty()
-            || !QFileInfo(runtimePath).isFile() || !QFileInfo(modelPath).isFile()) {
-            const QVariantMap outputs{{QStringLiteral("vocals"), audioPath},
-                                      {QStringLiteral("background"), audioPath},
-                                      {QStringLiteral("warning"), QStringLiteral("Voice isolation runtime or model is unavailable; using normalized audio.")}};
-            Logger::warning(QStringLiteral("DubbingPipeline"),
-                            QStringLiteral("[source-separate] runtime/model unavailable; using normalized audio"));
-            emit sourceSeparationFinished(outputs);
-            emit stageCompleted(QStringLiteral("source-separate"), outputs);
-            return;
-        }
-
-        config.backendId = QStringLiteral("sherpa-onnx");
-        config.pipelineProfile = QStringLiteral("uvr-2stems");
-        config.runtimeId = QStringLiteral("sherpa-onnx-win-x86_64-cpu");
-        config.runtimeVersion = QStringLiteral("v1.13.4");
-        config.runtimePath = runtimePath;
-        config.familyId = QStringLiteral("k2-fsa/sherpa-onnx-uvr-vocals-ft");
-        config.configurationSignature = QStringLiteral("uvr-vocals-ft");
-        config.modelFilesByRole.insert(QStringLiteral("model"), modelPath);
+    const SourceSeparationConfigurationResult resolved =
+        SourceSeparationConfigurationResolver(m_models, m_runtimes).resolve(modelConfiguration);
+    if (!resolved.error.isEmpty()) {
+        setError(resolved.error);
+        return;
     }
+    if (!resolved.available) {
+        const QVariantMap outputs{{QStringLiteral("vocals"), audioPath},
+                                  {QStringLiteral("background"), audioPath},
+                                  {QStringLiteral("warning"), resolved.warning}};
+        Logger::warning(QStringLiteral("DubbingPipeline"),
+                        QStringLiteral("[source-separate] runtime/model unavailable; using normalized audio"));
+        emit sourceSeparationFinished(outputs);
+        emit stageCompleted(QStringLiteral("source-separate"), outputs);
+        return;
+    }
+    const SeparationConfiguration config = resolved.configuration;
 
-    if (m_runId.isEmpty()) m_runId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    m_activeNodeRunId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    m_run.ensureRun();
+    m_run.beginNode();
     m_pendingSourceAudioPath = audioPath;
     Logger::info(QStringLiteral("DubbingPipeline"),
                  QStringLiteral("[source-separate] runtime=%1 family=%2")
@@ -352,303 +219,56 @@ void DubbingJobRunner::startSourceSeparation(const QString &audioPath,
 
 void DubbingJobRunner::startTranscription(const QString &sourceLanguage, const QString &sourceMediaPath)
 {
-    if (m_processing || (m_sttSession && m_sttSession->processing())) {
+    if (m_run.processing() || (m_transcriptionJob && m_transcriptionJob->running())) {
         setBusyError(QStringLiteral("Speech transcription is already running."));
         return;
     }
-    if (!m_sttSession || sourceMediaPath.isEmpty()) {
-        setError(QStringLiteral("Import media before starting transcription."));
-        return;
-    }
-    if (!m_sttSession->canTranscribe()) {
-        setError(QStringLiteral("The STT model is not ready. Wait for model loading to finish and try again."));
-        return;
-    }
-    if (m_runId.isEmpty()) m_runId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    m_activeNodeRunId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    m_run.ensureRun();
+    m_run.beginNode();
     Logger::info(QStringLiteral("DubbingPipeline"),
                  QStringLiteral("[transcription] start run=%1 node=%2 language=%3 audio=%4 size=%5 bytes")
-                     .arg(m_runId, m_activeNodeRunId, sourceLanguage, sourceMediaPath)
+                     .arg(m_run.runId(), m_run.nodeRunId(), sourceLanguage, sourceMediaPath)
                      .arg(QFileInfo(sourceMediaPath).size()));
     setProcessing(true, QStringLiteral("transcription"), 0);
-    m_sttSession->setLanguage(sourceLanguage);
-    m_sttSession->setTranslate(false);
-    m_sttSession->selectFileInput(sourceMediaPath);
-    m_transcriptionAudioPath = sourceMediaPath;
-    m_transcriptionLanguage = sourceLanguage;
-    m_waitingForTranscriptionInput = true;
-    Logger::debug(QStringLiteral("DubbingPipeline"),
-                  QStringLiteral("[transcription] waiting for asynchronous audio decode"));
-    if (!m_sttSession->inputLoading() && m_sttSession->inputError().isEmpty()) {
-        m_waitingForTranscriptionInput = false;
-        Logger::info(QStringLiteral("DubbingPipeline"), QStringLiteral("[transcription] audio was already decoded; starting inference"));
-        m_progress = 5;
-        emit stateChanged();
-        m_sttSession->transcribeInput();
-    }
+    if (!m_transcriptionJob || !m_transcriptionJob->start(sourceLanguage, sourceMediaPath)) return;
 }
 
 void DubbingJobRunner::startTranslation(const QString &sourceLanguage, const QString &targetLanguage, const QVariantList &segments,
-                                        const QVariantMap &modelConfiguration)
+                                         const QVariantMap &modelConfiguration)
 {
-    if (m_processing || (m_translationInstance && m_translationInstance->isProcessing())) {
+    if (m_run.processing() || (m_translationJob && m_translationJob->running())) {
         setBusyError(QStringLiteral("A translation request is already running."));
         return;
     }
-    if (!m_translation) {
-        setError(QStringLiteral("Translation engine is unavailable."));
-        return;
-    }
-    DubbingTranslationService translationService(m_models, m_runtimes);
-    DubbingTranslationRequest request;
-    QString preparationError;
-    bool prepared = false;
-    if (!modelConfiguration.isEmpty()) {
-        StudioConfiguration selected;
-        selected.capabilityId = QStringLiteral("translation");
-        selected.familyId = modelConfiguration.value(QStringLiteral("familyId")).toString();
-        selected.runtimeId = modelConfiguration.value(QStringLiteral("runtimeId")).toString();
-        selected.runtimeVersion = modelConfiguration.value(QStringLiteral("runtimeVersion")).toString();
-        selected.selectedFiles = modelConfiguration.value(QStringLiteral("selectedFiles")).toMap();
-        const ResolvedConfiguration resolved = StudioConfigurationResolver::resolve(selected);
-        if (resolved.isValid) {
-            SessionConfiguration sessionConfig;
-            sessionConfig.capabilityId = selected.capabilityId;
-            sessionConfig.selection.capabilityId = selected.capabilityId;
-            sessionConfig.selection.familyId = selected.familyId;
-            sessionConfig.selection.runtimeId = selected.runtimeId;
-            sessionConfig.selection.runtimeVersion = selected.runtimeVersion;
-            sessionConfig.familyConfig = resolved.family;
-            sessionConfig.runtimePath = resolved.runtimePath;
-            for (auto it = resolved.resolvedPaths.cbegin(); it != resolved.resolvedPaths.cend(); ++it) {
-                if (it.key() == QStringLiteral("familyId") || it.key() == QStringLiteral("backend") || it.key() == QStringLiteral("pipelineProfile")) continue;
-                sessionConfig.resolvedPathsByRole.insert(it.key(), it.value().toString());
-                if (it.value().toString().endsWith(QStringLiteral(".gguf"), Qt::CaseInsensitive)) sessionConfig.resolvedModelPaths.append(it.value().toString());
-            }
-            TranslationService::prepareConfiguration(sessionConfig, sourceLanguage, targetLanguage, request, &preparationError);
-            prepared = !request.modelPath.isEmpty();
-        }
-    }
-    if (!prepared) prepared = translationService.prepare(sourceLanguage, targetLanguage, request, &preparationError);
-    if (!prepared) {
-        setError(preparationError);
-        return;
-    }
-    const quint64 generation = ++m_translationGeneration;
-    m_durationSettings = DubbingDurationSettings();
-    m_translationSourceLanguage = sourceLanguage;
-    m_translationTargetLanguage = targetLanguage;
-    QVariantMap configuredParameters = modelConfiguration.value(QStringLiteral("parameters")).toMap();
-    if (configuredParameters.isEmpty()) configuredParameters = modelConfiguration;
-    if (configuredParameters.contains(QStringLiteral("durationControl")))
-        m_durationSettings = DubbingDurationSettings::fromVariantMap(
-            configuredParameters.value(QStringLiteral("durationControl")).toMap());
-    if (configuredParameters.contains(QStringLiteral("durationAware")))
-        m_durationSettings.enabled = configuredParameters.value(QStringLiteral("durationAware")).toBool();
-    m_durationAware = m_durationSettings.enabled && targetLanguage.compare(QStringLiteral("vi"), Qt::CaseInsensitive) == 0;
-    if (m_durationAware && !request.backend.contains(QStringLiteral("llama"), Qt::CaseInsensitive)) {
-        Logger::warning(QStringLiteral("DubbingPipeline"),
-                        QStringLiteral("Duration-aware translation requested but backend %1 is not instruction-capable; using normal translation.").arg(request.backend));
-        m_durationAware = false;
-    }
-    m_durationIteration = 0;
-    m_durationRate = 10.0;
-    if (m_durationAware && m_tts && !m_tts->activeSignature().isEmpty()) {
-        DubbingTimingProfile profile;
-        const QString id = DubbingTimingProfileStore::profileId(m_tts->activeSignature(), targetLanguage);
-        if (DubbingTimingProfileStore::load(id, profile)) {
-            m_durationRate = profile.phonemesPerSecond;
-            Logger::info(QStringLiteral("DubbingPipeline"),
-                         QStringLiteral("Using cached phoneme predictor profile %1 rate=%2 confidence=%3")
-                             .arg(id).arg(m_durationRate).arg(profile.confidence));
-        } else {
-            Logger::warning(QStringLiteral("DubbingPipeline"),
-                            QStringLiteral("No phoneme predictor profile for the selected TTS; using target-language rate=%1")
-                                .arg(m_durationRate));
-        }
-    } else if (m_durationAware) {
-        Logger::info(QStringLiteral("DubbingPipeline"),
-                     QStringLiteral("No TTS is active; DT uses target-language phoneme rate=%1 without invoking TTS")
-                         .arg(m_durationRate));
-    }
-    QVariantList plannedSegments;
-    plannedSegments.reserve(segments.size());
-    for (const QVariant &value : segments) {
-        QVariantMap segment = value.toMap();
-        if (m_durationAware) {
-            const DubbingSpeechBudget budget = DubbingDurationPlanner::plan(segment, m_durationRate, m_durationSettings);
-            segment.insert(QStringLiteral("durationBudget"), budget.toVariantMap());
-            segment.insert(QStringLiteral("protectedTokens"), protectedTokensFor(segment.value(QStringLiteral("sourceText")).toString()));
-            segment.insert(QStringLiteral("durationPrompt"),
-                           QStringLiteral("Use between %1 and %2 target-language phonemes (predicted %3).")
-                               .arg(budget.minUnits).arg(budget.maxUnits).arg(budget.targetUnits));
-        }
-        plannedSegments.append(segment);
-    }
-    m_translationInputSegments = plannedSegments;
-    if (m_runId.isEmpty()) m_runId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    m_activeNodeRunId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    Logger::info(QStringLiteral("DubbingPipeline"),
-                 QStringLiteral("[translation] start run=%1 node=%2 source=%3 target=%4 segments=%5")
-                     .arg(m_runId, m_activeNodeRunId, sourceLanguage, targetLanguage).arg(segments.size()));
+    m_run.ensureRun();
+    m_run.beginNode();
     setProcessing(true, QStringLiteral("translation"), 0);
-
-    SessionConfiguration configuration;
-    configuration.capabilityId = QStringLiteral("translation");
-    configuration.selection.capabilityId = configuration.capabilityId;
-    configuration.selection.familyId = request.backend;
-    configuration.selection.runtimeId = request.useGpu ? QStringLiteral("translation-cuda") : QStringLiteral("translation-cpu");
-    configuration.familyConfig = QVariantMap{{QStringLiteral("id"), request.backend},
-                                             {QStringLiteral("backend"), request.backend}};
-    configuration.runtimePath = request.runtimePath;
-    configuration.resolvedModelPaths = {request.modelPath};
-    configuration.resolvedPathsByRole.insert(QStringLiteral("model"), request.modelPath);
-    configuration.signature = QStringLiteral("dubbing|%1|%2|%3")
-        .arg(request.backend, request.modelPath, request.runtimePath);
-
-    m_translationInstance = m_translation->instance(configuration.signature);
-    // Reuse a model already loaded from the Translate node.  The runner's
-    // synthetic signature is intentionally different from the persisted node
-    // signature, so looking up by signature alone used to load Hy-MT2 twice.
-    if (!m_translationInstance) {
-        const QString requestedModel = QFileInfo(request.modelPath).absoluteFilePath();
-        for (TranslationEngineInstance *candidate : m_translation->loadedInstances()) {
-            if (!candidate || !candidate->isModelLoaded()) continue;
-            const SessionConfiguration existing = candidate->configuration();
-            if (existing.runtimePath != request.runtimePath) continue;
-            for (const QString &path : existing.resolvedModelPaths) {
-                if (QFileInfo(path).absoluteFilePath().compare(requestedModel, Qt::CaseInsensitive) == 0) {
-                    m_translationInstance = candidate;
-                    break;
-                }
-            }
-            if (m_translationInstance) break;
-        }
-    }
-    if (!m_translationInstance) {
-        m_translationInstance = m_translation->loadInstance(configuration, false);
-    }
-    if (!m_translationInstance) {
-        setError(QStringLiteral("Failed to create Translation instance."));
-        return;
-    }
-
-    TranslationInferenceRequest inferenceRequest;
-    inferenceRequest.segments = m_translationInputSegments;
-    inferenceRequest.sourceLanguage = sourceLanguage;
-    inferenceRequest.targetLanguage = targetLanguage;
-    // Algorithm 1 starts from an unconstrained reference translation (Tref).
-    inferenceRequest.task = QStringLiteral("translate");
-    inferenceRequest.maxTokens = request.maxTokens;
-    inferenceRequest.cancellation = InferenceCancellationToken();
-    m_translationResult.clear();
-    m_pendingTranslationRequest = inferenceRequest;
-    m_translationPhase = QStringLiteral("reference");
-
-    QObject::disconnect(m_translationFinishedConnection);
-    QObject::disconnect(m_translationErrorConnection);
-    QObject::disconnect(m_translationLoadedConnection);
-    QObject::disconnect(m_translationProgressConnection);
-    m_translationFinishedConnection = connect(m_translationInstance, &TranslationEngineInstance::translationFinished,
-        this, [this, generation](const QVariantList &patches) {
-            if (generation != m_translationGeneration || !m_processing
-                || m_translationPhase.isEmpty()) return;
-            m_translationResult = {QVariantMap{{QStringLiteral("__workflowGeneration"), QString::number(generation)}}};
-            for (const QVariant &patch : patches) m_translationResult.append(patch);
-            onTranslationFinished();
-        });
-    m_translationErrorConnection = connect(m_translationInstance, &TranslationEngineInstance::errorOccurred,
-        this, [this, generation](const QString &error) {
-            if (generation == m_translationGeneration && !m_translationPhase.isEmpty())
-                setError(error);
-        });
-    m_translationProgressConnection = connect(
-        m_translationInstance, &TranslationEngineInstance::progressChanged, this, [this]() {
-            if (!m_processing || !m_translationInstance) return;
-            const int workerProgress = m_translationInstance->progress();
-            if (m_translationPhase == QStringLiteral("reference"))
-                m_progress = qBound(0, workerProgress * 30 / 100, 30);
-            else if (m_translationPhase == QStringLiteral("rewrite")) {
-                const int base = 30 + m_durationIteration * 15;
-                m_progress = qBound(base, base + workerProgress * 15 / 100, 85);
-            } else if (m_translationPhase == QStringLiteral("pause-align"))
-                m_progress = qBound(85, 85 + workerProgress * 10 / 100, 95);
-            emit stateChanged();
-        });
-    auto startWhenReady = [this, generation]() {
-        if (!m_translationInstance || generation != m_translationGeneration) return;
-        if (m_translationInstance->state() == TranslationEngineInstance::Ready) {
-            m_translationInstance->translate(m_pendingTranslationRequest);
-        } else if (m_translationInstance->state() == TranslationEngineInstance::Error) {
-            setError(QStringLiteral("Translation model failed to load."));
-        }
-    };
-    if (m_translationInstance->isModelLoaded()) {
-        startWhenReady();
-    } else {
-        m_translationLoadedConnection = connect(
-            m_translationInstance, &TranslationEngineInstance::modelLoadedChanged,
-            this, startWhenReady);
-    }
+    if (!m_translationJob || !m_translationJob->start(sourceLanguage, targetLanguage,
+                                                       segments, modelConfiguration, m_run.runId())) return;
 }
-
 void DubbingJobRunner::startAudioGeneration(const QVariantList &segments, const QString &projectPath,
-                                            const QVariantMap &synthesisSettings)
+                                             const QVariantMap &synthesisSettings)
 {
-    if (m_processing || (m_tts && m_tts->isProcessing())) {
+    if (m_run.processing() || (m_synthesisJob && m_synthesisJob->running())) {
         setBusyError(QStringLiteral("Speech synthesis is already running."));
-        return;
-    }
-    if (!m_tts || !m_tts->isModelLoaded()) {
-        setError(QStringLiteral("Load a TTS model before generating dubbing audio."));
         return;
     }
     m_activeSegments = segments;
     m_projectPath = projectPath;
-    // Snapshot the node settings once per run. Every segment in this run must
-    // use the same preset even if the inspector changes while synthesis runs.
-    m_synthesisSettings = synthesisSettings;
-    if (m_runId.isEmpty()) m_runId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    m_generationIndex = -1;
-    bool hasTargetText = false;
-    for (int i = 0; i < m_activeSegments.size(); ++i) {
-        const QVariantMap segment = m_activeSegments.at(i).toMap();
-        hasTargetText = hasTargetText
-            || !segment.value(QStringLiteral("targetText")).toString().trimmed().isEmpty();
-        if (needsSynthesis(segment, m_tts->activeSignature(), m_synthesisSettings)) {
-            m_generationIndex = i;
-            break;
-        }
-    }
-    if (m_generationIndex < 0) {
-        if (!hasTargetText) {
-            setError(QStringLiteral("Add target text to at least one segment before generating."));
-            return;
-        }
-        // Nothing needs inference: all clips are already valid cache entries.
-        setProcessing(true, QStringLiteral("tts"), 100);
-        fitGeneratedSegments();
-        setProcessing(false, QStringLiteral("ready"), 100);
-        emit stageCompleted(QStringLiteral("synthesize"),
-                           {{QStringLiteral("timeline"), m_activeSegments}});
-        return;
-    }
+    m_run.ensureRun();
+    m_run.beginNode();
     Logger::info(QStringLiteral("DubbingPipeline"),
-                 QStringLiteral("[tts] start run=%1 segments=%2 firstIndex=%3 model=%4 voice=%5 project=%6")
-                     .arg(m_runId).arg(m_activeSegments.size()).arg(m_generationIndex)
-                     .arg(m_tts->activeSignature(),
-                          m_synthesisSettings.value(QStringLiteral("voice")).toString(),
-                          projectPath));
+                 QStringLiteral("[tts] start run=%1 segments=%2 voice=%3 project=%4")
+                     .arg(m_run.runId()).arg(m_activeSegments.size())
+                     .arg(synthesisSettings.value(QStringLiteral("voice")).toString(), projectPath));
     setProcessing(true, QStringLiteral("tts"), 0);
-    m_activeNodeRunId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    m_ttsChunkIndex = -1;
-    startCurrentTtsChunk();
+    if (!m_synthesisJob || !m_synthesisJob->start(segments, projectPath, synthesisSettings, m_run.runId())) return;
 }
 
 void DubbingJobRunner::fitTiming(const QVariantList &segments, const QString &projectPath)
 {
     if (segments.isEmpty()) return;
-    if (m_processing || !m_timingWatcher || m_timingWatcher->isRunning()) {
+    if (m_run.processing() || !m_timingWatcher || m_timingWatcher->isRunning()) {
         setBusyError(QStringLiteral("Another dubbing operation is already running."));
         return;
     }
@@ -668,7 +288,7 @@ void DubbingJobRunner::fitTiming(const QVariantList &segments, const QString &pr
 
 void DubbingJobRunner::onTimingFinished()
 {
-    if (!m_timingWatcher || m_stageId != DubbingStage::FitTiming) return;
+    if (!m_timingWatcher || m_run.stageId() != DubbingStage::FitTiming) return;
     const QVariantList fitted = m_timingWatcher->result();
     m_timingCancel.reset();
     if (fitted.isEmpty() && !m_activeSegments.isEmpty()) {
@@ -686,111 +306,38 @@ void DubbingJobRunner::onTimingFinished()
 
 void DubbingJobRunner::cancel()
 {
-    if (!m_processing) {
-        ++m_translationGeneration;
+    if (!m_run.processing()) {
         return;
     }
-    if (m_stageId == DubbingStage::Tts && m_tts && m_tts->isProcessing())
-        m_tts->cancelProcessing();
-    if (m_stageId == DubbingStage::Transcription && m_sttSession && m_sttSession->processing()) m_sttSession->cancelProcessing();
-    if (m_stageId == DubbingStage::Alignment && m_alignmentCancel) {
-        m_alignmentCancel->storeRelease(true);
-        m_alignmentCancel.reset();
-    }
-    if (m_stageId == DubbingStage::Mix && m_renderCancel)
-        m_renderCancel->storeRelease(true);
-    if (m_stageId == DubbingStage::FitTiming && m_timingCancel)
+    if (m_run.stageId() == DubbingStage::Tts && m_synthesisJob) m_synthesisJob->cancel();
+    if (m_run.stageId() == DubbingStage::Transcription && m_transcriptionJob) m_transcriptionJob->cancel();
+    if (m_run.stageId() == DubbingStage::FitTiming && m_timingCancel)
         m_timingCancel->storeRelease(true);
-    if (m_stageId == DubbingStage::Export && m_mediaTools) m_mediaTools->cancel();
-    if (m_stageId == DubbingStage::Import && m_mediaIngest) m_mediaIngest->cancel();
+    if ((m_run.stageId() == DubbingStage::Mix || m_run.stageId() == DubbingStage::Export) && m_exportJob)
+        m_exportJob->cancel();
+    if (m_run.stageId() == DubbingStage::Import && m_mediaIngest) m_mediaIngest->cancel();
     if (m_sourceSeparation) m_sourceSeparation->cancel();
-    if (!m_translationPhase.isEmpty() && m_translationInstance
-        && m_translationInstance->isProcessing()) {
-        m_translationInstance->cancelProcessing();
-    }
+    if (m_run.stageId() == DubbingStage::Translation && m_translationJob)
+        m_translationJob->cancel();
     Logger::warning(QStringLiteral("DubbingPipeline"),
-                    QStringLiteral("[%1] cancelled at %2%%").arg(m_stage).arg(m_progress));
-    m_waitingForTranscriptionInput = false;
-    if (m_stageId == DubbingStage::Export) {
-        QFile::remove(m_exportStagingPath);
-        m_exportDestination.clear();
-        m_exportAudioPath.clear();
-    }
-    ++m_translationGeneration;
-    m_translationPhase.clear();
-    m_generationIndex = -1;
-    setProcessing(false, QStringLiteral("cancelled"), m_progress);
+                    QStringLiteral("[%1] cancelled at %2%%").arg(m_run.stageName()).arg(m_run.progress()));
+    setProcessing(false, QStringLiteral("cancelled"), m_run.progress());
 }
 
 bool DubbingJobRunner::renderPreview(const QVariantList &segments, const QString &projectPath, const QString &path)
 {
-    if (m_processing) {
+    if (m_run.processing()) {
         setBusyError(QStringLiteral("Finish the active dubbing operation before rendering a preview."));
         return false;
     }
-    QString outputPath = path;
-    if (outputPath.isEmpty()) {
-        if (projectPath.isEmpty()) {
-            setError(QStringLiteral("Save the project before rendering a preview."));
-            return false;
-        }
-        outputPath = QFileInfo(projectPath).absolutePath() + QStringLiteral("/preview.wav");
-    }
-
-    if (m_runId.isEmpty()) m_runId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    m_activeNodeRunId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    m_run.ensureRun();
+    m_run.beginNode();
     Logger::info(QStringLiteral("DubbingPipeline"),
-                 QStringLiteral("[mix] start run=%1 node=%2 segments=%3 background=%4 output=%5")
-                     .arg(m_runId).arg(m_activeNodeRunId).arg(segments.size())
-                     .arg(m_backgroundAudioPath).arg(outputPath));
-
-    if (!m_renderWatcher || m_renderWatcher->isRunning()) {
-        setBusyError(QStringLiteral("An audio mix is already running."));
-        return false;
-    }
-    m_renderStagingPath = outputPath + QStringLiteral(".workflow-")
-        + QUuid::createUuid().toString(QUuid::WithoutBraces) + QStringLiteral(".staging");
-    m_renderCancel = std::make_shared<QAtomicInteger<bool>>(false);
-    const auto cancel = m_renderCancel;
-    const QVariantList inputSegments = segments;
-    const QString backgroundPath = m_backgroundAudioPath;
-    const QString stagingPath = m_renderStagingPath;
+                 QStringLiteral("[mix] start run=%1 node=%2 segments=%3 background=%4")
+                     .arg(m_run.runId()).arg(m_run.nodeRunId()).arg(segments.size())
+                     .arg(m_backgroundAudioPath));
     setProcessing(true, QStringLiteral("mix"), 0);
-    m_renderWatcher->setFuture(QtConcurrent::run(
-        [inputSegments, outputPath, stagingPath, backgroundPath, cancel]() {
-            QString error;
-            const bool ok = AudioTimelineMixer::mixSegments(
-                inputSegments, stagingPath, backgroundPath, &error, cancel.get());
-            const bool committed = ok && !cancel->loadAcquire()
-                && AtomicMediaCommit::commit(stagingPath, outputPath, &error);
-            QFile::remove(stagingPath);
-            return QVariantMap{{QStringLiteral("success"), committed},
-                               {QStringLiteral("outputPath"), outputPath},
-                               {QStringLiteral("error"), error}};
-        }));
-    return true;
-}
-
-void DubbingJobRunner::onRenderFinished()
-{
-    if (!m_renderWatcher || m_stageId != DubbingStage::Mix) return;
-    const QVariantMap result = m_renderWatcher->result();
-    QFile::remove(m_renderStagingPath);
-    m_renderStagingPath.clear();
-    m_renderCancel.reset();
-    if (!result.value(QStringLiteral("success")).toBool()) {
-        setError(result.value(QStringLiteral("error"),
-                              QStringLiteral("Audio mix failed.")).toString());
-        return;
-    }
-    const QString outputPath = result.value(QStringLiteral("outputPath")).toString();
-    if (!QFileInfo::exists(outputPath)) {
-        setError(QStringLiteral("Audio mix completed without an output file."));
-        return;
-    }
-    m_previewPath = outputPath;
-    setProcessing(false, QStringLiteral("mixed"), 100);
-    emit stageCompleted(QStringLiteral("mix"), {{QStringLiteral("audio"), outputPath}});
+    return m_exportJob && m_exportJob->renderPreview(segments, projectPath, m_backgroundAudioPath, path);
 }
 
 bool DubbingJobRunner::startExport(const QString &sourceMediaPath, const QString &outputPath)
@@ -802,76 +349,19 @@ bool DubbingJobRunner::startExport(const QString &sourceMediaPath,
                                    const QString &audioPath,
                                    const QString &outputPath)
 {
-    if (m_processing) {
+    if (m_run.processing()) {
         setBusyError(QStringLiteral("Finish the active dubbing operation before exporting."));
         return false;
     }
-    if (outputPath.isEmpty()) {
-        setError(QStringLiteral("Choose an output path."));
-        return false;
-    }
-    if (sourceMediaPath.isEmpty()) {
-        setError(QStringLiteral("Import source media before exporting."));
-        return false;
-    }
-    if (audioPath.isEmpty() || !QFileInfo::exists(audioPath)) {
-        setError(QStringLiteral("Generate and render audio preview before exporting."));
-        return false;
-    }
-    if (m_runId.isEmpty()) m_runId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    m_activeNodeRunId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    m_run.ensureRun();
+    m_run.beginNode();
     Logger::info(QStringLiteral("DubbingPipeline"),
-                  QStringLiteral("[export] start run=%1 node=%2 source=%3 preview=%4 output=%5")
-                      .arg(m_runId, m_activeNodeRunId, sourceMediaPath, audioPath, outputPath));
-
-    m_exportDestination = outputPath;
-    m_exportAudioPath = audioPath;
-    const QString sourceSuffix = QFileInfo(sourceMediaPath).suffix().toLower();
-    const bool video = sourceSuffix == QStringLiteral("mp4") || sourceSuffix == QStringLiteral("mkv")
-        || sourceSuffix == QStringLiteral("mov") || sourceSuffix == QStringLiteral("webm")
-        || sourceSuffix == QStringLiteral("avi");
-    const QFileInfo destinationInfo(outputPath);
-    const QString stagingSuffix = destinationInfo.suffix().isEmpty()
-        ? QStringLiteral(".staging") : QStringLiteral(".") + destinationInfo.suffix();
-    m_exportStagingPath = outputPath + QStringLiteral(".workflow-")
-        + QUuid::createUuid().toString(QUuid::WithoutBraces) + stagingSuffix;
-    if (!video) {
-        const QString stagingPath = m_exportStagingPath;
-        if (!QFile::copy(m_exportAudioPath, m_exportStagingPath)) {
-            m_exportDestination.clear();
-            m_exportStagingPath.clear();
-            setError(QStringLiteral("Failed to stage rendered WAV for export: %1").arg(stagingPath));
-            return false;
-        }
-        QString commitError;
-        if (!AtomicMediaCommit::commit(m_exportStagingPath, outputPath, &commitError)) {
-            QFile::remove(m_exportStagingPath);
-            m_exportDestination.clear();
-            m_exportStagingPath.clear();
-            setError(commitError);
-            return false;
-        }
-        QFile::remove(m_exportStagingPath);
-        m_exportPath = outputPath;
-        m_exportDestination.clear();
-        m_exportStagingPath.clear();
-        m_exportAudioPath.clear();
-        emit stateChanged();
-        emit stageCompleted(QStringLiteral("export"), {{QStringLiteral("media"), outputPath}});
-        return true;
-    }
-
-    if (!m_mediaTools) {
-        m_exportDestination.clear();
-        m_exportStagingPath.clear();
-        setError(QStringLiteral("Media tool service is unavailable."));
-        return false;
-    }
+                 QStringLiteral("[export] start run=%1 node=%2 source=%3 preview=%4 output=%5")
+                     .arg(m_run.runId(), m_run.nodeRunId(), sourceMediaPath, audioPath, outputPath));
     m_exportPath.clear();
     emit stateChanged();
     setProcessing(true, QStringLiteral("export"), 0);
-    m_mediaTools->muxVideoWithAudio(sourceMediaPath, m_exportAudioPath, m_exportStagingPath);
-    return true;
+    return m_exportJob && m_exportJob->startExport(sourceMediaPath, audioPath, outputPath);
 }
 
 void DubbingJobRunner::setPreviewPath(const QString &path)
@@ -888,8 +378,8 @@ void DubbingJobRunner::setExportPath(const QString &path)
 
 void DubbingJobRunner::clearError()
 {
-    if (m_lastError.isEmpty()) return;
-    m_lastError.clear();
+    if (m_run.lastError().isEmpty()) return;
+    m_run.clearError();
     emit stateChanged();
 }
 
@@ -898,584 +388,14 @@ void DubbingJobRunner::setProcessingState(bool value, const QString &stageValue,
     setProcessing(value, stageValue, progressValue);
 }
 
-void DubbingJobRunner::onTranscriptionFinished(const QString &text, const QVariantList &segments)
-{
-    Q_UNUSED(text);
-    if (!m_processing || m_stageId != DubbingStage::Transcription) return;
-
-    Logger::info(QStringLiteral("DubbingPipeline"),
-                 QStringLiteral("[transcription] finished segments=%1 textChars=%2 elapsedMs=%3")
-                     .arg(segments.size()).arg(text.size()).arg(m_stageTimer.isValid() ? m_stageTimer.elapsed() : -1));
-    
-    QVariantList updatedSegments;
-    for (const QVariant &entry : segments) {
-        const QVariantMap source = entry.toMap();
-        QVariantMap segment;
-        segment.insert(QStringLiteral("id"), QUuid::createUuid().toString(QUuid::WithoutBraces));
-        segment.insert(QStringLiteral("startMs"), qRound64(source.value(QStringLiteral("start")).toDouble() * 1000.0));
-        segment.insert(QStringLiteral("endMs"), qRound64(source.value(QStringLiteral("end")).toDouble() * 1000.0));
-        segment.insert(QStringLiteral("sourceText"), source.value(QStringLiteral("text")).toString().trimmed());
-        segment.insert(QStringLiteral("targetText"), QString());
-        segment.insert(QStringLiteral("speakerId"), QStringLiteral("speaker-1"));
-        segment.insert(QStringLiteral("timingSource"), QStringLiteral("asr"));
-        segment.insert(QStringLiteral("alignmentStatus"), QStringLiteral("pending"));
-        segment.insert(QStringLiteral("state"), QStringLiteral("transcribed"));
-        updatedSegments.append(segment);
-    }
-    startAlignmentRefinement(m_transcriptionAudioPath, m_transcriptionLanguage, updatedSegments);
-}
-
-void DubbingJobRunner::startAlignmentRefinement(const QString &audioPath, const QString &language,
-                                                const QVariantList &segments)
-{
-    if (!m_alignmentWatcher) {
-        const QVariantList normalized = DubbingSegmentNormalizer::normalize(segments);
-        setProcessing(false, QStringLiteral("transcribed"), 100);
-        emit segmentsUpdated(normalized);
-        emit stageCompleted(QStringLiteral("transcribe"), {{QStringLiteral("transcript"), normalized}});
-        return;
-    }
-
-    // Keep the language explicit in the refinement cache key and allow a
-    // deployment-level override for older workflow callers.
-    const QString effectiveLanguage = qEnvironmentVariable("LASTUDIO_DUBBING_LANGUAGE",
-                                                           language.isEmpty() ? QStringLiteral("en") : language);
-    const QString preset = qEnvironmentVariable("LASTUDIO_DUBBING_ALIGNMENT_PRESET",
-                                                QStringLiteral("balanced"));
-    const QVariantList input = segments;
-    const QString path = audioPath;
-    // Resolve QObject-backed managers before dispatching work.  The worker
-    // receives a value-only configuration and therefore cannot outlive or
-    // access the runner/managers accidentally.
-    const AlignmentRefinementConfiguration alignmentConfiguration =
-        AlignmentRefinementService::resolveConfiguration(m_models, m_runtimes);
-    m_alignmentCancel = std::make_shared<QAtomicInteger<bool>>(false);
-    const auto cancel = m_alignmentCancel;
-    setProcessing(true, QStringLiteral("alignment"), 10);
-    m_alignmentWatcher->setFuture(QtConcurrent::run(
-        [path, effectiveLanguage, input, preset, alignmentConfiguration, cancel]() {
-        const AlignmentRefinementResult refined = AlignmentRefinementService::refine(
-            path, effectiveLanguage, input, alignmentConfiguration, preset, cancel.get());
-        return QVariantMap{{QStringLiteral("segments"), refined.segments},
-                           {QStringLiteral("status"), refined.status},
-                           {QStringLiteral("diagnostic"), refined.diagnostic},
-                           {QStringLiteral("attempted"), refined.attempted},
-                           {QStringLiteral("changed"), refined.changed}};
-    }));
-}
-
-void DubbingJobRunner::onAlignmentFinished()
-{
-    if (!m_alignmentWatcher || m_stageId != DubbingStage::Alignment) return;
-    const QVariantMap result = m_alignmentWatcher->result();
-    const QVariantList alignedSegments = result.value(QStringLiteral("segments")).toList();
-    if (alignedSegments.isEmpty()) {
-        setError(QStringLiteral("Forced alignment returned no transcript segments."));
-        return;
-    }
-    const QVariantList segments = DubbingSegmentNormalizer::normalize(alignedSegments);
-    Logger::info(QStringLiteral("DubbingPipeline"),
-                 QStringLiteral("[alignment] status=%1 changed=%2 segments=%3->%4 diagnostic=%5")
-                     .arg(result.value(QStringLiteral("status")).toString())
-                     .arg(result.value(QStringLiteral("changed")).toBool())
-                     .arg(alignedSegments.size())
-                     .arg(segments.size())
-                     .arg(result.value(QStringLiteral("diagnostic")).toString()));
-    setProcessing(false, QStringLiteral("transcribed"), 100);
-    emit segmentsUpdated(segments);
-    emit stageCompleted(QStringLiteral("transcribe"), {{QStringLiteral("transcript"), segments}});
-    m_alignmentCancel.reset();
-}
-
-void DubbingJobRunner::onTranslationFinished()
-{
-    const QVariantList rawResult = m_translationResult;
-    Logger::info(QStringLiteral("DubbingPipeline"),
-                 QStringLiteral("[translation] phase=%1 worker finished resultItems=%2 elapsedMs=%3")
-                     .arg(m_translationPhase).arg(rawResult.size())
-                     .arg(m_stageTimer.isValid() ? m_stageTimer.elapsed() : -1));
-    if (rawResult.isEmpty()) {
-        setError(QStringLiteral("Translation returned no result."));
-        return;
-    }
-    const QVariantMap marker = rawResult.constFirst().toMap();
-    if (marker.value(QStringLiteral("__workflowGeneration")).toString() != QString::number(m_translationGeneration)) return;
-    QVariantList result = rawResult;
-    result.removeFirst();
-    if (!result.isEmpty() && result.constFirst().toMap().contains(QStringLiteral("error"))) {
-        setError(result.constFirst().toMap().value(QStringLiteral("error")).toString());
-        return;
-    }
-
-    if (m_translationPhase == QStringLiteral("reference")) {
-        QVariantList merged;
-        QString mergeError;
-        if (!DubbingProject::mergeSegmentPatches(
-                m_translationInputSegments, result, merged, &mergeError)) {
-            setError(mergeError);
-            return;
-        }
-        for (QVariant &value : merged) {
-            QVariantMap segment = value.toMap();
-            const QString reference = segment.value(QStringLiteral("targetText")).toString().trimmed();
-            segment.insert(QStringLiteral("referenceTranslation"), reference);
-            segment.insert(QStringLiteral("durationUnits"),
-                           DubbingDurationPlanner::countPhonemes(
-                               reference, m_translationTargetLanguage));
-            segment.insert(QStringLiteral("durationIteration"), 0);
-            value = segment;
-        }
-        m_translationInputSegments = merged;
-        if (!m_durationAware) {
-            finishDurationTranslation();
-            return;
-        }
-        requestDurationCandidates();
-        return;
-    }
-
-    if (m_translationPhase == QStringLiteral("rewrite")) {
-        QHash<QString, QStringList> candidatesBySegment;
-        QHash<QString, QVariantMap> requestById;
-        for (const QVariant &value : m_pendingTranslationRequest.segments) {
-            const QVariantMap requestSegment = value.toMap();
-            requestById.insert(requestSegment.value(QStringLiteral("id")).toString(),
-                               requestSegment);
-        }
-        for (const QVariant &value : result) {
-            const QVariantMap patch = value.toMap();
-            const QVariantMap requestSegment =
-                requestById.value(patch.value(QStringLiteral("id")).toString());
-            const QString baseId =
-                requestSegment.value(QStringLiteral("baseSegmentId")).toString();
-            if (!baseId.isEmpty()) {
-                candidatesBySegment[baseId].append(
-                    patch.value(QStringLiteral("targetText")).toString());
-            }
-        }
-
-        bool anyImproved = false;
-        for (QVariant &value : m_translationInputSegments) {
-            QVariantMap segment = value.toMap();
-            const QString id = segment.value(QStringLiteral("id")).toString();
-            const QVariantMap budget =
-                segment.value(QStringLiteral("durationBudget")).toMap();
-            const QString selected = DubbingDurationPlanner::selectBestCandidate(
-                segment.value(QStringLiteral("sourceText")).toString(),
-                segment.value(QStringLiteral("referenceTranslation")).toString(),
-                segment.value(QStringLiteral("targetText")).toString(),
-                candidatesBySegment.value(id),
-                budget.value(QStringLiteral("targetUnits")).toInt(),
-                segment.value(QStringLiteral("protectedTokens")).toString().split(
-                    QStringLiteral(", "), Qt::SkipEmptyParts),
-                m_translationTargetLanguage);
-            if (!selected.isEmpty()) {
-                segment.insert(QStringLiteral("targetText"), selected);
-                anyImproved = true;
-            }
-            segment.insert(QStringLiteral("durationIteration"), m_durationIteration);
-            value = segment;
-        }
-        if (!anyImproved) {
-            requestPauseAlignment();
-            return;
-        }
-        requestDurationCandidates();
-        return;
-    }
-
-    if (m_translationPhase == QStringLiteral("pause-align")) {
-        QHash<QString, QString> alignedById;
-        for (const QVariant &value : result) {
-            const QVariantMap patch = value.toMap();
-            alignedById.insert(patch.value(QStringLiteral("id")).toString(),
-                               patch.value(QStringLiteral("targetText")).toString());
-        }
-        for (QVariant &value : m_translationInputSegments) {
-            QVariantMap segment = value.toMap();
-            const QString target = segment.value(QStringLiteral("targetText")).toString();
-            QString marked = alignedById.value(
-                segment.value(QStringLiteral("id")).toString(), target);
-            const QString stripped =
-                DubbingDurationPlanner::textWithoutPauseMarkers(marked);
-            if (DubbingDurationPlanner::semanticFidelityScore(target, stripped) < 0.98)
-                marked = target;
-            const QVariantList pauses =
-                segment.value(QStringLiteral("durationBudget")).toMap()
-                    .value(QStringLiteral("pauses")).toList();
-            segment.insert(QStringLiteral("targetChunks"),
-                           DubbingDurationPlanner::pauseChunks(marked, pauses));
-            segment.insert(QStringLiteral("pauseAligned"), true);
-            value = segment;
-        }
-        finishDurationTranslation();
-        return;
-    }
-
-    setError(QStringLiteral("Unknown duration-translation phase: %1")
-                 .arg(m_translationPhase));
-}
-
-void DubbingJobRunner::requestDurationCandidates()
-{
-    QVariantList requests;
-    if (m_durationIteration < m_durationSettings.maxPreTtsIterations) {
-        for (const QVariant &value : m_translationInputSegments) {
-            const QVariantMap segment = value.toMap();
-            const QVariantMap budget =
-                segment.value(QStringLiteral("durationBudget")).toMap();
-            const int predicted = budget.value(QStringLiteral("targetUnits")).toInt();
-            const int currentUnits = DubbingDurationPlanner::countPhonemes(
-                segment.value(QStringLiteral("targetText")).toString(),
-                m_translationTargetLanguage);
-            const int tolerance = qMax(
-                1, qRound(predicted * m_durationSettings.toleranceRatio));
-            if (qAbs(currentUnits - predicted) <= tolerance) continue;
-
-            for (int candidate = 0;
-                 candidate < m_durationSettings.candidatesPerIteration;
-                 ++candidate) {
-                QVariantMap request = segment;
-                request.insert(
-                    QStringLiteral("id"),
-                    QStringLiteral("%1::dt::%2::%3")
-                        .arg(segment.value(QStringLiteral("id")).toString())
-                        .arg(m_durationIteration + 1)
-                        .arg(candidate));
-                request.insert(QStringLiteral("baseSegmentId"),
-                               segment.value(QStringLiteral("id")));
-                request.insert(QStringLiteral("candidateIndex"), candidate);
-                request.insert(QStringLiteral("durationIteration"),
-                               m_durationIteration + 1);
-                request.insert(
-                    QStringLiteral("durationPrompt"),
-                    QStringLiteral("%1 the translation toward exactly %2 phonemes "
-                                   "(current %3, tolerance ±%4).")
-                        .arg(currentUnits > predicted
-                                 ? QStringLiteral("Shorten")
-                                 : QStringLiteral("Lengthen"))
-                        .arg(predicted).arg(currentUnits).arg(tolerance));
-                requests.append(request);
-            }
-        }
-    }
-
-    if (requests.isEmpty()) {
-        requestPauseAlignment();
-        return;
-    }
-
-    ++m_durationIteration;
-    TranslationInferenceRequest request;
-    request.segments = requests;
-    request.sourceLanguage = m_translationSourceLanguage;
-    request.targetLanguage = m_translationTargetLanguage;
-    request.task = QStringLiteral("duration-rewrite");
-    request.maxTokens = 512;
-    request.cancellation = InferenceCancellationToken();
-    m_pendingTranslationRequest = request;
-    m_translationPhase = QStringLiteral("rewrite");
-    setProcessing(true, QStringLiteral("translation-adapting"),
-                  qMin(84, 30 + (m_durationIteration - 1) * 15));
-    m_translationInstance->translate(request);
-}
-
-void DubbingJobRunner::requestPauseAlignment()
-{
-    QVariantList requests;
-    for (QVariant &value : m_translationInputSegments) {
-        QVariantMap segment = value.toMap();
-        const QVariantList pauses =
-            segment.value(QStringLiteral("durationBudget")).toMap()
-                .value(QStringLiteral("pauses")).toList();
-        int internalCount = 0;
-        for (const QVariant &pause : pauses) {
-            if (pause.toMap().value(QStringLiteral("kind")).toString()
-                == QStringLiteral("internal")) {
-                ++internalCount;
-            }
-        }
-        if (internalCount <= 0) {
-            segment.insert(QStringLiteral("targetChunks"),
-                           DubbingDurationPlanner::pauseChunks(
-                               segment.value(QStringLiteral("targetText")).toString(),
-                               pauses));
-            segment.insert(QStringLiteral("pauseAligned"), true);
-            value = segment;
-            continue;
-        }
-        segment.insert(QStringLiteral("internalPauseCount"), internalCount);
-        requests.append(segment);
-    }
-    if (requests.isEmpty()) {
-        finishDurationTranslation();
-        return;
-    }
-
-    TranslationInferenceRequest request;
-    request.segments = requests;
-    request.sourceLanguage = m_translationSourceLanguage;
-    request.targetLanguage = m_translationTargetLanguage;
-    request.task = QStringLiteral("pause-align");
-    request.maxTokens = 512;
-    request.cancellation = InferenceCancellationToken();
-    m_pendingTranslationRequest = request;
-    m_translationPhase = QStringLiteral("pause-align");
-    setProcessing(true, QStringLiteral("pause-alignment"), 85);
-    m_translationInstance->translate(request);
-}
-
-void DubbingJobRunner::finishDurationTranslation()
-{
-    for (QVariant &value : m_translationInputSegments) {
-        QVariantMap segment = value.toMap();
-        const QVariantMap budget =
-            segment.value(QStringLiteral("durationBudget")).toMap();
-        if (!budget.isEmpty()) {
-            const int units = DubbingDurationPlanner::countPhonemes(
-                segment.value(QStringLiteral("targetText")).toString(),
-                m_translationTargetLanguage);
-            const int predicted = budget.value(QStringLiteral("targetUnits")).toInt();
-            const int tolerance = qMax(
-                1, qRound(predicted * m_durationSettings.toleranceRatio));
-            segment.insert(QStringLiteral("durationUnits"), units);
-            segment.insert(QStringLiteral("phonemeDistance"),
-                           qAbs(units - predicted));
-            segment.insert(QStringLiteral("durationStatus"),
-                           qAbs(units - predicted) <= tolerance
-                               ? QStringLiteral("within-budget")
-                               : QStringLiteral("needs-review"));
-            segment.insert(QStringLiteral("durationMetric"),
-                           QStringLiteral("phoneme-distance"));
-            segment.insert(QStringLiteral("candidateSelectionMetric"),
-                           QStringLiteral("semantic-proxy-v1"));
-        }
-        value = segment;
-    }
-    m_translationPhase.clear();
-    setProcessing(false, QStringLiteral("translated"), 100);
-    emit segmentsUpdated(m_translationInputSegments);
-    emit stageCompleted(
-        QStringLiteral("translate"),
-        {{QStringLiteral("transcript"), m_translationInputSegments}});
-}
-
-void DubbingJobRunner::onSynthesisFinished(const QByteArray &pcm16, int sampleRate)
-{
-    Q_UNUSED(pcm16);
-    if (!m_processing || m_generationIndex < 0 || m_generationIndex >= m_activeSegments.size()) return;
-    QVector<float> samples = m_tts ? m_tts->lastSamples() : QVector<float>();
-    if (samples.isEmpty() || sampleRate <= 0) {
-        setError(QStringLiteral("TTS returned empty audio for segment %1.").arg(m_generationIndex + 1));
-        return;
-    }
-    if (m_ttsChunkIndex >= 0 && m_ttsChunkIndex < m_ttsChunks.size()) {
-        const QVariantMap chunk = m_ttsChunks.at(m_ttsChunkIndex).toMap();
-        if (m_ttsChunkSampleRate == 0) m_ttsChunkSampleRate = sampleRate;
-        if (sampleRate != m_ttsChunkSampleRate) {
-            setError(QStringLiteral("TTS changed sample rate between pause-aligned chunks."));
-            return;
-        }
-        if (m_ttsChunkIndex == 0) {
-            const qint64 leadingMs =
-                chunk.value(QStringLiteral("leadingPauseMs")).toLongLong();
-            m_ttsChunkSamples.append(
-                QVector<float>(qMax<qint64>(0, leadingMs * sampleRate / 1000), 0.0f));
-        }
-        m_ttsChunkSamples.append(samples);
-        const qint64 pauseAfterMs =
-            chunk.value(QStringLiteral("pauseAfterMs")).toLongLong();
-        m_ttsChunkSamples.append(
-            QVector<float>(qMax<qint64>(0, pauseAfterMs * sampleRate / 1000), 0.0f));
-        if (m_ttsChunkIndex + 1 < m_ttsChunks.size()) {
-            ++m_ttsChunkIndex;
-            QMetaObject::invokeMethod(this, [this]() {
-                if (m_processing && m_stageId == DubbingStage::Tts)
-                    startCurrentTtsChunk();
-            }, Qt::QueuedConnection);
-            return;
-        }
-        samples = m_ttsChunkSamples;
-        sampleRate = m_ttsChunkSampleRate;
-        m_ttsChunkIndex = -1;
-        m_ttsChunks.clear();
-        m_ttsChunkSamples.clear();
-        m_ttsChunkSampleRate = 0;
-    }
-
-    const QVariantMap segment = m_activeSegments.at(m_generationIndex).toMap();
-    Logger::debug(QStringLiteral("DubbingPipeline"),
-                  QStringLiteral("[tts] segment finished index=%1 pcmBytes=%2 sampleRate=%3")
-                      .arg(m_generationIndex).arg(pcm16.size()).arg(sampleRate));
-    const qint64 slotMs = qMax<qint64>(1, segment.value(QStringLiteral("endMs")).toLongLong()
-                                          - segment.value(QStringLiteral("startMs")).toLongLong());
-    const qint64 sourceDurationMs = qMax<qint64>(1, qRound64(samples.size() * 1000.0 / sampleRate));
-    const double fitFactor = static_cast<double>(sourceDurationMs) / slotMs;
-    const bool timingConflict = fitFactor < 0.85 || fitFactor > 1.20;
-    const QVector<float> fittedSamples = samples;
-    WorkflowArtifactStore artifactStore(QDir(QFileInfo(m_projectPath).absolutePath()).filePath(QStringLiteral(".workflow-artifacts")));
-    QString artifactError;
-    const QString stagingDir = artifactStore.createStagingDirectory(m_runId, m_activeNodeRunId, &artifactError);
-    if (stagingDir.isEmpty()) {
-        setError(artifactError);
-        return;
-    }
-    const QString stagedClipPath = QDir(stagingDir).filePath(QStringLiteral("clip.wav"));
-    if (!WavIO::saveFloat(stagedClipPath, fittedSamples.constData(), fittedSamples.size(), sampleRate)) {
-        setError(QStringLiteral("Failed to stage generated clip: %1").arg(stagedClipPath));
-        return;
-    }
-    WorkflowArtifactReference clipArtifact;
-    if (!artifactStore.commitFile(stagedClipPath, QStringLiteral("audio.clip@1"), m_runId,
-                                  m_activeNodeRunId, clipArtifact, &artifactError)) {
-        setError(artifactError);
-        return;
-    }
-    const QString clipPath = artifactStore.resolve(clipArtifact);
-    if (clipPath.isEmpty()) {
-        setError(QStringLiteral("Committed clip artifact cannot be resolved."));
-        return;
-    }
-
-    QVariantMap updated = segment;
-    updated.insert(QStringLiteral("clipPath"), clipPath);
-    updated.insert(QStringLiteral("clipArtifact"), clipArtifact.toJson().toVariantMap());
-    updated.insert(QStringLiteral("cacheFingerprint"),
-                   synthesisFingerprint(segment, m_tts->activeSignature(), m_synthesisSettings));
-    updated.insert(QStringLiteral("sampleRate"), sampleRate);
-    updated.insert(QStringLiteral("sampleCount"), fittedSamples.size());
-    updated.insert(QStringLiteral("waveformSamples"), buildWaveformPreview(fittedSamples));
-    updated.insert(QStringLiteral("sourceDurationMs"), sourceDurationMs);
-    updated.insert(QStringLiteral("durationMs"), sourceDurationMs);
-    updated.insert(QStringLiteral("fitFactor"), fitFactor);
-    updated.insert(QStringLiteral("timingConflict"), timingConflict);
-    updated.insert(QStringLiteral("fitMethod"), QStringLiteral("pending"));
-    updated.insert(QStringLiteral("state"), timingConflict ? QStringLiteral("conflict") : QStringLiteral("natural"));
-    
-    m_activeSegments[m_generationIndex] = updated;
-    emit segmentUpdated(m_generationIndex, updated);
-
-    int next = m_generationIndex + 1;
-    while (next < m_activeSegments.size()
-           && !needsSynthesis(m_activeSegments.at(next).toMap(),
-                              m_tts ? m_tts->activeSignature() : QString(),
-                              m_synthesisSettings)) {
-        ++next;
-    }
-    if (next >= m_activeSegments.size()) {
-        m_generationIndex = -1;
-        fitGeneratedSegments();
-        setProcessing(false, QStringLiteral("ready"), 100);
-        emit stageCompleted(QStringLiteral("synthesize"), {{QStringLiteral("timeline"), m_activeSegments}});
-        return;
-    }
-    m_generationIndex = next;
-    m_activeNodeRunId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    m_ttsChunkIndex = -1;
-    setProcessing(true, QStringLiteral("tts"), qRound((100.0 * next) / m_activeSegments.size()));
-    // TtsEngineInstance emits synthesisFinished before returning to Ready.
-    // Queue the next request so the Processing state does not discard it.
-    QMetaObject::invokeMethod(this, [this, next]() {
-        if (!m_processing || m_stageId != DubbingStage::Tts || m_generationIndex != next || !m_tts) return;
-        startCurrentTtsChunk();
-    }, Qt::QueuedConnection);
-}
-
-void DubbingJobRunner::startCurrentTtsChunk()
-{
-    if (!m_tts || m_generationIndex < 0
-        || m_generationIndex >= m_activeSegments.size()) return;
-    if (m_ttsChunkIndex < 0) {
-        const QVariantMap segment = m_activeSegments.at(m_generationIndex).toMap();
-        m_ttsChunks = segment.value(QStringLiteral("targetChunks")).toList();
-        if (m_ttsChunks.isEmpty()) {
-            m_ttsChunks.append(QVariantMap{
-                {QStringLiteral("text"),
-                 segment.value(QStringLiteral("targetText")).toString()},
-                {QStringLiteral("pauseAfterMs"), 0},
-                {QStringLiteral("leadingPauseMs"), 0}});
-        }
-        m_ttsChunkSamples.clear();
-        m_ttsChunkSampleRate = 0;
-        m_ttsChunkIndex = 0;
-    }
-    const QString text = m_ttsChunks.at(m_ttsChunkIndex)
-                             .toMap().value(QStringLiteral("text")).toString().trimmed();
-    if (text.isEmpty()) {
-        setError(QStringLiteral("Pause alignment produced an empty TTS chunk."));
-        return;
-    }
-    m_tts->synthesize(text, 0, 1.0f, m_synthesisSettings);
-}
-
-void DubbingJobRunner::fitGeneratedSegments()
-{
-    QString error;
-    const QVariantList fitted = DubbingTimingService::fitSegments(m_activeSegments, nullptr, &error);
-    if (!error.isEmpty()) {
-        setError(error);
-        return;
-    }
-    for (int i = 0; i < fitted.size(); ++i)
-        emit segmentUpdated(i, fitted.at(i).toMap());
-    m_activeSegments = fitted;
-    emit segmentsUpdated(m_activeSegments);
-}
-
-void DubbingJobRunner::onTtsError(const QString &message)
-{
-    if (m_processing && m_generationIndex >= 0) setError(message);
-}
-
-void DubbingJobRunner::onMediaFinished(bool success, const QString &outputPath, const QString &error)
-{
-    if (!m_processing || m_stageId != DubbingStage::Export) return;
-    Logger::info(QStringLiteral("DubbingPipeline"),
-                 QStringLiteral("[export] media tool finished success=%1 output=%2 elapsedMs=%3")
-                     .arg(success ? QStringLiteral("true") : QStringLiteral("false"), outputPath)
-                     .arg(m_stageTimer.isValid() ? m_stageTimer.elapsed() : -1));
-    if (!success) {
-        QFile::remove(m_exportStagingPath);
-        m_exportDestination.clear();
-        m_exportStagingPath.clear();
-        m_exportAudioPath.clear();
-        setError(error.isEmpty() ? QStringLiteral("Media export failed.") : error);
-        return;
-    }
-    if (outputPath != m_exportStagingPath || !QFileInfo::exists(m_exportStagingPath)) {
-        QFile::remove(m_exportStagingPath);
-        m_exportDestination.clear();
-        m_exportStagingPath.clear();
-        m_exportAudioPath.clear();
-        setError(QStringLiteral("Media export completed without a valid staging artifact."));
-        return;
-    }
-    QString commitError;
-    if (!AtomicMediaCommit::commit(m_exportStagingPath, m_exportDestination, &commitError)) {
-        QFile::remove(m_exportStagingPath);
-        setError(commitError);
-        m_exportDestination.clear();
-        m_exportStagingPath.clear();
-        m_exportAudioPath.clear();
-        return;
-    }
-    QFile::remove(m_exportStagingPath);
-    m_exportPath = m_exportDestination;
-    m_exportDestination.clear();
-    m_exportStagingPath.clear();
-    m_exportAudioPath.clear();
-    setProcessing(false, QStringLiteral("exported"), 100);
-    emit stageCompleted(QStringLiteral("export"), {{QStringLiteral("media"), m_exportPath}});
-}
-
 void DubbingJobRunner::onIngestFinished(bool success, const QVariantMap &manifest, const QString &error)
 {
-    if (m_stageId != DubbingStage::Import) return;
+    if (m_run.stageId() != DubbingStage::Import) return;
     Logger::info(QStringLiteral("DubbingPipeline"),
                  QStringLiteral("[ingest] finished success=%1 manifestKeys=%2 elapsedMs=%3")
                      .arg(success ? QStringLiteral("true") : QStringLiteral("false"))
                      .arg(manifest.keys().join(QLatin1Char(',')))
-                     .arg(m_stageTimer.isValid() ? m_stageTimer.elapsed() : -1));
+                      .arg(m_run.elapsedMs()));
     if (!success) {
         setError(error.isEmpty() ? QStringLiteral("Media import failed.") : error);
         emit ingestFinished(false, {});
@@ -1488,12 +408,12 @@ void DubbingJobRunner::onIngestFinished(bool success, const QVariantMap &manifes
 
 void DubbingJobRunner::onSourceSeparationFinished(const SeparationResult &result)
 {
-    if (m_stageId != DubbingStage::SourceSeparation) return;
+    if (m_run.stageId() != DubbingStage::SourceSeparation) return;
     Logger::info(QStringLiteral("DubbingPipeline"),
                  QStringLiteral("[source-separate] finished success=%1 stems=%2 elapsedMs=%3 error=%4")
                      .arg(result.success ? QStringLiteral("true") : QStringLiteral("false"))
                      .arg(result.stems.size())
-                     .arg(m_stageTimer.isValid() ? m_stageTimer.elapsed() : -1)
+                      .arg(m_run.elapsedMs())
                      .arg(result.error));
     QVariantMap outputs;
     const QString fallbackAudio = m_pendingSourceAudioPath;
@@ -1524,34 +444,30 @@ void DubbingJobRunner::onSourceSeparationFinished(const SeparationResult &result
 void DubbingJobRunner::setError(const QString &message)
 {
     Logger::error(QStringLiteral("DubbingPipeline"),
-                  QStringLiteral("[%1] error at %2%%: %3").arg(m_stage).arg(m_progress).arg(message));
-    m_lastError = message;
+                  QStringLiteral("[%1] error at %2%%: %3").arg(m_run.stageName()).arg(m_run.progress()).arg(message));
+    m_run.setError(message);
     setProcessing(false, QStringLiteral("error"), 0);
     emit errorOccurred(message);
 }
 
 void DubbingJobRunner::setBusyError(const QString &message)
 {
-    m_lastError = message;
+    m_run.setLastError(message);
     emit stateChanged();
     emit errorOccurred(message);
 }
 
 void DubbingJobRunner::setProcessing(bool value, const QString &stageValue, int progressValue)
 {
-    if (value && (!m_processing || m_stage != stageValue)) {
-        m_stageTimer.start();
+    if (value && (!m_run.processing() || m_run.stageName() != stageValue)) {
         Logger::debug(QStringLiteral("DubbingPipeline"),
                       QStringLiteral("stage entered: %1 progress=%2").arg(stageValue).arg(progressValue));
-    } else if (!value && m_processing) {
+    } else if (!value && m_run.processing()) {
         Logger::debug(QStringLiteral("DubbingPipeline"),
                       QStringLiteral("stage leaving: %1 progress=%2 elapsedMs=%3")
-                          .arg(m_stage).arg(progressValue).arg(m_stageTimer.isValid() ? m_stageTimer.elapsed() : -1));
+                          .arg(m_run.stageName()).arg(progressValue).arg(m_run.elapsedMs()));
     }
-    m_processing = value;
-    m_stageId = stageFromName(stageValue);
-    m_stage = stageValue;
-    m_progress = qBound(0, progressValue, 100);
+    m_run.setState(value, stageValue, progressValue);
     emit stateChanged();
 }
 
