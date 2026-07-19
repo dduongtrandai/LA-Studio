@@ -6,6 +6,7 @@
 #include "dubbing/AlignmentRefinementService.h"
 #include "dubbing/DubbingSegmentNormalizer.h"
 #include "dubbing/DubbingDuration.h"
+#include "dubbing/media/AtomicMediaCommit.h"
 #include "controllers/app/AppController.h"
 #include "audio/WavIO.h"
 #include "stt/SttEngine.h"
@@ -247,6 +248,60 @@ void TestDubbingProject::audioGenerationUsesSelectedVoiceForEverySegment()
         QVERIFY(!wav.samples.isEmpty());
         QVERIFY(qAbs(wav.samples.first() - 0.2f) < 0.001f);
     }
+}
+
+void TestDubbingProject::audioMixRunsAsynchronously()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    TtsEngine tts;
+    tts.loadModel(QStringLiteral("mock-model.onnx"));
+    DubbingJobRunner runner(nullptr, &tts);
+    QSignalSpy completedSpy(&runner, &DubbingJobRunner::stageCompleted);
+
+    const QVariantList segments{
+        QVariantMap{{QStringLiteral("id"), QStringLiteral("s1")},
+                    {QStringLiteral("startMs"), 0},
+                    {QStringLiteral("endMs"), 1000},
+                    {QStringLiteral("targetText"), QStringLiteral("Xin chao")}}
+    };
+    runner.startAudioGeneration(segments, dir.filePath(QStringLiteral("project.ladub.json")));
+    QTRY_COMPARE_WITH_TIMEOUT(completedSpy.size(), 1, 3000);
+
+    const QVariantList timeline = completedSpy.constFirst().at(1).toMap()
+                                      .value(QStringLiteral("timeline")).toList();
+    const QString previewPath = dir.filePath(QStringLiteral("preview.wav"));
+    QVERIFY(runner.renderPreview(timeline,
+                                 dir.filePath(QStringLiteral("project.ladub.json")),
+                                 previewPath));
+    QVERIFY(runner.processing());
+    QTRY_COMPARE_WITH_TIMEOUT(completedSpy.size(), 2, 3000);
+    QCOMPARE(completedSpy.at(1).at(0).toString(), QStringLiteral("mix"));
+    QVERIFY(QFileInfo::exists(previewPath));
+    QVERIFY(!runner.processing());
+}
+
+void TestDubbingProject::commitsMediaExportAtomically()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString destination = dir.filePath(QStringLiteral("export.mp4"));
+    const QString staging = dir.filePath(QStringLiteral("export.staging"));
+    QFile oldFile(destination);
+    QVERIFY(oldFile.open(QIODevice::WriteOnly));
+    QVERIFY(oldFile.write("old") == 3);
+    oldFile.close();
+    QFile stagedFile(staging);
+    QVERIFY(stagedFile.open(QIODevice::WriteOnly));
+    QVERIFY(stagedFile.write("new") == 3);
+    stagedFile.close();
+
+    QString error;
+    QVERIFY2(AtomicMediaCommit::commit(staging, destination, &error), qPrintable(error));
+    QFile result(destination);
+    QVERIFY(result.open(QIODevice::ReadOnly));
+    QCOMPARE(result.readAll(), QByteArray("new"));
 }
 
 void TestDubbingProject::sourceTextEditInvalidatesWordTiming()

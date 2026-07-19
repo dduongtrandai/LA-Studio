@@ -218,6 +218,10 @@ DubbingController::DubbingController(SttSessionController *sttSession, TtsEngine
         emit workflowChanged();
     });
 
+    connect(m_runner, &DubbingJobRunner::errorOccurred, this, [this](const QString &) {
+        m_pendingExportPath.clear();
+    });
+
     connect(m_runner, &DubbingJobRunner::segmentsUpdated, this, [this](const QVariantList &segments) {
         m_project.segments = segments;
         emit segmentsChanged();
@@ -247,6 +251,16 @@ DubbingController::DubbingController(SttSessionController *sttSession, TtsEngine
             [this](const QString &nodeId, const QVariantMap &outputs) {
         m_stepOutputs.insert(nodeId, outputs);
         m_lastCompletedStepId = nodeId;
+        if (nodeId == QStringLiteral("mix") && !m_pendingExportPath.isEmpty()) {
+            const QString destination = m_pendingExportPath;
+            m_pendingExportPath.clear();
+            if (!m_runner->startExport(m_project.sourceMediaPath,
+                                       outputs.value(QStringLiteral("audio")).toString(),
+                                       destination)) {
+                emit workflowChanged();
+                return;
+            }
+        }
         if (m_workflowMode == QStringLiteral("step")
             && (!m_workflowRunner || !m_workflowRunner->running())) {
             advanceManualStep(nodeId);
@@ -1187,6 +1201,7 @@ void DubbingController::generateAudio()
 
 void DubbingController::cancelProcessing()
 {
+    m_pendingExportPath.clear();
     if (m_workflowRunner && m_workflowRunner->running()) m_workflowRunner->cancel();
     m_runner->cancel();
 }
@@ -1203,7 +1218,12 @@ bool DubbingController::exportMedia(const QString &path)
         return false;
     }
     if (previewPath().isEmpty() || !QFileInfo::exists(previewPath())) {
-        if (!renderPreview()) return false;
+        m_pendingExportPath = outputPath;
+        if (!renderPreview()) {
+            m_pendingExportPath.clear();
+            return false;
+        }
+        return true;
     }
     return m_runner->startExport(m_project.sourceMediaPath, outputPath);
 }

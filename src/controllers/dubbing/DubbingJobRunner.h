@@ -10,6 +10,7 @@
 #include <QAtomicInteger>
 #include <memory>
 #include <QVector>
+#include <QPointer>
 #include "separation/SeparationTypes.h"
 #include "dubbing/DubbingDuration.h"
 #include "translation/backends/TranslationBackend.h"
@@ -25,6 +26,22 @@ class TranslationEngineInstance;
 class MediaToolService;
 class MediaIngestService;
 class SourceSeparationService;
+
+enum class DubbingStage {
+    Idle,
+    Import,
+    SourceSeparation,
+    Transcription,
+    Alignment,
+    Translation,
+    Tts,
+    FitTiming,
+    Mix,
+    Export,
+    Cancelled,
+    Fitted,
+    Mixed
+};
 
 class DubbingJobRunner : public QObject
 {
@@ -60,6 +77,8 @@ public:
     void cancel();
     bool renderPreview(const QVariantList &segments, const QString &projectPath, const QString &path = QString());
     bool startExport(const QString &sourceMediaPath, const QString &outputPath);
+    bool startExport(const QString &sourceMediaPath, const QString &audioPath,
+                     const QString &outputPath);
 
     // Helpers to let controller update/clear state in runner
     void setPreviewPath(const QString &path);
@@ -87,6 +106,8 @@ private slots:
     void onTranslationFinished();
     void onIngestFinished(bool success, const QVariantMap &manifest, const QString &error);
     void onSourceSeparationFinished(const SeparationResult &result);
+    void onRenderFinished();
+    void onTimingFinished();
 
 private:
     void setProcessing(bool value, const QString &stage, int progress);
@@ -99,13 +120,14 @@ private:
     void startCurrentTtsChunk();
     void fitGeneratedSegments();
 
-    SttSessionController *m_sttSession = nullptr;
-    TtsEngine *m_tts = nullptr;
-    TranslationEngine *m_translation = nullptr;
-    ModelManager *m_models = nullptr;
-    RuntimeManager *m_runtimes = nullptr;
+    QPointer<SttSessionController> m_sttSession;
+    QPointer<TtsEngine> m_tts;
+    QPointer<TranslationEngine> m_translation;
+    QPointer<ModelManager> m_models;
+    QPointer<RuntimeManager> m_runtimes;
 
     bool m_processing = false;
+    DubbingStage m_stageId = DubbingStage::Idle;
     QString m_stage;
     int m_progress = 0;
     QString m_lastError;
@@ -113,6 +135,8 @@ private:
     QString m_exportPath;
     QString m_exportDestination;
     QString m_exportStagingPath;
+    QString m_exportAudioPath;
+    QString m_renderStagingPath;
 
     int m_generationIndex = -1;
     QVariantList m_activeSegments;
@@ -138,7 +162,7 @@ private:
     QString m_pendingSourceAudioPath;
     bool m_waitingForTranscriptionInput = false;
     QElapsedTimer m_stageTimer;
-    TranslationEngineInstance *m_translationInstance = nullptr;
+    QPointer<TranslationEngineInstance> m_translationInstance;
     TranslationInferenceRequest m_pendingTranslationRequest;
     QVariantList m_translationResult;
     QMetaObject::Connection m_translationFinishedConnection;
@@ -146,7 +170,11 @@ private:
     QMetaObject::Connection m_translationLoadedConnection;
     QMetaObject::Connection m_translationProgressConnection;
     QFutureWatcher<QVariantMap> *m_alignmentWatcher = nullptr;
+    QFutureWatcher<QVariantMap> *m_renderWatcher = nullptr;
+    QFutureWatcher<QVariantList> *m_timingWatcher = nullptr;
     std::shared_ptr<QAtomicInteger<bool>> m_alignmentCancel;
+    std::shared_ptr<QAtomicInteger<bool>> m_renderCancel;
+    std::shared_ptr<QAtomicInteger<bool>> m_timingCancel;
     quint64 m_translationGeneration = 0;
     QVariantList m_ttsChunks;
     int m_ttsChunkIndex = -1;

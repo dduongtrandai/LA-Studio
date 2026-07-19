@@ -3,6 +3,7 @@
 #include <QVector>
 #include <QString>
 #include <QVariantList>
+#include <QAtomicInteger>
 
 namespace LAStudio {
 
@@ -13,7 +14,8 @@ public:
 
     static bool mixSegments(const QVariantList &segments, const QString &outputPath, QString *error = nullptr);
     static bool mixSegments(const QVariantList &segments, const QString &outputPath,
-                            const QString &backgroundPath, QString *error = nullptr);
+                            const QString &backgroundPath, QString *error = nullptr,
+                            QAtomicInteger<bool> *cancel = nullptr);
 };
 
 } // namespace LAStudio

@@ -24,12 +24,18 @@ QVector<float> AudioTimelineMixer::resampleToCount(const QVector<float> &source,
 
 bool AudioTimelineMixer::mixSegments(const QVariantList &segments, const QString &outputPath, QString *error)
 {
-    return mixSegments(segments, outputPath, QString(), error);
+    return mixSegments(segments, outputPath, QString(), error, nullptr);
 }
 
 bool AudioTimelineMixer::mixSegments(const QVariantList &segments, const QString &outputPath,
-                                     const QString &backgroundPath, QString *error)
+                                     const QString &backgroundPath, QString *error,
+                                     QAtomicInteger<bool> *cancel)
 {
+    auto isCancelled = [cancel]() { return cancel && cancel->loadAcquire(); };
+    if (isCancelled()) {
+        if (error) *error = QStringLiteral("Audio mix cancelled.");
+        return false;
+    }
     if (segments.isEmpty()) {
         if (error) *error = QStringLiteral("There are no dubbing segments to render.");
         return false;
@@ -38,6 +44,10 @@ bool AudioTimelineMixer::mixSegments(const QVariantList &segments, const QString
     constexpr int outputRate = 48000;
     qint64 outputSamples = 0;
     for (const QVariant &entry : segments) {
+        if (isCancelled()) {
+            if (error) *error = QStringLiteral("Audio mix cancelled.");
+            return false;
+        }
         const QVariantMap segment = entry.toMap();
         const QString clipPath = segment.value(QStringLiteral("clipPath")).toString();
         if (clipPath.isEmpty() || !QFileInfo::exists(clipPath)) continue;
@@ -56,6 +66,10 @@ bool AudioTimelineMixer::mixSegments(const QVariantList &segments, const QString
         const WavIO::WavData background = WavIO::loadAsFloat(backgroundPath);
         if (!background.samples.isEmpty() && background.sampleRate > 0) {
             for (int i = 0; i < mix.size(); ++i) {
+                if ((i & 0x3fff) == 0 && isCancelled()) {
+                    if (error) *error = QStringLiteral("Audio mix cancelled.");
+                    return false;
+                }
                 const int source = qMin(background.samples.size() - 1,
                                         static_cast<int>(static_cast<double>(i) * background.sampleRate / outputRate));
                 mix[i] = background.samples.at(source) * 0.35f;
@@ -63,6 +77,10 @@ bool AudioTimelineMixer::mixSegments(const QVariantList &segments, const QString
         }
     }
     for (const QVariant &entry : segments) {
+        if (isCancelled()) {
+            if (error) *error = QStringLiteral("Audio mix cancelled.");
+            return false;
+        }
         const QVariantMap segment = entry.toMap();
         const QString clipPath = segment.value(QStringLiteral("clipPath")).toString();
         if (clipPath.isEmpty() || !QFileInfo::exists(clipPath)) continue;

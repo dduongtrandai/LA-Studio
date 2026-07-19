@@ -19,6 +19,8 @@ private slots:
     void alignmentRefinementFallsBackWithoutDependencies();
     void audioGenerationWaitsForCompletedSynthesis();
     void audioGenerationUsesSelectedVoiceForEverySegment();
+    void audioMixRunsAsynchronously();
+    void commitsMediaExportAtomically();
     void sourceTextEditInvalidatesWordTiming();
     void exportsSubtitlesAndReviewPackage();
     void segmentNormalizerSplitsLongAsrTranscript();

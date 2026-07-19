@@ -188,6 +188,7 @@ private:
     QString m_currentStepId = QStringLiteral("import");
     QVariantMap m_stepOutputs;
     QString m_lastCompletedStepId;
+    QString m_pendingExportPath;
     QVariantList m_history;
     QVariantMap m_workflowNodeConfigurations;
     SttSessionController *m_sttSession = nullptr;

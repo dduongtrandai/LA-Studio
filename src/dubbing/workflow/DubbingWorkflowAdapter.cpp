@@ -49,6 +49,7 @@ void DubbingWorkflowAdapter::start(const QString &nodeType, const QVariantMap &i
                                 parameters.value(QStringLiteral("outputPath")).toString());
     } else if (nodeType == QStringLiteral("media.export")) {
         m_runner->startExport(inputs.value(QStringLiteral("sourceMedia")).toString(),
+                              inputs.value(QStringLiteral("dubbedAudio")).toString(),
                               parameters.value(QStringLiteral("destination")).toString());
     } else {
         emit failed(QStringLiteral("No execution capability exists for node type: %1").arg(nodeType));

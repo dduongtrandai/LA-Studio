@@ -169,6 +169,7 @@ set(LASTUDIO_SOURCES
     src/dubbing/DubbingProject.cpp
     src/dubbing/DubbingDuration.cpp
     src/dubbing/DubbingTimingProfile.cpp
+    src/dubbing/DubbingTimingService.cpp
     src/controllers/dubbing/DubbingController.cpp
     src/dubbing/AudioTimelineMixer.cpp
     src/subtitles/SrtTimelineParser.cpp
@@ -185,6 +186,7 @@ set(LASTUDIO_SOURCES
     src/controllers/separation/VoiceIsolatorController.cpp
     src/dubbing/DubbingTranslationService.cpp
     src/dubbing/media/MediaToolService.cpp
+    src/dubbing/media/AtomicMediaCommit.cpp
     src/dubbing/media/MediaIngestService.cpp
     src/controllers/app/WorkflowActivityManager.cpp
     src/workflows/WorkflowTypes.cpp
@@ -306,6 +308,7 @@ set(LASTUDIO_HEADERS
     src/controllers/tts/SubtitleVoiceController.h
     src/controllers/stt/SttAudioDecoder.h
     src/dubbing/DubbingProject.h
+    src/dubbing/DubbingTimingService.h
     src/controllers/dubbing/DubbingController.h
     src/dubbing/AudioTimelineMixer.h
     src/subtitles/TimedTextCue.h
@@ -325,6 +328,7 @@ set(LASTUDIO_HEADERS
     src/controllers/separation/VoiceIsolatorController.h
     src/dubbing/DubbingTranslationService.h
     src/dubbing/media/MediaToolService.h
+    src/dubbing/media/AtomicMediaCommit.h
     src/dubbing/media/MediaIngestService.h
     src/controllers/app/WorkflowActivityManager.h
     src/workflows/WorkflowTypes.h

@@ -19,6 +19,7 @@
 #include <QRegularExpression>
 #include <QProcess>
 #include <QDirIterator>
+#include <QElapsedTimer>
 #include <QtMath>
 #include <algorithm>
 
@@ -264,7 +265,8 @@ void saveCache(const QString &path, const QVariantList &segments)
 
 bool runProcessAlignment(const Candidate &candidate, const QString &audioPath,
                          const QString &transcript, const QString &language,
-                         QVariantList &segments, QString &error)
+                         QVariantList &segments, QString &error,
+                         QAtomicInteger<bool> *cancel)
 {
     if (candidate.runtimeKind != QStringLiteral("process")
         || !QFileInfo(candidate.runtimeExecutable).isFile()
@@ -296,11 +298,21 @@ bool runProcessAlignment(const Candidate &candidate, const QString &audioPath,
     process.write(QJsonDocument(request).toJson(QJsonDocument::Compact));
     process.write("\n");
     process.closeWriteChannel();
-    if (!process.waitForFinished(300000)) {
-        process.kill();
-        process.waitForFinished(1000);
-        error = QStringLiteral("MMS alignment runtime timed out.");
-        return false;
+    QElapsedTimer timer;
+    timer.start();
+    while (!process.waitForFinished(100)) {
+        if (cancelled(cancel)) {
+            process.kill();
+            process.waitForFinished(1000);
+            error = QStringLiteral("MMS alignment was cancelled.");
+            return false;
+        }
+        if (timer.elapsed() >= 300000) {
+            process.kill();
+            process.waitForFinished(1000);
+            error = QStringLiteral("MMS alignment runtime timed out.");
+            return false;
+        }
     }
 
     QJsonParseError parseError;
@@ -389,9 +401,33 @@ QVariantList normalizeProcessSegments(const QVariantList &sourceSegments,
 
 } // namespace
 
+AlignmentRefinementConfiguration AlignmentRefinementService::resolveConfiguration(
+    ModelManager *models, RuntimeManager *runtimes)
+{
+    const Candidate candidate = findCandidate(models, runtimes);
+    AlignmentRefinementConfiguration result;
+    result.modelPath = candidate.modelPath;
+    result.modelId = candidate.modelId;
+    result.runtimePath = candidate.runtimePath;
+    result.runtimeId = candidate.runtimeId;
+    result.runtimeVersion = candidate.runtimeVersion;
+    result.runtimeKind = candidate.runtimeKind;
+    result.runtimeExecutable = candidate.runtimeExecutable;
+    return result;
+}
+
 AlignmentRefinementResult AlignmentRefinementService::refine(
     const QString &audioPath, const QString &language, const QVariantList &segments,
     ModelManager *models, RuntimeManager *runtimes, const QString &preset,
+    QAtomicInteger<bool> *cancel)
+{
+    return refine(audioPath, language, segments,
+                  resolveConfiguration(models, runtimes), preset, cancel);
+}
+
+AlignmentRefinementResult AlignmentRefinementService::refine(
+    const QString &audioPath, const QString &language, const QVariantList &segments,
+    const AlignmentRefinementConfiguration &configuration, const QString &preset,
     QAtomicInteger<bool> *cancel)
 {
     AlignmentRefinementResult result;
@@ -407,7 +443,14 @@ AlignmentRefinementResult AlignmentRefinementService::refine(
         return result;
     }
 
-    const Candidate candidate = findCandidate(models, runtimes);
+    Candidate candidate;
+    candidate.modelPath = configuration.modelPath;
+    candidate.modelId = configuration.modelId;
+    candidate.runtimePath = configuration.runtimePath;
+    candidate.runtimeId = configuration.runtimeId;
+    candidate.runtimeVersion = configuration.runtimeVersion;
+    candidate.runtimeKind = configuration.runtimeKind;
+    candidate.runtimeExecutable = configuration.runtimeExecutable;
     if (!candidate.valid()) {
         result.status = QStringLiteral("skipped");
         result.diagnostic = QStringLiteral("No compatible CrispASR forced-alignment runtime/model is installed.");
@@ -427,7 +470,7 @@ AlignmentRefinementResult AlignmentRefinementService::refine(
         QString processError;
         result.attempted = true;
         if (!runProcessAlignment(candidate, audioPath, transcriptLines.join(QLatin1Char('\n')),
-                                 language, aligned, processError)) {
+                                 language, aligned, processError, cancel)) {
             result.status = QStringLiteral("skipped");
             result.diagnostic = processError;
             result.segments = markSkipped(segments, processError);

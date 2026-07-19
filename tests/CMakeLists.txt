@@ -78,11 +78,13 @@ set(TEST_SOURCES
     ../src/dubbing/DubbingProject.cpp
     ../src/dubbing/DubbingDuration.cpp
     ../src/dubbing/DubbingTimingProfile.cpp
+    ../src/dubbing/DubbingTimingService.cpp
     ../src/controllers/dubbing/DubbingController.cpp
     ../src/dubbing/AudioTimelineMixer.cpp
     ../src/controllers/dubbing/DubbingJobRunner.cpp
     ../src/dubbing/DubbingTranslationService.cpp
     ../src/dubbing/media/MediaToolService.cpp
+    ../src/dubbing/media/AtomicMediaCommit.cpp
     ../src/dubbing/media/MediaIngestService.cpp
     ../src/separation/SeparationAudioIO.cpp
     ../src/separation/SourceSeparationService.cpp
