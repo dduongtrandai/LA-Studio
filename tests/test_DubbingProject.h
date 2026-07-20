@@ -27,6 +27,8 @@ private slots:
     void segmentNormalizerUsesAlignedWordBoundaries();
     void countsVietnameseSyllablesAndPlansBudget();
     void selectsImprovingDurationCandidate();
+    void prefersWithinBudgetDurationCandidate();
+    void prefersClosestRepairCandidateOutsideBudget();
     void buildsPauseAlignedTtsChunks();
     void extractsAlignedPauses();
     void roundTripsDurationSettings();

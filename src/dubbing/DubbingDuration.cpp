@@ -244,7 +244,8 @@ double DubbingDurationPlanner::semanticFidelityScore(const QString &reference,
 
 QString DubbingDurationPlanner::selectBestCandidate(
     const QString &sourceText, const QString &reference, const QString &current,
-    const QStringList &candidates, int predictedPhonemes,
+    const QStringList &candidates, int predictedPhonemes, int minPhonemes,
+    int maxPhonemes,
     const QStringList &protectedTokens, const QString &language)
 {
     Q_UNUSED(sourceText);
@@ -252,10 +253,12 @@ QString DubbingDurationPlanner::selectBestCandidate(
     QString best;
     double bestScore = -1.0;
     int bestDistance = currentDistance;
+    bool bestIsWithinBudget = false;
     for (const QString &candidate : candidates) {
         const QString clean = candidate.trimmed();
         if (clean.isEmpty()) continue;
-        const int distance = phonemeDistance(clean, predictedPhonemes, language);
+        const int phonemes = countPhonemes(clean, language);
+        const int distance = qAbs(phonemes - predictedPhonemes);
         if (distance >= currentDistance) continue;
         bool preservesTokens = true;
         for (const QString &token : protectedTokens) {
@@ -266,11 +269,23 @@ QString DubbingDurationPlanner::selectBestCandidate(
         }
         if (!preservesTokens) continue;
         const double score = semanticFidelityScore(reference, clean);
-        if (score > bestScore
-            || (qFuzzyCompare(score + 1.0, bestScore + 1.0) && distance < bestDistance)) {
+        const bool isWithinBudget = phonemes >= minPhonemes && phonemes <= maxPhonemes;
+        const bool betterWithinBudgetCandidate =
+            isWithinBudget && bestIsWithinBudget
+            && (score > bestScore
+                || (qFuzzyCompare(score + 1.0, bestScore + 1.0)
+                    && distance < bestDistance));
+        const bool betterRepairCandidate =
+            !isWithinBudget && !bestIsWithinBudget
+            && (distance < bestDistance
+                || (distance == bestDistance && score > bestScore));
+        if ((isWithinBudget && !bestIsWithinBudget)
+            || betterWithinBudgetCandidate
+            || betterRepairCandidate) {
             best = clean;
             bestScore = score;
             bestDistance = distance;
+            bestIsWithinBudget = isWithinBudget;
         }
     }
     return best;

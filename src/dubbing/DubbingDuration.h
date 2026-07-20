@@ -66,6 +66,8 @@ public:
                                        const QString &current,
                                        const QStringList &candidates,
                                        int predictedPhonemes,
+                                       int minPhonemes,
+                                       int maxPhonemes,
                                        const QStringList &protectedTokens,
                                        const QString &language = QStringLiteral("vi"));
     static QVariantList pauseChunks(const QString &markedText,

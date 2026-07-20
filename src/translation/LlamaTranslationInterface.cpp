@@ -252,12 +252,16 @@ QStringList LlamaTranslationInterface::translateBatch(
             ? segments.at(results.size()).toMap() : QVariantMap();
         if (task == QStringLiteral("duration-rewrite")) {
             userInstruction = QStringLiteral(
-                "Produce one alternative Vietnamese translation. Rewrite it in a genuinely different "
-                "way so it is shorter or longer as requested. Preserve the full meaning and every "
-                "protected token. Output only the Vietnamese candidate.\n"
-                "Original source: %1\nReference translation: %2\nCurrent translation: %3\n"
-                "Constraint: %4\nProtected tokens: %5\nCandidate variant: %6")
-                .arg(segmentContext.value(QStringLiteral("sourceText")).toString(),
+                "Rewrite the current translation into one alternative in %1. Follow the length "
+                "constraint closely, but do not count or print phonemes yourself: an external "
+                "counter will verify the result. Preserve the complete source meaning, including "
+                "names, numbers, order/rank, time, comparison, causality, and negation. Preserve "
+                "every protected token exactly. Do not copy source-language wording. Return only "
+                "the rewritten translation, with no label, count, quotation marks, or explanation.\n"
+                "Original source: %2\nReference translation: %3\nCurrent translation: %4\n"
+                "Length constraint: %5\nProtected tokens: %6\nCandidate variant: %7")
+                .arg(targetName,
+                     segmentContext.value(QStringLiteral("sourceText")).toString(),
                      segmentContext.value(QStringLiteral("referenceTranslation")).toString(),
                      segmentContext.value(QStringLiteral("targetText")).toString(),
                      segmentContext.value(QStringLiteral("durationPrompt")).toString(),
@@ -274,10 +278,16 @@ QStringList LlamaTranslationInterface::translateBatch(
                      segmentContext.value(QStringLiteral("targetText")).toString());
         } else if (task == QStringLiteral("duration-translate")) {
             userInstruction = QStringLiteral(
-                "Translate the following text into %1. Keep the meaning and protected tokens. "
-                "The Vietnamese result must use no more than the requested maximum syllables. "
-                "Output only the translated result.\nConstraint: %2\n\n%3")
-                .arg(targetName, segmentContext.value(QStringLiteral("durationPrompt")).toString(), text);
+                "Translate the following text into %1. Preserve the complete meaning, names, "
+                "numbers, order/rank, comparison, causality, negation, and every protected token. "
+                "The result must fit the stated target-language phoneme budget. Follow the "
+                "constraint closely, but do not count or print phonemes yourself: an external "
+                "counter will verify the result. Use concise, natural wording. Output only the "
+                "translated result with no explanation.\nConstraint: %2\nProtected tokens: %3\n\n%4")
+                .arg(targetName,
+                     segmentContext.value(QStringLiteral("durationPrompt")).toString(),
+                     segmentContext.value(QStringLiteral("protectedTokens")).toString(),
+                     text);
         } else {
             userInstruction = QStringLiteral(
                 "Translate the following text into %1. Note that you should only output the "
@@ -312,7 +322,8 @@ QStringList LlamaTranslationInterface::translateBatch(
         }
 
         int requestedLimit = qMax(32, text.size() * 2 + 24);
-        if (task == QStringLiteral("duration-rewrite")) {
+        if (task == QStringLiteral("duration-rewrite")
+            || task == QStringLiteral("duration-translate")) {
             const int targetPhonemes = segmentContext.value(QStringLiteral("durationBudget"))
                                             .toMap().value(QStringLiteral("targetUnits")).toInt();
             requestedLimit = qMax(24, targetPhonemes * 2 + 16);

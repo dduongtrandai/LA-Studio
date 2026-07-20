@@ -432,6 +432,8 @@ void TestDubbingProject::selectsImprovingDurationCandidate()
          QStringLiteral("Cuoc chien rat dai"),
          QStringLiteral("Ban dich dai hon rat nhieu va van co 100 nam")},
         predicted,
+        predicted,
+        predicted,
         {QStringLiteral("100")},
         QStringLiteral("vi"));
     QCOMPARE(selected, reference);
@@ -439,6 +441,54 @@ void TestDubbingProject::selectsImprovingDurationCandidate()
                 selected, predicted, QStringLiteral("vi"))
             < DubbingDurationPlanner::phonemeDistance(
                 current, predicted, QStringLiteral("vi")));
+}
+
+void TestDubbingProject::prefersWithinBudgetDurationCandidate()
+{
+    const QString reference =
+        QStringLiteral("Cuoc chien nay da keo dai trong suot 100 nam");
+    const QString withinBudget = QStringLiteral("Cuoc chien keo dai 100 nam");
+    const QString closerToReference = QStringLiteral("Cuoc chien nay keo dai 100 nam");
+    const int predicted = DubbingDurationPlanner::countPhonemes(
+        withinBudget, QStringLiteral("vi"));
+
+    const QString selected = DubbingDurationPlanner::selectBestCandidate(
+        QStringLiteral("The war lasted 100 years."),
+        reference,
+        reference,
+        {closerToReference, withinBudget},
+        predicted,
+        predicted,
+        predicted,
+        {QStringLiteral("100")},
+        QStringLiteral("vi"));
+
+    QCOMPARE(selected, withinBudget);
+}
+
+void TestDubbingProject::prefersClosestRepairCandidateOutsideBudget()
+{
+    const QString reference = QStringLiteral(
+        "Cuoc chien nay da keo dai trong suot mot tram nam va gay ra nhieu ton that");
+    const QString semanticButLong =
+        QStringLiteral("Cuoc chien nay keo dai trong suot mot tram nam");
+    const QString closest = QStringLiteral("Chien tranh tram nam");
+    const int predicted = DubbingDurationPlanner::countPhonemes(
+                              closest, QStringLiteral("vi"))
+        + 1;
+
+    const QString selected = DubbingDurationPlanner::selectBestCandidate(
+        QStringLiteral("The war lasted one hundred years."),
+        reference,
+        reference,
+        {semanticButLong, closest},
+        predicted,
+        predicted,
+        predicted,
+        {},
+        QStringLiteral("vi"));
+
+    QCOMPARE(selected, closest);
 }
 
 void TestDubbingProject::buildsPauseAlignedTtsChunks()
