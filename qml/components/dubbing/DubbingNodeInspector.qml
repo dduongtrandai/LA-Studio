@@ -184,14 +184,14 @@ Rectangle {
                     }
                     Text {
                         Layout.fillWidth: true
-                        text: qsTr("Predicts a phoneme target from source duration. Translation never invokes TTS.")
+                        text: qsTr("Predicts a phoneme target from source duration. Translation runs once; out-of-budget segments are kept for later LLM review.")
                         color: Theme.textSecondary
                         font.pixelSize: 10
                         wrapMode: Text.WordWrap
                     }
                     Text {
                         Layout.fillWidth: true
-                        text: qsTr("Target language: %1 · 3 candidates per round · pause-aware")
+                        text: qsTr("Target language: %1 · single-pass translation · no rewrite")
                             .arg(root.dubbing.targetLanguage)
                         color: Theme.textSecondary
                         font.pixelSize: 10

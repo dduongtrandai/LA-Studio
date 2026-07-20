@@ -38,8 +38,6 @@ signals:
 
 private:
     void onTranslationFinished(const QVariantList &patches, quint64 generation);
-    void requestDurationCandidates();
-    void requestPauseAlignment();
     void finishDurationTranslation();
     void fail(const QString &message);
     void setProgressForWorker();
@@ -57,7 +55,6 @@ private:
     TranslationInferenceRequest m_pendingRequest;
     DubbingDurationSettings m_durationSettings;
     double m_durationRate = 10.0;
-    int m_durationIteration = 0;
     bool m_durationAware = false;
     bool m_running = false;
     QString m_phase;

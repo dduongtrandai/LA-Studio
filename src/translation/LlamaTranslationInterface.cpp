@@ -250,33 +250,7 @@ QStringList LlamaTranslationInterface::translateBatch(
         QString userInstruction;
         const QVariantMap segmentContext = (segments.size() == texts.size())
             ? segments.at(results.size()).toMap() : QVariantMap();
-        if (task == QStringLiteral("duration-rewrite")) {
-            userInstruction = QStringLiteral(
-                "Rewrite the current translation into one alternative in %1. Follow the length "
-                "constraint closely, but do not count or print phonemes yourself: an external "
-                "counter will verify the result. Preserve the complete source meaning, including "
-                "names, numbers, order/rank, time, comparison, causality, and negation. Preserve "
-                "every protected token exactly. Do not copy source-language wording. Return only "
-                "the rewritten translation, with no label, count, quotation marks, or explanation.\n"
-                "Original source: %2\nReference translation: %3\nCurrent translation: %4\n"
-                "Length constraint: %5\nProtected tokens: %6\nCandidate variant: %7")
-                .arg(targetName,
-                     segmentContext.value(QStringLiteral("sourceText")).toString(),
-                     segmentContext.value(QStringLiteral("referenceTranslation")).toString(),
-                     segmentContext.value(QStringLiteral("targetText")).toString(),
-                     segmentContext.value(QStringLiteral("durationPrompt")).toString(),
-                     segmentContext.value(QStringLiteral("protectedTokens")).toString(),
-                     QString::number(segmentContext.value(QStringLiteral("candidateIndex")).toInt() + 1));
-        } else if (task == QStringLiteral("pause-align")) {
-            userInstruction = QStringLiteral(
-                "Insert exactly %1 [[PAUSE]] markers into the Vietnamese translation at natural "
-                "phrase or clause boundaries. Keep every word unchanged and in the same order. "
-                "Do not add or remove words. Output only the marked translation.\n"
-                "Source text: %2\nTranslation: %3")
-                .arg(segmentContext.value(QStringLiteral("internalPauseCount")).toInt())
-                .arg(segmentContext.value(QStringLiteral("sourceText")).toString(),
-                     segmentContext.value(QStringLiteral("targetText")).toString());
-        } else if (task == QStringLiteral("duration-translate")) {
+        if (task == QStringLiteral("duration-translate")) {
             userInstruction = QStringLiteral(
                 "Translate the following text into %1. Preserve the complete meaning, names, "
                 "numbers, order/rank, comparison, causality, negation, and every protected token. "
@@ -322,8 +296,7 @@ QStringList LlamaTranslationInterface::translateBatch(
         }
 
         int requestedLimit = qMax(32, text.size() * 2 + 24);
-        if (task == QStringLiteral("duration-rewrite")
-            || task == QStringLiteral("duration-translate")) {
+        if (task == QStringLiteral("duration-translate")) {
             const int targetPhonemes = segmentContext.value(QStringLiteral("durationBudget"))
                                             .toMap().value(QStringLiteral("targetUnits")).toInt();
             requestedLimit = qMax(24, targetPhonemes * 2 + 16);
@@ -345,10 +318,7 @@ QStringList LlamaTranslationInterface::translateBatch(
         m_api->samplerChainAdd(sampler, m_api->samplerTopK(20));
         m_api->samplerChainAdd(sampler, m_api->samplerTopP(0.6f, 1));
         m_api->samplerChainAdd(sampler, m_api->samplerTemp(0.7f));
-        const uint32_t candidateSeed = static_cast<uint32_t>(
-            qMax(0, segmentContext.value(QStringLiteral("candidateIndex")).toInt())
-            + 17 * qMax(0, segmentContext.value(QStringLiteral("durationIteration")).toInt()));
-        m_api->samplerChainAdd(sampler, m_api->samplerDist(LLAMA_DEFAULT_SEED + candidateSeed));
+        m_api->samplerChainAdd(sampler, m_api->samplerDist(LLAMA_DEFAULT_SEED));
 
         llama_batch batch = m_api->batchGetOne(tokens.data(), tokenCount);
         QByteArray translatedUtf8;
