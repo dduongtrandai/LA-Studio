@@ -37,6 +37,8 @@ Install these before running bootstrap:
 2. Qt detection from `-QtRoot`, `LA_QT`, or common `C:\Qt\...` paths
 3. vcpkg detection from `-VcpkgRoot`, `VCPKG_ROOT`, common paths, or local clone to `.deps/vcpkg`
 4. Build execution via `scripts/build.ps1`
+5. Normal deploy builds cache eSpeak NG 1.52.0 in `.deps/espeak-ng` and stage it under
+   `out/build/<preset>/espeak-ng` with `libespeak-ng.dll` and `espeak-ng-data`.
 
 ## Common Commands
 
@@ -51,6 +53,9 @@ Faster development build (skip deployment step):
 ```powershell
 .\scripts\bootstrap.bat -SkipDeploy
 ```
+
+The `-SkipDeploy` form intentionally does not stage eSpeak NG. Run the default command
+before launching the packaged application or validating dubbing phoneme counts.
 
 Clean rebuild:
 

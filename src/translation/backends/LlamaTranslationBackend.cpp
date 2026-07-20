@@ -1,4 +1,5 @@
 #include "LlamaTranslationBackend.h"
+#include "core/Logger.h"
 
 #include <QVariantMap>
 
@@ -7,6 +8,10 @@ namespace LAStudio {
 bool LlamaTranslationBackend::loadModel(const TranslationBackendConfiguration &configuration,
                                         QString &error)
 {
+    Logger::info(QStringLiteral("LlamaTranslation"),
+                 QStringLiteral("Loading gpu=%1 model=%2 runtime=%3")
+                     .arg(configuration.useGpu ? QStringLiteral("true") : QStringLiteral("false"),
+                          configuration.modelPath, configuration.runtimePath));
     m_configuration = configuration;
     return m_runtime.load(configuration.runtimePath, configuration.modelPath, &error,
                           configuration.useGpu);
@@ -46,6 +51,10 @@ bool LlamaTranslationBackend::translate(const TranslationInferenceRequest &reque
         return false;
     }
     for (int i = 0; i < translated.size(); ++i) {
+        Logger::debug(QStringLiteral("LlamaTranslation"),
+                      QStringLiteral("Segment translated id=%1 index=%2/%3 sourceChars=%4 targetChars=%5")
+                          .arg(ids.at(i)).arg(i + 1).arg(ids.size())
+                          .arg(texts.at(i).size()).arg(translated.at(i).size()));
         patches.append(QVariantMap{{QStringLiteral("id"), ids.at(i)},
                                    {QStringLiteral("targetText"), translated.at(i)},
                                    {QStringLiteral("state"), QStringLiteral("translated")}});

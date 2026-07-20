@@ -1,6 +1,7 @@
 #include "TranslationEngineInstance.h"
 
 #include "TranslationWorker.h"
+#include "core/Logger.h"
 
 #include <QMetaObject>
 #include <QFileInfo>
@@ -77,7 +78,11 @@ void TranslationEngineInstance::setState(State state)
 
 void TranslationEngineInstance::loadModel()
 {
-    if (m_state == Loading || m_state == Processing) return;
+    if (m_state == Loading || m_state == Processing) {
+        Logger::warning(QStringLiteral("TranslationEngine"),
+                        QStringLiteral("Load ignored signature=%1 state=%2").arg(signature()).arg(m_state));
+        return;
+    }
     ensureWorker();
     m_progress = 0;
     emit progressChanged();
@@ -92,6 +97,14 @@ void TranslationEngineInstance::loadModel()
             m_configuration.selection.runtimeId.contains(QStringLiteral("sycl"), Qt::CaseInsensitive) ||
             m_configuration.selection.runtimeId.contains(QStringLiteral("openvino"), Qt::CaseInsensitive),
         0};
+    Logger::info(QStringLiteral("TranslationEngine"),
+                 QStringLiteral("Loading model signature=%1 backend=%2 gpu=%3 model=%4 modelExists=%5 runtime=%6 runtimeExists=%7")
+                     .arg(signature(), backendConfig.backendId)
+                     .arg(backendConfig.useGpu ? QStringLiteral("true") : QStringLiteral("false"))
+                     .arg(backendConfig.modelPath)
+                     .arg(QFileInfo::exists(backendConfig.modelPath) ? QStringLiteral("true") : QStringLiteral("false"))
+                     .arg(backendConfig.runtimePath)
+                     .arg(QFileInfo::exists(backendConfig.runtimePath) ? QStringLiteral("true") : QStringLiteral("false")));
     QMetaObject::invokeMethod(m_worker, "loadModel", Qt::QueuedConnection,
                               Q_ARG(LAStudio::TranslationBackendConfiguration, backendConfig));
 }
@@ -129,9 +142,18 @@ void TranslationEngineInstance::stopThread()
 void TranslationEngineInstance::translate(const TranslationInferenceRequest &request)
 {
     if (m_state != Ready || !m_worker) {
+        Logger::error(QStringLiteral("TranslationEngine"),
+                      QStringLiteral("Inference rejected signature=%1 state=%2 worker=%3 task=%4 segments=%5")
+                          .arg(signature()).arg(m_state)
+                          .arg(m_worker ? QStringLiteral("ready") : QStringLiteral("missing"))
+                          .arg(request.task).arg(request.segments.size()));
         emit errorOccurred(QStringLiteral("Translation model is not ready."));
         return;
     }
+    Logger::info(QStringLiteral("TranslationEngine"),
+                 QStringLiteral("Inference queued signature=%1 task=%2 source=%3 target=%4 segments=%5 maxTokens=%6")
+                     .arg(signature(), request.task, request.sourceLanguage, request.targetLanguage)
+                     .arg(request.segments.size()).arg(request.maxTokens));
     m_progress = 0;
     emit progressChanged();
     m_activeCancellation = request.cancellation;
@@ -149,6 +171,11 @@ void TranslationEngineInstance::cancelProcessing()
 
 void TranslationEngineInstance::onWorkerLoaded(bool success, const QString &error)
 {
+    Logger::info(QStringLiteral("TranslationEngine"),
+                 QStringLiteral("Model load finished signature=%1 success=%2 error=%3")
+                     .arg(signature())
+                     .arg(success ? QStringLiteral("true") : QStringLiteral("false"))
+                     .arg(error));
     if (success) {
         setState(Ready);
         return;
@@ -172,12 +199,18 @@ void TranslationEngineInstance::onWorkerProgress(int percent)
 
 void TranslationEngineInstance::onWorkerFinished(const QVariantList &patches)
 {
+    Logger::info(QStringLiteral("TranslationEngine"),
+                 QStringLiteral("Inference finished signature=%1 patches=%2")
+                     .arg(signature()).arg(patches.size()));
     setState(Ready);
     emit translationFinished(patches);
 }
 
 void TranslationEngineInstance::onWorkerError(const QString &error)
 {
+    Logger::error(QStringLiteral("TranslationEngine"),
+                  QStringLiteral("Worker error signature=%1 state=%2 message=%3")
+                      .arg(signature()).arg(m_state).arg(error));
     setState(Ready);
     emit errorOccurred(error);
 }

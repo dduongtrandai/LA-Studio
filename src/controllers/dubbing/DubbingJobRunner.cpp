@@ -122,6 +122,11 @@ DubbingJobRunner::DubbingJobRunner(SttSessionController *sttSession, TtsEngine *
     connect(m_translationJob, &DubbingTranslationJob::progressChanged, this, [this](int progress) {
         if (!m_run.processing() || m_run.stageId() != DubbingStage::Translation) return;
         m_run.setProgress(progress);
+        if (progress == 0 || progress == 100 || progress % 10 == 0) {
+            Logger::debug(QStringLiteral("DubbingPipeline"),
+                          QStringLiteral("[translation] progress run=%1 value=%2")
+                              .arg(m_run.runId()).arg(progress));
+        }
         emit stateChanged();
     });
     connect(m_translationJob, &DubbingTranslationJob::failed,
@@ -129,6 +134,15 @@ DubbingJobRunner::DubbingJobRunner(SttSessionController *sttSession, TtsEngine *
     connect(m_translationJob, &DubbingTranslationJob::completed, this,
             [this](const QVariantList &segments) {
         if (!m_run.processing() || m_run.stageId() != DubbingStage::Translation) return;
+        int translated = 0;
+        for (const QVariant &value : segments) {
+            if (!value.toMap().value(QStringLiteral("targetText")).toString().trimmed().isEmpty())
+                ++translated;
+        }
+        Logger::info(QStringLiteral("DubbingPipeline"),
+                     QStringLiteral("[translation] completed run=%1 segments=%2 translated=%3 elapsedMs=%4")
+                         .arg(m_run.runId()).arg(segments.size()).arg(translated)
+                         .arg(m_run.elapsedMs()));
         m_activeSegments = segments;
         setProcessing(false, QStringLiteral("translated"), 100);
         emit segmentsUpdated(segments);
@@ -237,14 +251,30 @@ void DubbingJobRunner::startTranslation(const QString &sourceLanguage, const QSt
                                          const QVariantMap &modelConfiguration)
 {
     if (m_run.processing() || (m_translationJob && m_translationJob->running())) {
+        Logger::warning(QStringLiteral("DubbingPipeline"),
+                        QStringLiteral("[translation] start rejected: already running stage=%1 progress=%2")
+                            .arg(m_run.stageName()).arg(m_run.progress()));
         setBusyError(QStringLiteral("A translation request is already running."));
         return;
     }
     m_run.ensureRun();
     m_run.beginNode();
+    Logger::info(QStringLiteral("DubbingPipeline"),
+                 QStringLiteral("[translation] start run=%1 node=%2 source=%3 target=%4 segments=%5 family=%6 runtime=%7")
+                     .arg(m_run.runId(), m_run.nodeRunId(), sourceLanguage, targetLanguage)
+                     .arg(segments.size())
+                     .arg(modelConfiguration.value(QStringLiteral("familyId")).toString(),
+                          modelConfiguration.value(QStringLiteral("runtimeId")).toString()));
     setProcessing(true, QStringLiteral("translation"), 0);
-    if (!m_translationJob || !m_translationJob->start(sourceLanguage, targetLanguage,
-                                                       segments, modelConfiguration, m_run.runId())) return;
+    if (!m_translationJob) {
+        setError(QStringLiteral("Translation job is unavailable."));
+        return;
+    }
+    if (!m_translationJob->start(sourceLanguage, targetLanguage,
+                                 segments, modelConfiguration, m_run.runId())) {
+        Logger::error(QStringLiteral("DubbingPipeline"),
+                      QStringLiteral("[translation] job rejected start run=%1").arg(m_run.runId()));
+    }
 }
 void DubbingJobRunner::startAudioGeneration(const QVariantList &segments, const QString &projectPath,
                                              const QVariantMap &synthesisSettings)

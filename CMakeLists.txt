@@ -168,6 +168,7 @@ set(LASTUDIO_SOURCES
     src/controllers/tts/SubtitleVoiceController.cpp
     src/controllers/stt/SttAudioDecoder.cpp
     src/dubbing/DubbingProject.cpp
+    src/dubbing/EspeakNgPhonemizer.cpp
     src/dubbing/DubbingDuration.cpp
     src/dubbing/DubbingTimingProfile.cpp
     src/dubbing/DubbingTimingService.cpp
@@ -316,6 +317,7 @@ set(LASTUDIO_HEADERS
     src/controllers/tts/SubtitleVoiceController.h
     src/controllers/stt/SttAudioDecoder.h
     src/dubbing/DubbingProject.h
+    src/dubbing/EspeakNgPhonemizer.h
     src/dubbing/DubbingTimingService.h
     src/controllers/dubbing/DubbingController.h
     src/dubbing/AudioTimelineMixer.h

@@ -95,7 +95,9 @@ Item {
         var next = nextNodeId(nodeId)
         if (next === "") return
         root.reviewStepId = next
-        dubbing.startStepByStep()
+        // "Next" means execute the next workflow node, not only highlight it.
+        // rerunStep also provides controller-side diagnostics for rejected runs.
+        dubbing.rerunStep(next, root.defaultExportPath())
     }
 
     function stepComplete(stepId) {

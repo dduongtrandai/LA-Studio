@@ -269,6 +269,79 @@ function Ensure-ArchiveExtractor {
     }
 }
 
+function Ensure-EspeakNgRuntime {
+    param(
+        [string] $DeployRoot
+    )
+
+    $version = "1.52.0"
+    $runtimeRoot = Join-Path $DeployRoot "espeak-ng"
+    $dllTarget = Join-Path $runtimeRoot "libespeak-ng.dll"
+    $exeTarget = Join-Path $runtimeRoot "espeak-ng.exe"
+    $dataTarget = Join-Path $runtimeRoot "espeak-ng-data"
+
+    if ((Test-Path -LiteralPath $dllTarget) -and
+        (Test-Path -LiteralPath $exeTarget) -and
+        (Test-Path -LiteralPath (Join-Path $dataTarget "voices"))) {
+        Write-Host ">> eSpeak NG runtime already staged: $runtimeRoot" -ForegroundColor DarkGray
+        return
+    }
+
+    $cacheRoot = Join-Path $RepoRoot ".deps\espeak-ng"
+    $msiPath = Join-Path $cacheRoot "espeak-ng-$version.msi"
+    $url = "https://github.com/espeak-ng/espeak-ng/releases/download/$version/espeak-ng.msi"
+    New-Item -ItemType Directory -Path $cacheRoot -Force | Out-Null
+
+    if (-not (Test-Path -LiteralPath $msiPath)) {
+        Write-Host ">> Downloading eSpeak NG $version" -ForegroundColor Cyan
+        Invoke-WebRequest -Uri $url -OutFile $msiPath -UseBasicParsing
+    } else {
+        Write-Host ">> Using cached eSpeak NG MSI: $msiPath" -ForegroundColor DarkGray
+    }
+
+    $extractRoot = Join-Path $DeployRoot ".espeak-ng-extract"
+    if (Test-Path -LiteralPath $extractRoot) {
+        Remove-Item -LiteralPath $extractRoot -Recurse -Force
+    }
+    New-Item -ItemType Directory -Path $extractRoot -Force | Out-Null
+
+    Write-Host ">> Extracting eSpeak NG runtime" -ForegroundColor Cyan
+    $installer = Start-Process -FilePath "msiexec.exe" -ArgumentList @(
+        "/a", $msiPath, "/qn", "TARGETDIR=$extractRoot"
+    ) -Wait -PassThru
+    if ($installer.ExitCode -ne 0) {
+        throw "Failed to extract eSpeak NG MSI (exit code $($installer.ExitCode)): $msiPath"
+    }
+
+    $dllSource = Get-ChildItem -Path $extractRoot -Filter "libespeak-ng.dll" -Recurse -File |
+        Select-Object -First 1
+    $exeSource = Get-ChildItem -Path $extractRoot -Filter "espeak-ng.exe" -Recurse -File |
+        Select-Object -First 1
+    $dataSource = Get-ChildItem -Path $extractRoot -Directory -Recurse |
+        Where-Object { $_.Name -eq "espeak-ng-data" } |
+        Select-Object -First 1
+
+    if ($null -eq $dllSource -or $null -eq $exeSource -or $null -eq $dataSource) {
+        Remove-Item -LiteralPath $extractRoot -Recurse -Force -ErrorAction SilentlyContinue
+        throw "eSpeak NG MSI did not contain libespeak-ng.dll, espeak-ng.exe, and espeak-ng-data."
+    }
+
+    New-Item -ItemType Directory -Path $runtimeRoot -Force | Out-Null
+    Copy-Item -LiteralPath $dllSource.FullName -Destination $dllTarget -Force
+    Copy-Item -LiteralPath $exeSource.FullName -Destination $exeTarget -Force
+    if (Test-Path -LiteralPath $dataTarget) {
+        Remove-Item -LiteralPath $dataTarget -Recurse -Force
+    }
+    Copy-Item -LiteralPath $dataSource.FullName -Destination $dataTarget -Recurse -Force
+    Remove-Item -LiteralPath $extractRoot -Recurse -Force
+
+    if (-not (Test-Path -LiteralPath $dllTarget) -or
+        -not (Test-Path -LiteralPath (Join-Path $dataTarget "voices"))) {
+        throw "eSpeak NG runtime staging was incomplete: $runtimeRoot"
+    }
+    Write-Host ">> Staged eSpeak NG runtime: $runtimeRoot" -ForegroundColor Green
+}
+
 Ensure-Command -Name "cmake" -FallbackPaths @(
     "C:\Qt\Tools\CMake_64\bin",
     "C:\Program Files\CMake\bin"
@@ -363,6 +436,7 @@ if (-not $SkipDeploy) {
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         Ensure-WebpImageFormatPlugin -QtPrefixPath $qtPrefixPath -DeployRoot $buildDir
         Ensure-ArchiveExtractor -DeployRoot $buildDir -VcpkgRoot $VcpkgRoot
+        Ensure-EspeakNgRuntime -DeployRoot $buildDir
     } else {
         Write-Warning "windeployqt not found at $windeployqt. Skipping deployment."
     }

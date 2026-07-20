@@ -1,8 +1,8 @@
 #include "dubbing/DubbingDuration.h"
+#include "dubbing/EspeakNgPhonemizer.h"
 
 #include <QHash>
 #include <QRegularExpression>
-#include <QSet>
 #include <QtMath>
 
 namespace LAStudio {
@@ -136,74 +136,10 @@ int DubbingDurationPlanner::countVietnameseSyllables(const QString &text)
 
 int DubbingDurationPlanner::countPhonemes(const QString &text, const QString &language)
 {
-    QString normalized = normalizeSpokenVietnamese(text)
-                             .normalized(QString::NormalizationForm_D)
-                             .toLower();
-    normalized.remove(QRegularExpression(QStringLiteral("\\p{M}+")));
-    if (normalized.isEmpty()) return 0;
-
-    if (language.compare(QStringLiteral("vi"), Qt::CaseInsensitive) == 0) {
-        static const QStringList onsets = {
-            QStringLiteral("ngh"), QStringLiteral("ch"), QStringLiteral("gh"),
-            QStringLiteral("gi"), QStringLiteral("kh"), QStringLiteral("ng"),
-            QStringLiteral("nh"), QStringLiteral("ph"), QStringLiteral("qu"),
-            QStringLiteral("th"), QStringLiteral("tr")
-        };
-        static const QStringList codas = {
-            QStringLiteral("ch"), QStringLiteral("ng"), QStringLiteral("nh"),
-            QStringLiteral("c"), QStringLiteral("m"), QStringLiteral("n"),
-            QStringLiteral("p"), QStringLiteral("t")
-        };
-        static const QSet<QChar> vowels = {
-            u'a', u'ă', u'â', u'e', u'ê', u'i', u'o', u'ô', u'ơ', u'u', u'ư', u'y'
-        };
-        int total = 0;
-        const QStringList words = normalized.split(
-            QRegularExpression(QStringLiteral("[^\\p{L}\\p{N}]+")), Qt::SkipEmptyParts);
-        for (const QString &word : words) {
-            int onsetLength = 0;
-            for (const QString &onset : onsets) {
-                if (word.startsWith(onset) && onset.size() > onsetLength)
-                    onsetLength = onset.size();
-            }
-            if (onsetLength == 0 && !word.isEmpty() && !vowels.contains(word.front()))
-                onsetLength = 1;
-
-            int codaLength = 0;
-            for (const QString &coda : codas) {
-                if (word.endsWith(coda) && coda.size() > codaLength
-                    && coda.size() < word.size() - onsetLength + 1) {
-                    codaLength = coda.size();
-                }
-            }
-
-            int wordUnits = onsetLength > 0 ? 1 : 0;
-            const int nucleusEnd = word.size() - codaLength;
-            for (int i = onsetLength; i < nucleusEnd; ++i) {
-                if (vowels.contains(word.at(i))) ++wordUnits;
-            }
-            if (codaLength > 0) ++wordUnits;
-            total += qMax(1, wordUnits);
-        }
-        return total;
-    }
-
-    int total = 0;
-    const QStringList words = normalized.split(
-        QRegularExpression(QStringLiteral("[^\\p{L}\\p{N}]+")), Qt::SkipEmptyParts);
-    for (const QString &word : words) {
-        bool previousWasVowel = false;
-        for (const QChar ch : word) {
-            const bool vowel = QStringLiteral("aeiouy").contains(ch);
-            if (vowel) {
-                if (!previousWasVowel) ++total;
-            } else if (ch.isLetter()) {
-                ++total;
-            }
-            previousWasVowel = vowel;
-        }
-    }
-    return total;
+    // eSpeak NG is the sole source of phoneme counts. If its runtime or data
+    // is unavailable, EspeakNgPhonemizer::count returns -1; expose that as a
+    // zero-count budget rather than silently switching to another metric.
+    return qMax(0, EspeakNgPhonemizer::count(text, language));
 }
 
 int DubbingDurationPlanner::phonemeDistance(const QString &text, int predictedPhonemes,

@@ -783,7 +783,16 @@ bool DubbingController::startAutomaticWorkflow(const QString &outputPath)
 
 void DubbingController::startStepByStep()
 {
+    Logger::info(QStringLiteral("DubbingController"),
+                 QStringLiteral("Step-by-step requested current=%1 processing=%2 source=%3 master=%4 background=%5 segments=%6")
+                     .arg(m_currentStepId)
+                     .arg(processing() ? QStringLiteral("true") : QStringLiteral("false"))
+                     .arg(m_project.sourceMediaPath, m_project.masterAudioPath,
+                          m_project.backgroundAudioPath)
+                     .arg(m_project.segments.size()));
     if (m_project.sourceMediaPath.isEmpty()) {
+        Logger::warning(QStringLiteral("DubbingController"),
+                        QStringLiteral("Step-by-step rejected: source media is empty."));
         setError(QStringLiteral("Import source media before starting the step-by-step workflow."));
         return;
     }
@@ -805,6 +814,8 @@ void DubbingController::startStepByStep()
         else if (exportPath().isEmpty() || !QFileInfo::exists(exportPath())) setCurrentStep(QStringLiteral("export"));
         else setCurrentStep(QStringLiteral("completed"));
     }
+    Logger::info(QStringLiteral("DubbingController"),
+                 QStringLiteral("Step-by-step resolved next step=%1").arg(m_currentStepId));
 }
 
 bool DubbingController::runCurrentStep(const QString &outputPath)
@@ -844,7 +855,13 @@ bool DubbingController::runCurrentStep(const QString &outputPath)
 
 bool DubbingController::rerunStep(const QString &stepId, const QString &outputPath)
 {
-    if (processing()) return false;
+    if (processing()) {
+        Logger::warning(QStringLiteral("DubbingController"),
+                        QStringLiteral("Run request rejected while busy requestedStep=%1 activeStep=%2 runnerStage=%3 progress=%4")
+                            .arg(stepId, m_currentStepId, m_runner->stage())
+                            .arg(m_runner->progress()));
+        return false;
+    }
 
     const QString step = stepId.trimmed();
     const bool supported = step == QStringLiteral("ingest")
@@ -1175,15 +1192,45 @@ void DubbingController::transcribeSource()
 
 void DubbingController::translateSource()
 {
+    int emptySourceCount = 0;
+    for (const QVariant &value : std::as_const(m_project.segments)) {
+        if (value.toMap().value(QStringLiteral("sourceText")).toString().trimmed().isEmpty())
+            ++emptySourceCount;
+    }
+    const QVariantMap configured =
+        m_workflowNodeConfigurations.value(QStringLiteral("translate")).toMap();
+    Logger::info(QStringLiteral("DubbingController"),
+                 QStringLiteral("Translation requested sourceLanguage=%1 targetLanguage=%2 segments=%3 emptySource=%4 family=%5 runtime=%6 runtimeVersion=%7")
+                     .arg(m_project.sourceLanguage, m_project.targetLanguage)
+                     .arg(m_project.segments.size())
+                     .arg(emptySourceCount)
+                     .arg(configured.value(QStringLiteral("familyId")).toString(),
+                          configured.value(QStringLiteral("runtimeId")).toString(),
+                          configured.value(QStringLiteral("runtimeVersion")).toString()));
     if (m_project.sourceMediaPath.isEmpty()) {
+        Logger::warning(QStringLiteral("DubbingController"),
+                        QStringLiteral("Translation rejected: source media is empty."));
         setError(QStringLiteral("Import media before translating."));
         return;
     }
     if (m_project.segments.isEmpty()) {
+        Logger::warning(QStringLiteral("DubbingController"),
+                        QStringLiteral("Translation rejected: transcript has no segments."));
         setError(QStringLiteral("Transcribe the source before translating."));
         return;
     }
-    QVariantMap translationConfig = m_workflowNodeConfigurations.value(QStringLiteral("translate")).toMap();
+    if (m_project.targetLanguage.trimmed().isEmpty()) {
+        Logger::warning(QStringLiteral("DubbingController"),
+                        QStringLiteral("Translation rejected: target language is empty."));
+        setError(QStringLiteral("Choose a target language before translating."));
+        return;
+    }
+    if (emptySourceCount > 0) {
+        Logger::warning(QStringLiteral("DubbingController"),
+                        QStringLiteral("Translation request contains %1 segment(s) without source text.")
+                            .arg(emptySourceCount));
+    }
+    QVariantMap translationConfig = configured;
     QVariantMap parameters = translationConfig.value(QStringLiteral("parameters")).toMap();
     parameters.insert(QStringLiteral("durationControl"), m_project.durationControl);
     translationConfig.insert(QStringLiteral("parameters"), parameters);

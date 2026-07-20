@@ -1,4 +1,5 @@
 #include "CrispTranslationBackend.h"
+#include "core/Logger.h"
 
 #include <QVariantMap>
 
@@ -7,6 +8,11 @@ namespace LAStudio {
 bool CrispTranslationBackend::loadModel(const TranslationBackendConfiguration &configuration,
                                         QString &error)
 {
+    Logger::info(QStringLiteral("CrispTranslation"),
+                 QStringLiteral("Loading backend=%1 gpu=%2 model=%3 runtime=%4")
+                     .arg(configuration.backendId)
+                     .arg(configuration.useGpu ? QStringLiteral("true") : QStringLiteral("false"))
+                     .arg(configuration.modelPath, configuration.runtimePath));
     m_configuration = configuration;
     if (!m_runtime.load(configuration.runtimePath, configuration.modelPath, configuration.backendId,
                         configuration.threads, configuration.useGpu, &error)) {
@@ -46,6 +52,10 @@ bool CrispTranslationBackend::translate(const TranslationInferenceRequest &reque
             if (error.isEmpty()) error = QStringLiteral("Translation returned no output.");
             return false;
         }
+        Logger::debug(QStringLiteral("CrispTranslation"),
+                      QStringLiteral("Segment translated id=%1 index=%2/%3 sourceChars=%4 targetChars=%5")
+                          .arg(id).arg(completed + 1).arg(total)
+                          .arg(source.size()).arg(translated.size()));
         patches.append(QVariantMap{{QStringLiteral("id"), id},
                                    {QStringLiteral("targetText"), translated},
                                    {QStringLiteral("state"), QStringLiteral("translated")}});
