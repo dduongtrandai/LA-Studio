@@ -72,6 +72,7 @@ ColumnLayout {
             flat: true
 
             contentItem: Text {
+                anchors.fill: parent
                 text: qsTr("Clear All")
                 color: clearAllBtn.hovered ? Theme.danger : Theme.textSecondary
                 font.pixelSize: Theme.fontSmall

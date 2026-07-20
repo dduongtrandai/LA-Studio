@@ -504,7 +504,7 @@ RowLayout {
                                       : root.readinessState === "Error"
                                       ? qsTr("Model could not be loaded")
                                       : root.modelConfigured
-                                        ? qsTr("Load the model to use this Studio")
+                                        ? qsTr("Reload the model to use this Studio")
                                         : qsTr("Choose a model to get started")
                                 color: Theme.textPrimary
                                 font.pixelSize: Theme.fontLarge
@@ -536,8 +536,8 @@ RowLayout {
                                     visible: root.readinessState !== "Loading"
                                     text: root.readinessState === "Error"
                                           ? qsTr("Retry")
-                                          : root.modelConfigured ? qsTr("Load model") : qsTr("Choose model")
-                                    iconName: root.readinessState === "Error" ? "refresh" : (root.modelConfigured ? "download" : "gallery")
+                                          : root.modelConfigured ? qsTr("Reload model") : qsTr("Choose model")
+                                    iconName: root.readinessState === "Error" ? "refresh" : (root.modelConfigured ? "reload" : "gallery")
                                     onClicked: {
                                         if (root.readinessState === "Error" || root.modelConfigured) {
                                             if (studioController) studioController.loadSelectedConfiguration()

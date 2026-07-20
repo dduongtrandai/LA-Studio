@@ -305,6 +305,14 @@ void TestModelsAndRuntimes::testModelManagerResolvesSplitVirtualModelFiles()
     QCOMPARE(QFileInfo(models.filePath(QStringLiteral("pnnbao-ump/VieNeu-Codec"),
                                        QStringLiteral("vieneu_encoder.onnx"))).absoluteFilePath(),
              QFileInfo(QDir(codecDir).absoluteFilePath(QStringLiteral("vieneu_encoder.onnx"))).absoluteFilePath());
+    QCOMPARE(
+        QFileInfo(models.firstAvailableFilePath(
+                      QStringLiteral("pnnbao-ump/VieNeu-TTS-v2-Turbo-GGUF"),
+                      {QStringLiteral("missing-default.gguf"),
+                       QStringLiteral("vieneu-tts-v2-turbo.gguf")}))
+            .absoluteFilePath(),
+        QFileInfo(QDir(ggufDir).absoluteFilePath(QStringLiteral("vieneu-tts-v2-turbo.gguf")))
+            .absoluteFilePath());
 }
 
 void TestModelsAndRuntimes::testCapabilityFamilyModelSuitability()

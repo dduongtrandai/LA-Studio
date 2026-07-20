@@ -5,8 +5,10 @@
 #include "core/RuntimeManager.h"
 #include "core/ModelManager.h"
 #include "core/Settings.h"
+#include "core/Logger.h"
 #include <QVariantList>
 #include <QDir>
+#include <QFileInfo>
 #include <algorithm>
 
 namespace LAStudio {
@@ -48,16 +50,34 @@ ResolvedConfiguration StudioConfigurationResolver::resolve(const StudioConfigura
     for (const QVariant &reqVal : reqFiles) {
         QVariantMap req = reqVal.toMap();
         QString role = req.value(QStringLiteral("role")).toString();
-        QString filename = config.selectedFiles.value(role).toString();
+        const QString configuredFilename = config.selectedFiles.value(role).toString().trimmed();
+        QString filename = configuredFilename;
         if (filename.isEmpty()) filename = req.value(QStringLiteral("file")).toString();
         QString modelId = req.value(QStringLiteral("modelId")).toString();
         if (modelId.isEmpty()) modelId = res.family.value(QStringLiteral("modelId")).toString();
 
-        QString path = app->models()->filePath(modelId, filename);
+        QStringList candidateFilenames{filename};
+        for (const QVariant &candidate : req.value(QStringLiteral("candidates")).toList()) {
+            candidateFilenames.append(candidate.toString().trimmed());
+        }
+        candidateFilenames.append(req.value(QStringLiteral("file")).toString().trimmed());
+
+        QString path = app->models()->firstAvailableFilePath(modelId, candidateFilenames);
+        if (!path.isEmpty()) {
+            const QString resolvedFilename = QFileInfo(path).fileName();
+            if (resolvedFilename != filename) {
+                Logger::warning(
+                    QStringLiteral("StudioConfigurationResolver"),
+                    QStringLiteral("Selected model file is unavailable; using installed variant for %1: %2 -> %3")
+                        .arg(role, filename, resolvedFilename));
+                filename = resolvedFilename;
+            }
+        }
         if (path.isEmpty()) {
             path = QDir(app->models()->concreteModelDir(modelId)).absoluteFilePath(filename);
         }
         res.resolvedPaths.insert(role, path);
+        res.selectedFiles.insert(role, filename);
     }
 
     res.resolvedPaths.insert(QStringLiteral("familyId"), config.familyId);

@@ -10,6 +10,7 @@ struct ResolvedConfiguration {
     QString runtimePath;
     QVariantMap family;
     QVariantMap resolvedPaths;
+    QVariantMap selectedFiles;
     QString signature;
     bool isValid = false;
 };

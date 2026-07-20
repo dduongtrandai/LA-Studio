@@ -15,46 +15,56 @@ Button {
     property string toolTip: ""
     property color borderColor: Qt.rgba(1, 1, 1, 0.08)
     property bool quiet: false
+    readonly property real requiredContentWidth:
+        root.iconOnly ? 38
+                      : buttonLabel.implicitWidth
+                        + Theme.paddingSmall * 2
+                        + (buttonIcon.visible
+                           ? (buttonIcon.width + Theme.paddingSmall) * 2
+                           : 0)
 
-    implicitWidth: root.iconOnly ? 38 : 120
+    implicitWidth: root.iconOnly ? 38 : Math.max(120, root.requiredContentWidth)
     implicitHeight: 38
+    Layout.minimumWidth: root.requiredContentWidth
 
     AppToolTip {
         text: root.toolTip
         visible: root.hovered && root.toolTip !== ""
     }
 
-    contentItem: RowLayout {
-        spacing: root.iconOnly ? 0 : Theme.paddingSmall
+    contentItem: Item {
         opacity: root.loading ? 0 : 1
 
-        Item {
-            visible: !root.iconOnly
-            Layout.fillWidth: true
-        }
-
         LineIcon {
+            id: buttonIcon
             visible: root.iconName !== ""
             name: root.iconName
             color: root.enabled ? root.textColor : Theme.textSecondary
-            Layout.alignment: Qt.AlignCenter
-            Layout.preferredWidth: 16
-            Layout.preferredHeight: 16
+            width: 16
+            height: 16
+            anchors.verticalCenter: root.iconOnly ? undefined : parent.verticalCenter
+            anchors.centerIn: root.iconOnly ? parent : undefined
+            anchors.right: buttonLabel.left
+            anchors.rightMargin: root.iconOnly ? 0 : Theme.paddingSmall
         }
 
         Text {
+            id: buttonLabel
             visible: !root.iconOnly
             text: root.text
             color: root.enabled ? root.textColor : Theme.textSecondary
             font.pixelSize: Theme.fontSmall
             font.bold: true
+            anchors.centerIn: parent
+            width: Math.min(implicitWidth, parent.width)
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
         }
 
         Item {
-            visible: !root.iconOnly
-            Layout.fillWidth: true
+            visible: root.iconOnly
+            anchors.fill: parent
         }
     }
 

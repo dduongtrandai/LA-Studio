@@ -455,7 +455,7 @@ Rectangle {
                 }
 
                 HeaderActionButton {
-                    iconName: "refresh"
+                    iconName: "reload"
                     toolTip: qsTr("Reload current model")
                     enabled: root.modelLoaded && !root.processing && !root.lifecycleBusy
                     onClicked: root.reloadRequested()

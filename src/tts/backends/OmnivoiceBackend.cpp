@@ -4,6 +4,7 @@
 #include "core/PathUtils.h"
 #include <runtimes/OmnivoiceInterface.h>
 #include <QDir>
+#include <QFileInfo>
 #include <cstring>
 #include <utility>
 
@@ -63,6 +64,17 @@ bool OmnivoiceBackend::load(const QVariantMap &config, QString &error, QVariantL
     QString codecPath = PathUtils::toNativeShortPath(config.value("codec").toString());
     QString runtimePath = PathUtils::toNativeShortPath(config.value("runtimePath").toString());
 
+    if (modelPath.isEmpty() || !QFileInfo(modelPath).isFile()) {
+        error = QStringLiteral("OmniVoice base model file is missing: %1").arg(modelPath);
+        Logger::error("OmnivoiceBackend", error);
+        return false;
+    }
+    if (codecPath.isEmpty() || !QFileInfo(codecPath).isFile()) {
+        error = QStringLiteral("OmniVoice audio codec file is missing: %1").arg(codecPath);
+        Logger::error("OmnivoiceBackend", error);
+        return false;
+    }
+
     QVariantMap steps;
     steps["id"] = "mg_num_step";
     steps["name"] = "Inference Steps";
@@ -111,14 +123,35 @@ bool OmnivoiceBackend::load(const QVariantMap &config, QString &error, QVariantL
     ov_init_params params;
     oi.ov_init_default_params(&params);
     params.model_path = modelPathBytes.constData();
-    if (!codecPath.isEmpty()) {
-        params.codec_path = codecPathBytes.constData();
-    }
+    params.codec_path = codecPathBytes.constData();
 
     m_context = oi.ov_init(&params);
+
+    // Flash Attention is enabled by the runtime defaults, but it is not
+    // supported reliably by every CUDA device/driver combination. Retry with
+    // the portable CUDA settings before surfacing the load error. This also
+    // enables the runtime's FP16 accumulation guard for pre-Ampere GPUs.
+    if (!m_context && runtimePath.contains(QStringLiteral("cuda"), Qt::CaseInsensitive)) {
+        const QString initialError = QString::fromUtf8(oi.ov_last_error());
+        Logger::warning("OmnivoiceBackend",
+                        QStringLiteral("Default CUDA initialization failed; retrying without Flash Attention: %1")
+                            .arg(initialError));
+        oi.ov_init_default_params(&params);
+        params.model_path = modelPathBytes.constData();
+        params.codec_path = codecPathBytes.constData();
+        params.use_fa = false;
+        params.clamp_fp16 = true;
+        m_context = oi.ov_init(&params);
+        if (m_context) {
+            Logger::info("OmnivoiceBackend", QStringLiteral("OmniVoice loaded with conservative CUDA compatibility settings"));
+        }
+    }
+
     if (!m_context) {
         error = QString::fromUtf8(oi.ov_last_error());
-        Logger::error("OmnivoiceBackend", "Failed to initialize voice model: " + error);
+        Logger::error("OmnivoiceBackend",
+                      QStringLiteral("Failed to initialize voice model (model=%1, codec=%2): %3")
+                          .arg(modelPath, codecPath, error));
         unload();
         return false;
     }

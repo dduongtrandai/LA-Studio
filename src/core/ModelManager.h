@@ -71,6 +71,7 @@ public:
                                                        const QString &runtimeId = QString());
     Q_INVOKABLE bool hasFile(const QString &modelId, const QString &filename) const;
     Q_INVOKABLE QString filePath(const QString &modelId, const QString &filename) const;
+    QString firstAvailableFilePath(const QString &modelId, const QStringList &filenames) const;
     Q_INVOKABLE QVariantMap fileMetadata(const QString &modelId, const QString &filename) const;
     Q_INVOKABLE bool setFileMetadata(const QString &modelId, const QString &filename, const QVariantMap &metadata);
     Q_INVOKABLE QString concreteModelDir(const QString &modelId) const;

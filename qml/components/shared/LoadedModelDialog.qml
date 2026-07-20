@@ -442,6 +442,7 @@ Dialog {
         padding: 0
 
         contentItem: Text {
+            anchors.fill: parent
             text: dialogButton.text
             color: dialogButton.enabled ? dialogButton.labelColor : Theme.textSecondary
             opacity: dialogButton.enabled ? 1.0 : 0.55

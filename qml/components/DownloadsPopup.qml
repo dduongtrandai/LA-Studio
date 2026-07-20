@@ -285,10 +285,12 @@ Popup {
                             implicitWidth: 46
                             implicitHeight: 22
                             contentItem: Text {
+                                anchors.fill: parent
                                 text: qsTr("Clear")
                                 color: clearBtn.hovered ? Theme.accentLight : Theme.textSecondary
                                 font.pixelSize: Theme.fontSmall
                                 horizontalAlignment: Text.AlignRight
+                                verticalAlignment: Text.AlignVCenter
                             }
                             background: Item {}
                             onClicked: AppController.downloads.clearCompleted()

@@ -172,6 +172,7 @@ std::optional<SessionConfiguration> AlignmentModelSession::resolveConfig(const S
     SessionConfiguration out;
     out.capabilityId = config.capabilityId;
     out.selection = config;
+    out.selection.selectedFiles = resolved.selectedFiles;
     out.runtimePath = resolved.runtimePath;
     out.familyConfig = resolved.family;
     out.resolvedPathsByRole = resolved.resolvedPaths;

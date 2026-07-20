@@ -268,7 +268,7 @@ Dialog {
                                                 implicitHeight: 26
                                                 padding: 0
                                                 onClicked: root.nodeConfigureRequested(stageDelegate.modelData.id || "")
-                                                contentItem: Text { text: parent.text + "  ›"; color: parent.hovered ? Theme.textPrimary : Theme.accentLight; font.pixelSize: 10; font.bold: true; horizontalAlignment: Text.AlignRight; verticalAlignment: Text.AlignVCenter }
+                                                contentItem: Text { anchors.fill: parent; text: parent.text + "  ›"; color: parent.hovered ? Theme.textPrimary : Theme.accentLight; font.pixelSize: 10; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                                                 background: Rectangle { radius: Theme.radiusSmall; color: parent.hovered ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.18) : "transparent" }
                                             }
                                         }
@@ -300,7 +300,7 @@ Dialog {
                 component CanvasButton: Button {
                     implicitWidth: 32; implicitHeight: 30
                     background: Rectangle { color: parent.hovered ? Theme.surfaceAlt : Theme.surface; radius: Theme.radiusSmall; border.color: Qt.rgba(1, 1, 1, 0.10) }
-                    contentItem: Text { text: parent.text; color: Theme.textPrimary; font.pixelSize: Theme.fontSmall; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    contentItem: Text { anchors.fill: parent; text: parent.text; color: Theme.textPrimary; font.pixelSize: Theme.fontSmall; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     HoverHandler { cursorShape: Qt.PointingHandCursor }
                 }
                 CanvasButton { text: "−"; enabled: root.canvasScale > 0.58; onClicked: root.canvasScale = Math.max(0.58, root.canvasScale - 0.1) }

@@ -13,7 +13,7 @@ Rectangle {
 
     signal clicked()
 
-    implicitWidth: tabLayout.implicitWidth + Theme.paddingMedium * 2
+    implicitWidth: tabText.implicitWidth + Theme.paddingMedium * 2 + (tabIcon.visible || tabEmoji.visible ? 20 : 0)
     implicitHeight: 34
     radius: 7
     color: {
@@ -25,30 +25,42 @@ Rectangle {
     border.width: 1
     opacity: enabled ? 1.0 : 0.6
 
-    RowLayout {
+    Item {
         id: tabLayout
-        anchors.centerIn: parent
-        spacing: 6
+        anchors.fill: parent
 
         LineIcon {
+            id: tabIcon
             name: root.iconName
             color: root.selected ? Theme.accentLight : Theme.textSecondary
-            Layout.preferredWidth: 14
-            Layout.preferredHeight: 14
+            width: 14
+            height: 14
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.right: tabText.left
+            anchors.rightMargin: 6
             visible: root.iconName !== ""
         }
 
         Text {
+            id: tabEmoji
             text: root.icon
             font.pixelSize: Theme.fontMedium
             visible: root.icon !== "" && root.iconName === ""
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.right: tabText.left
+            anchors.rightMargin: 6
         }
 
         Text {
+            id: tabText
+            anchors.centerIn: parent
+            width: Math.max(0, Math.min(implicitWidth, parent.width - (tabIcon.visible || tabEmoji.visible ? 20 : 0)))
             text: root.text
             color: selected ? Theme.textPrimary : Theme.textSecondary
             font.pixelSize: Theme.fontSmall
             font.bold: selected
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
         }
     }
 

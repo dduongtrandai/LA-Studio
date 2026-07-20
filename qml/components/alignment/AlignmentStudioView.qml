@@ -482,6 +482,7 @@ WorkflowStudioShell {
                                 text: qsTr("Import text")
                                 onClicked: transcriptFileDialog.open()
                                 contentItem: Text {
+                                    anchors.fill: parent
                                     text: parent.text
                                     color: parent.hovered ? Theme.textPrimary : Theme.textSecondary
                                     font.pixelSize: Theme.fontSmall

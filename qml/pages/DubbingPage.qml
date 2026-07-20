@@ -275,7 +275,7 @@ Item {
             PrimaryButton {
                 visible: root.canRerunStep("translate")
                 text: qsTr("Run Again")
-                iconName: "refresh"
+                iconName: "run-again"
                 quiet: true
                 enabled: !dubbing.processing && translationPanel.ready
                     && root.stepRunReady("translate")

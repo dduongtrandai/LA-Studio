@@ -141,6 +141,7 @@ Dialog {
                     implicitHeight: 28
                     onClicked: root.selectedTab = modelData.tab
                     contentItem: Text {
+                        anchors.fill: parent
                         text: presetButton.text
                         color: presetButton.hovered ? Theme.textPrimary : Theme.textSecondary
                         font.pixelSize: Theme.fontSmall
@@ -184,22 +185,28 @@ Dialog {
                         Layout.preferredWidth: 118
                         implicitHeight: 36
                         onClicked: root.selectedTab = exportTabButton.index
-                        contentItem: RowLayout {
-                            spacing: 6
-                            Item { Layout.fillWidth: true }
+                        contentItem: Item {
                             LineIcon {
+                                id: exportTabIcon
                                 name: exportTabButton.modelData.icon
                                 color: root.selectedTab === exportTabButton.index ? Theme.accentLight : Theme.textSecondary
-                                Layout.preferredWidth: 15
-                                Layout.preferredHeight: 15
+                                width: 15
+                                height: 15
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.right: exportTabLabel.left
+                                anchors.rightMargin: 6
                             }
                             Text {
+                                id: exportTabLabel
+                                anchors.centerIn: parent
+                                width: Math.max(0, Math.min(implicitWidth, parent.width - exportTabIcon.width - 6))
                                 text: exportTabButton.modelData.label
                                 color: root.selectedTab === exportTabButton.index ? Theme.textPrimary : Theme.textSecondary
                                 font.pixelSize: Theme.fontSmall
                                 font.bold: root.selectedTab === exportTabButton.index
+                                horizontalAlignment: Text.AlignHCenter
+                                elide: Text.ElideRight
                             }
-                            Item { Layout.fillWidth: true }
                         }
                         background: Rectangle {
                             color: "transparent"
@@ -295,6 +302,7 @@ Dialog {
                                                     implicitHeight: 34
                                                     onClicked: root.subtitleFormat = formatButton.modelData
                                                     contentItem: Text {
+                                                        anchors.fill: parent
                                                         text: formatButton.modelData.toUpperCase()
                                                         color: root.subtitleFormat === formatButton.modelData
                                                                ? Theme.textPrimary : Theme.textSecondary

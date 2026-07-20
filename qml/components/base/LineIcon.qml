@@ -372,6 +372,41 @@ Canvas {
             ctx.beginPath()
             ctx.arc(cx + 4 * u, cy + 7 * u, 6 * u, Math.PI, Math.PI * 2, false)
             ctx.stroke()
+        } else if (name === "reload") {
+            // VS Code Codicon "refresh" geometry, used for model reload actions.
+            // Keep this separate from our two-arrow "refresh" glyph, which
+            // communicates list/data synchronization.
+            var v = s / 16
+            var ox = cx - 8 * v
+            var oy = cy - 8 * v
+            function px(x) { return ox + x * v }
+            function py(y) { return oy + y * v }
+
+            ctx.beginPath()
+            ctx.moveTo(px(3), py(8))
+            ctx.bezierCurveTo(px(3), py(5.23858), px(5.23858), py(3), px(8), py(3))
+            ctx.bezierCurveTo(px(9.63527), py(3), px(11.0878), py(3.78495), px(12.0005), py(5))
+            ctx.lineTo(px(10), py(5))
+            ctx.bezierCurveTo(px(9.72386), py(5), px(9.5), py(5.22386), px(9.5), py(5.5))
+            ctx.bezierCurveTo(px(9.5), py(5.77614), px(9.72386), py(6), px(10), py(6))
+            ctx.lineTo(px(12.8904), py(6))
+            ctx.bezierCurveTo(px(12.8973), py(6.00014), px(12.9041), py(6.00014), px(12.911), py(6))
+            ctx.lineTo(px(13), py(6))
+            ctx.bezierCurveTo(px(13.2761), py(6), px(13.5), py(5.77614), px(13.5), py(5.5))
+            ctx.lineTo(px(13.5), py(2.5))
+            ctx.bezierCurveTo(px(13.5), py(2.22386), px(13.2761), py(2), px(13), py(2))
+            ctx.bezierCurveTo(px(12.7239), py(2), px(12.5), py(2.22386), px(12.5), py(2.5))
+            ctx.lineTo(px(12.5), py(4.03138))
+            ctx.bezierCurveTo(px(11.4009), py(2.78613), px(9.79253), py(2), px(8), py(2))
+            ctx.bezierCurveTo(px(4.68629), py(2), px(2), py(4.68629), px(2), py(8))
+            ctx.bezierCurveTo(px(2), py(11.3137), px(4.68629), py(14), px(8), py(14))
+            ctx.bezierCurveTo(px(11.1301), py(14), px(13.6999), py(11.6035), px(13.9756), py(8.54488))
+            ctx.bezierCurveTo(px(14.0003), py(8.26985), px(13.7975), py(8.0268), px(13.5225), py(8.00202))
+            ctx.bezierCurveTo(px(13.2474), py(7.97723), px(13.0044), py(8.1801), px(12.9796), py(8.45512))
+            ctx.bezierCurveTo(px(12.75), py(11.003), px(10.6079), py(13), px(8), py(13))
+            ctx.bezierCurveTo(px(5.23858), py(13), px(3), py(10.7614), px(3), py(8))
+            ctx.closePath()
+            ctx.fill()
         } else if (name === "refresh") {
             ctx.beginPath()
             ctx.arc(cx, cy, 7 * u, -Math.PI * 0.2, Math.PI * 1.05)

@@ -16,6 +16,7 @@
 #include <QDateTime>
 #include <QTextStream>
 #include <functional>
+#include <utility>
 
 namespace LAStudio {
 
@@ -695,6 +696,22 @@ QString ModelManager::filePath(const QString &modelId, const QString &filename) 
     }
 
     return QString();
+}
+
+QString ModelManager::firstAvailableFilePath(const QString &modelId,
+                                             const QStringList &filenames) const
+{
+    QStringList uniqueFilenames = filenames;
+    uniqueFilenames.removeAll(QString());
+    uniqueFilenames.removeDuplicates();
+
+    for (const QString &filename : std::as_const(uniqueFilenames)) {
+        const QString path = filePath(modelId, filename);
+        if (!path.isEmpty()) {
+            return path;
+        }
+    }
+    return {};
 }
 
 QVariantMap ModelManager::fileMetadata(const QString &modelId, const QString &filename) const

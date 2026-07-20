@@ -241,6 +241,7 @@ StudioShell {
                                     onClicked: root.editorViewMode = modelData.mode
 
                                     contentItem: Text {
+                                        anchors.fill: parent
                                         text: modelData.label
                                         color: viewModeButton.checked ? Theme.textPrimary : Theme.textSecondary
                                         font.pixelSize: Theme.fontSmall

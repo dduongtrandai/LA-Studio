@@ -10,10 +10,28 @@ Button {
     checkable: true
     implicitHeight: 28
     padding: 0
-    contentItem: RowLayout {
-        spacing: 6
-        LineIcon { Layout.preferredWidth: 14; Layout.preferredHeight: 14; name: root.iconName; color: root.checked ? Theme.textPrimary : Theme.textSecondary }
-        Text { Layout.fillWidth: true; text: root.text; color: root.checked ? Theme.textPrimary : Theme.textSecondary; font.pixelSize: Theme.fontSmall; font.bold: root.checked; horizontalAlignment: Text.AlignHCenter }
+    contentItem: Item {
+        LineIcon {
+            id: modeIcon
+            width: 14
+            height: 14
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.right: modeLabel.left
+            anchors.rightMargin: 6
+            name: root.iconName
+            color: root.checked ? Theme.textPrimary : Theme.textSecondary
+        }
+        Text {
+            id: modeLabel
+            anchors.centerIn: parent
+            width: Math.min(implicitWidth, parent.width - modeIcon.width - 6)
+            text: root.text
+            color: root.checked ? Theme.textPrimary : Theme.textSecondary
+            font.pixelSize: Theme.fontSmall
+            font.bold: root.checked
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
+        }
     }
     background: Rectangle {
         radius: 5
