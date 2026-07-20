@@ -1,7 +1,7 @@
 #include "AudioPlayer.h"
+#include "AudioFileDecoder.h"
 #include "core/Logger.h"
-#include "WavIO.h"
-#include <QDir>
+#include "core/PathUtils.h"
 #include <QBuffer>
 #include <QAudioSink>
 #include <QAudioFormat>
@@ -107,22 +107,19 @@ qint64 AudioPlayer::playbackPositionMs() const
     return std::min(m_session->playbackPositionMs(), m_playbackDurationMs);
 }
 
-void AudioPlayer::playFile(const QString &path)
+bool AudioPlayer::playFile(const QString &path)
 {
     stop();
 
-    QString cleanPath = path;
-    if (cleanPath.startsWith(QStringLiteral("file:///")))
-        cleanPath = cleanPath.mid(8);
-    else if (cleanPath.startsWith(QStringLiteral("file://")))
-        cleanPath = cleanPath.mid(7);
-
-    cleanPath = QDir::toNativeSeparators(cleanPath);
-
-    WavIO::WavData data = WavIO::loadAsFloat(cleanPath);
+    const QString cleanPath = PathUtils::urlToLocalPath(path);
+    QString decodeError;
+    WavIO::WavData data = AudioFileDecoder::decode(cleanPath, &decodeError);
     if (data.samples.isEmpty()) {
-        Logger::error("AudioPlayer", "Failed to load audio file for playback: " + cleanPath);
-        return;
+        const QString message = QStringLiteral("Failed to load audio file for playback: %1")
+                                    .arg(decodeError.isEmpty() ? cleanPath : decodeError);
+        Logger::error("AudioPlayer", message);
+        emit errorOccurred(message);
+        return false;
     }
 
     QByteArray pcmData;
@@ -156,6 +153,7 @@ void AudioPlayer::playFile(const QString &path)
     emit playingChanged();
     m_positionTimer.start();
     session->start();
+    return true;
 }
 
 void AudioPlayer::playPcm(const QByteArray &pcm16Data, int sampleRate)

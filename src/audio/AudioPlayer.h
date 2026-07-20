@@ -30,7 +30,7 @@ public:
     qint64 playbackDurationMs() const { return m_playbackDurationMs; }
 
     Q_INVOKABLE void playPcm(const QByteArray &pcm16Data, int sampleRate);
-    Q_INVOKABLE void playFile(const QString &path);
+    Q_INVOKABLE bool playFile(const QString &path);
     Q_INVOKABLE void pause();
     Q_INVOKABLE void resume();
     Q_INVOKABLE void seek(qint64 positionMs);
@@ -42,6 +42,7 @@ signals:
     void playbackPositionChanged();
     void playbackDurationChanged();
     void playbackFinished();
+    void errorOccurred(const QString &message);
 
 private:
     void updatePlaybackPosition();

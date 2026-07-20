@@ -14,7 +14,10 @@ AudioInputSourcePicker {
     audioLabel: "Reference audio"
     audioHint: root.recommendedAudioHint
     fileDialogTitle: "Select Reference Audio"
-    fileNameFilters: root.recordingSampleRate === 48000 ? ["WAV files (*.wav)"] : ["Audio files (*.wav *.mp3 *.m4a *.flac)"]
+    fileNameFilters: root.recordingSampleRate === 48000
+                     ? ["WAV files (*.wav)"]
+                     : ["Audio files (*.wav *.mp3 *.m4a *.aac *.flac *.ogg *.opus *.wma *.aiff *.aif *.ac3 *.amr *.webm)",
+                        "All files (*)"]
     showSystemSource: true
     recording: AppController.recorder.recording
     saving: AppController.recorder.saving

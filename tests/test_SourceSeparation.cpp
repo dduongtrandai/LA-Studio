@@ -2,11 +2,14 @@
 #include "separation/SeparationTypes.h"
 #include "separation/SourceSeparationService.h"
 #include "separation/SeparationAudioIO.h"
+#include "audio/AudioFileDecoder.h"
 #include "audio/WavIO.h"
 
 #include <QtTest/QtTest>
 #include <QSignalSpy>
 #include <QDir>
+#include <QProcess>
+#include <QStandardPaths>
 #include <memory>
 #include <atomic>
 
@@ -112,6 +115,38 @@ void TestSourceSeparation::testBackendFactory()
 
     // Querying unknown backend returns nullptr
     QVERIFY(factory.createBackend(QStringLiteral("unknown")) == nullptr);
+}
+
+void TestSourceSeparation::testSharedAudioDecoderNormalizesReferenceAudio()
+{
+    QString error;
+    const WavIO::WavData audio = AudioFileDecoder::decodeMono(m_testWavPath, 24000, &error);
+    QVERIFY2(error.isEmpty(), qPrintable(error));
+    QCOMPARE(audio.channels, 1);
+    QCOMPARE(audio.sampleRate, 24000);
+    QCOMPARE(audio.samples.size(), 24000);
+
+    const QString ffmpeg = QStandardPaths::findExecutable(QStringLiteral("ffmpeg"));
+    if (ffmpeg.isEmpty())
+        return;
+
+    const QString mp3Path = m_tempDir.filePath(QStringLiteral("test.mp3"));
+    QProcess encoder;
+    encoder.start(ffmpeg, {QStringLiteral("-hide_banner"),
+                           QStringLiteral("-loglevel"), QStringLiteral("error"),
+                           QStringLiteral("-y"),
+                           QStringLiteral("-i"), m_testWavPath,
+                           mp3Path});
+    QVERIFY(encoder.waitForStarted(5000));
+    QVERIFY(encoder.waitForFinished(30000));
+    QCOMPARE(encoder.exitCode(), 0);
+
+    error.clear();
+    const WavIO::WavData compressed = AudioFileDecoder::decodeMono(mp3Path, 24000, &error);
+    QVERIFY2(error.isEmpty(), qPrintable(error));
+    QCOMPARE(compressed.channels, 1);
+    QCOMPARE(compressed.sampleRate, 24000);
+    QVERIFY(!compressed.samples.isEmpty());
 }
 
 void TestSourceSeparation::testServiceReentryBusy()

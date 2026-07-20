@@ -130,6 +130,7 @@ set(TEST_SOURCES
     ../src/core/RuntimeManager.cpp
     ../src/core/QmlLogger.cpp
     ../src/audio/WavIO.cpp
+    ../src/audio/AudioFileDecoder.cpp
     ../src/audio/WaveformProvider.cpp
 
     ../src/core/DownloadManager.h
@@ -140,6 +141,7 @@ set(TEST_SOURCES
     ../src/tts/TtsEngineInstance.h
     ../src/audio/AudioRecorder.h
     ../src/audio/AudioPlayer.h
+    ../src/audio/AudioFileDecoder.h
     ../src/core/HFHubClient.h
     ../src/controllers/app/AppController.h
     ../src/controllers/shared/AppUpdateService.h

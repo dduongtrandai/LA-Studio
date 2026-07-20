@@ -108,6 +108,7 @@ set(LASTUDIO_SOURCES
     src/core/LogViewService.cpp
 
     src/audio/WavIO.cpp
+    src/audio/AudioFileDecoder.cpp
     src/audio/AudioRecorder.cpp
     src/audio/AudioPlayer.cpp
     src/audio/WaveformProvider.cpp
@@ -244,6 +245,7 @@ set(LASTUDIO_HEADERS
     src/api/ApiServerService.h
 
     src/audio/WavIO.h
+    src/audio/AudioFileDecoder.h
     src/audio/AudioRecorder.h
     src/audio/AudioPlayer.h
     src/audio/WaveformProvider.h

@@ -316,8 +316,8 @@ StudioShell {
                                         root.referenceAudioPath = referenceBox.audioPath
                                     }
                                     onPlayClicked: {
-                                        root.playingType = "reference"
-                                        AppController.player.playFile(root.referenceAudioPath)
+                                        root.playingType = AppController.player.playFile(root.referenceAudioPath)
+                                                           ? "reference" : "none"
                                     }
                                     onStopClicked: AppController.player.stop()
                                 }

@@ -12,6 +12,7 @@ private slots:
     void cleanupTestCase();
     
     void testBackendFactory();
+    void testSharedAudioDecoderNormalizesReferenceAudio();
     void testServiceReentryBusy();
     void testCancellation();
     void testDestroyServiceRunning();

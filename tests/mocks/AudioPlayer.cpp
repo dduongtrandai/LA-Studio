@@ -16,8 +16,9 @@ void AudioPlayer::playPcm(const QByteArray &, int)
 {
 }
 
-void AudioPlayer::playFile(const QString &)
+bool AudioPlayer::playFile(const QString &)
 {
+    return false;
 }
 
 void AudioPlayer::pause()

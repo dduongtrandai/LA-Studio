@@ -73,6 +73,7 @@ AppController::AppController(QObject *parent)
     m_apiServer = new ApiServerService(m_settings, m_tts, m_stt, this);
 
     connect(m_preview, &AudioPreviewService::errorOccurred, this, &AppController::onError);
+    connect(m_player, &AudioPlayer::errorOccurred, this, &AppController::onError);
     connect(m_history, &HistoryService::errorOccurred, this, &AppController::onError);
     connect(m_downloadInstall, &DownloadInstallService::errorOccurred, this, &AppController::onError);
     connect(m_alignment, &AlignmentExecutionService::failed, this,

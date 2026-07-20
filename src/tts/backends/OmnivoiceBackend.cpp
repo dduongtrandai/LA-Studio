@@ -1,7 +1,7 @@
 #include "OmnivoiceBackend.h"
+#include "audio/AudioFileDecoder.h"
 #include "core/Logger.h"
 #include "core/PathUtils.h"
-#include "audio/WavIO.h"
 #include <runtimes/OmnivoiceInterface.h>
 #include <QDir>
 #include <cstring>
@@ -251,9 +251,11 @@ bool OmnivoiceBackend::cloneVoice(const QString &text, const QString &referenceP
         return false;
     }
 
-    WavIO::WavData refData = WavIO::loadAsFloatMono24k(PathUtils::toNativeShortPath(referencePath));
+    QString decodeError;
+    WavIO::WavData refData = AudioFileDecoder::decodeMono(
+        PathUtils::toNativeShortPath(referencePath), 24000, &decodeError);
     if (refData.samples.isEmpty()) {
-        error = QStringLiteral("Failed to load reference audio: ") + PathUtils::toNativeShortPath(referencePath);
+        error = QStringLiteral("Failed to load reference audio: %1").arg(decodeError);
         Logger::error("OmnivoiceBackend", error);
         return false;
     }
