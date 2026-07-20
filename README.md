@@ -1,4 +1,4 @@
-<div align="center">
+﻿<div align="center">
 
 <img src="icons/app_icon_256.png" alt="LA Studio app logo" width="128" height="128">
 
@@ -35,7 +35,7 @@ Run private AI audio workflows locally: speech recognition, voice generation, vo
 <br>
 <br>
 
-![LA Studio Overview](docs/screenshots/la-studio-home.PNG)
+![LA Studio Overview](docs/screenshots/la-studio.PNG)
 
 </div>
 
@@ -343,3 +343,4 @@ A commercial license will be available for organizations that want to embed LA S
 ---
 
 **LA Studio helps you run private, local AI audio workflows on your own machine.**
+
