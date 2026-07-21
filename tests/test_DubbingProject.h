@@ -22,6 +22,8 @@ private slots:
     void audioMixRunsAsynchronously();
     void commitsMediaExportAtomically();
     void sourceTextEditInvalidatesWordTiming();
+    void unchangedTextEditPreservesTranslationMetadata();
+    void targetTextEditRefreshesDurationMetadata();
     void exportsSubtitlesAndReviewPackage();
     void segmentNormalizerSplitsLongAsrTranscript();
     void segmentNormalizerUsesAlignedWordBoundaries();
@@ -35,6 +37,7 @@ private slots:
     void normalizesLmStudioTranslationFixConfiguration();
     void parsesLmStudioTranslationFixResponses();
     void fixesOnlyTranslationsAbovePhonemeBudget();
+    void ranksPartialTranslationFixesByBudgetDistance();
 };
 
 } // namespace LAStudio

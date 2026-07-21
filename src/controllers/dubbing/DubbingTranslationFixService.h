@@ -36,6 +36,8 @@ public:
     static QUrl chatUrl(const QString &serverUrl);
     static QUrl modelsUrl(const QString &serverUrl);
     static QString cleanAssistantText(const QString &content);
+    static bool isCloserToBudget(int currentPhonemes, int candidatePhonemes,
+                                 int minimum, int maximum);
 
 signals:
     void stateChanged();
@@ -52,14 +54,14 @@ private:
     void beginSegment();
     void requestAttempt();
     void handleAttemptResponse(QNetworkReply *reply);
-    void finishSegment(bool fixed);
+    void finishSegment(bool fixed, bool improved = false);
     void finishRun();
     QString buildPrompt(const QVariantMap &segment) const;
     QStringList protectedTokens(const QString &text) const;
     bool preservesProtectedTokens(const QString &candidate,
                                   const QStringList &tokens) const;
-    void applyAcceptedCandidate(QVariantMap &segment, const QString &candidate,
-                                int phonemes) const;
+    void applyCandidate(QVariantMap &segment, const QString &candidate,
+                        int phonemes, bool withinBudget) const;
 
     QNetworkAccessManager *m_network = nullptr;
     QPointer<QNetworkReply> m_reply;
@@ -71,12 +73,15 @@ private:
     QString m_originalTranslation;
     QString m_promptTranslation;
     QString m_lastCandidate;
+    QString m_bestCandidate;
     int m_lastCandidatePhonemes = 0;
+    int m_bestCandidatePhonemes = 0;
     int m_promptPhonemes = 0;
     int m_segmentPosition = 0;
     int m_attempt = 0;
     int m_maxAttempts = 4;
     int m_fixedCount = 0;
+    int m_improvedCount = 0;
     int m_unresolvedCount = 0;
     bool m_busy = false;
     bool m_testing = false;

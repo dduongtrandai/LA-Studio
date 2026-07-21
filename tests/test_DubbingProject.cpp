@@ -88,6 +88,15 @@ void TestDubbingProject::fixesOnlyTranslationsAbovePhonemeBudget()
              1);
 }
 
+void TestDubbingProject::ranksPartialTranslationFixesByBudgetDistance()
+{
+    QVERIFY(DubbingTranslationFixService::isCloserToBudget(97, 59, 47, 57));
+    QVERIFY(DubbingTranslationFixService::isCloserToBudget(68, 60, 47, 57));
+    QVERIFY(!DubbingTranslationFixService::isCloserToBudget(68, 80, 47, 57));
+    QVERIFY(!DubbingTranslationFixService::isCloserToBudget(59, 45, 47, 57));
+    QVERIFY(DubbingTranslationFixService::isCloserToBudget(59, 55, 47, 57));
+}
+
 void TestDubbingProject::roundTripsVersionedJson()
 {
     QTemporaryDir dir;
@@ -390,6 +399,63 @@ void TestDubbingProject::sourceTextEditInvalidatesWordTiming()
     QVERIFY(updated.value(QStringLiteral("words")).toList().isEmpty());
     QCOMPARE(updated.value(QStringLiteral("timingSource")).toString(), QStringLiteral("asr"));
     QCOMPARE(updated.value(QStringLiteral("alignmentStatus")).toString(), QStringLiteral("pending"));
+}
+
+void TestDubbingProject::unchangedTextEditPreservesTranslationMetadata()
+{
+    DubbingController controller(nullptr, nullptr);
+    controller.addSegment(0, 1000, QStringLiteral("Hello"));
+    controller.updateSegment(
+        0, QVariantMap{{QStringLiteral("targetText"), QStringLiteral("Xin chao")}});
+    controller.updateSegment(0, QVariantMap{
+        {QStringLiteral("state"), QStringLiteral("translated")},
+        {QStringLiteral("durationBudget"),
+         QVariantMap{{QStringLiteral("targetUnits"), 8},
+                     {QStringLiteral("minUnits"), 6},
+                     {QStringLiteral("maxUnits"), 10}}},
+        {QStringLiteral("durationUnits"), 8},
+        {QStringLiteral("durationStatus"), QStringLiteral("within-budget")}
+    });
+
+    controller.updateSegment(0, QVariantMap{{QStringLiteral("sourceText"), QStringLiteral("Hello")}});
+    controller.updateSegment(0, QVariantMap{{QStringLiteral("targetText"), QStringLiteral("Xin chao")}});
+
+    const QVariantMap updated = controller.segments().at(0).toMap();
+    QCOMPARE(updated.value(QStringLiteral("state")).toString(), QStringLiteral("translated"));
+    QCOMPARE(updated.value(QStringLiteral("durationUnits")).toInt(), 8);
+    QCOMPARE(updated.value(QStringLiteral("durationStatus")).toString(),
+             QStringLiteral("within-budget"));
+    QVERIFY(updated.contains(QStringLiteral("durationBudget")));
+}
+
+void TestDubbingProject::targetTextEditRefreshesDurationMetadata()
+{
+    DubbingController controller(nullptr, nullptr);
+    controller.setTargetLanguage(QStringLiteral("vi"));
+    controller.addSegment(0, 1000, QStringLiteral("Hello"));
+    const QString original = QStringLiteral("Xin chao");
+    const QString replacement = QStringLiteral("Xin chao ban");
+    const int replacementUnits = DubbingDurationPlanner::countPhonemes(
+        replacement, QStringLiteral("vi"));
+    QVERIFY(replacementUnits > 0);
+    controller.updateSegment(0, QVariantMap{
+        {QStringLiteral("targetText"), original},
+        {QStringLiteral("durationBudget"),
+         QVariantMap{{QStringLiteral("targetUnits"), replacementUnits},
+                     {QStringLiteral("minUnits"), replacementUnits},
+                     {QStringLiteral("maxUnits"), replacementUnits}}},
+        {QStringLiteral("durationUnits"), 1},
+        {QStringLiteral("durationStatus"), QStringLiteral("needs-review")}
+    });
+
+    controller.updateSegment(
+        0, QVariantMap{{QStringLiteral("targetText"), replacement}});
+
+    const QVariantMap updated = controller.segments().at(0).toMap();
+    QCOMPARE(updated.value(QStringLiteral("state")).toString(), QStringLiteral("stale"));
+    QCOMPARE(updated.value(QStringLiteral("durationUnits")).toInt(), replacementUnits);
+    QCOMPARE(updated.value(QStringLiteral("durationStatus")).toString(),
+             QStringLiteral("within-budget"));
 }
 
 void TestDubbingProject::exportsSubtitlesAndReviewPackage()

@@ -58,6 +58,13 @@ bool isOverBudget(const QVariantMap &segment, const QString &language)
     return phonemes > maximum;
 }
 
+int distanceToBudget(int phonemes, int minimum, int maximum)
+{
+    if (phonemes < minimum) return minimum - phonemes;
+    if (phonemes > maximum) return phonemes - maximum;
+    return 0;
+}
+
 QString responseError(const QByteArray &body)
 {
     const QJsonDocument document = QJsonDocument::fromJson(body);
@@ -157,6 +164,13 @@ int DubbingTranslationFixService::eligibleSegmentCount(
     return count;
 }
 
+bool DubbingTranslationFixService::isCloserToBudget(
+    int currentPhonemes, int candidatePhonemes, int minimum, int maximum)
+{
+    return distanceToBudget(candidatePhonemes, minimum, maximum)
+        < distanceToBudget(currentPhonemes, minimum, maximum);
+}
+
 void DubbingTranslationFixService::saveConfiguration()
 {
     QSettings settings(settingsPath(), QSettings::IniFormat);
@@ -217,6 +231,7 @@ bool DubbingTranslationFixService::start(
     m_maxAttempts = m_configuration.value(QStringLiteral("maxAttempts")).toInt();
     m_segmentPosition = 0;
     m_fixedCount = 0;
+    m_improvedCount = 0;
     m_unresolvedCount = 0;
     m_lastError.clear();
     setProgress(0);
@@ -348,7 +363,9 @@ void DubbingTranslationFixService::beginSegment()
         segment.value(QStringLiteral("targetText")).toString().trimmed();
     m_promptTranslation = m_originalTranslation;
     m_lastCandidate.clear();
+    m_bestCandidate.clear();
     m_lastCandidatePhonemes = actualPhonemeCount(segment, m_targetLanguage);
+    m_bestCandidatePhonemes = m_lastCandidatePhonemes;
     m_promptPhonemes = m_lastCandidatePhonemes;
     m_attempt = 0;
     setStatus(QStringLiteral("Fixing segment %1 of %2")
@@ -483,13 +500,18 @@ void DubbingTranslationFixService::handleAttemptResponse(QNetworkReply *reply)
     ++m_attempt;
     if (withinBudget && tokensPreserved && semanticGuardPassed) {
         QVariantMap accepted = segment;
-        applyAcceptedCandidate(accepted, candidate, phonemes);
+        applyCandidate(accepted, candidate, phonemes, true);
         m_segments[m_eligibleIndices.at(m_segmentPosition)] = accepted;
         finishSegment(true);
         return;
     }
 
-    if (tokensPreserved && semanticGuardPassed) {
+    const int minimum = budget.value(QStringLiteral("minUnits")).toInt();
+    const int maximum = budget.value(QStringLiteral("maxUnits")).toInt();
+    if (tokensPreserved && semanticGuardPassed
+        && isCloserToBudget(m_bestCandidatePhonemes, phonemes, minimum, maximum)) {
+        m_bestCandidate = candidate;
+        m_bestCandidatePhonemes = phonemes;
         m_promptTranslation = candidate;
         m_promptPhonemes = phonemes;
     }
@@ -497,13 +519,28 @@ void DubbingTranslationFixService::handleAttemptResponse(QNetworkReply *reply)
         requestAttempt();
         return;
     }
+    if (!m_bestCandidate.isEmpty()) {
+        QVariantMap improved = segment;
+        applyCandidate(improved, m_bestCandidate, m_bestCandidatePhonemes, false);
+        m_segments[m_eligibleIndices.at(m_segmentPosition)] = improved;
+        Logger::info(
+            QStringLiteral("DubbingTranslationFix"),
+            QStringLiteral("Keeping closest safe rewrite segment=%1 phonemes=%2 range=%3-%4")
+                .arg(segment.value(QStringLiteral("id")).toString())
+                .arg(m_bestCandidatePhonemes).arg(minimum).arg(maximum));
+        finishSegment(false, true);
+        return;
+    }
     finishSegment(false);
 }
 
-void DubbingTranslationFixService::finishSegment(bool fixed)
+void DubbingTranslationFixService::finishSegment(bool fixed, bool improved)
 {
     if (fixed) ++m_fixedCount;
-    else ++m_unresolvedCount;
+    else {
+        ++m_unresolvedCount;
+        if (improved) ++m_improvedCount;
+    }
     ++m_segmentPosition;
     setProgress(qRound(m_segmentPosition * 100.0
                        / qMax(1, m_eligibleIndices.size())));
@@ -513,12 +550,13 @@ void DubbingTranslationFixService::finishSegment(bool fixed)
 void DubbingTranslationFixService::finishRun()
 {
     setProgress(100);
-    setStatus(QStringLiteral("Fixed %1 segment(s); %2 still need review.")
-                  .arg(m_fixedCount).arg(m_unresolvedCount));
+    setStatus(QStringLiteral("Fixed %1 segment(s); shortened %2; %3 still need review.")
+                  .arg(m_fixedCount).arg(m_improvedCount).arg(m_unresolvedCount));
     Logger::info(
         QStringLiteral("DubbingTranslationFix"),
-        QStringLiteral("Rewrite completed fixed=%1 unresolved=%2 total=%3")
-            .arg(m_fixedCount).arg(m_unresolvedCount).arg(m_eligibleIndices.size()));
+        QStringLiteral("Rewrite completed fixed=%1 improved=%2 unresolved=%3 total=%4")
+            .arg(m_fixedCount).arg(m_improvedCount).arg(m_unresolvedCount)
+            .arg(m_eligibleIndices.size()));
     setBusy(false);
     emit completed(m_segments, m_fixedCount, m_unresolvedCount);
 }
@@ -580,8 +618,9 @@ bool DubbingTranslationFixService::preservesProtectedTokens(
     return true;
 }
 
-void DubbingTranslationFixService::applyAcceptedCandidate(
-    QVariantMap &segment, const QString &candidate, int phonemes) const
+void DubbingTranslationFixService::applyCandidate(
+    QVariantMap &segment, const QString &candidate, int phonemes,
+    bool withinBudget) const
 {
     const QVariantMap budget =
         segment.value(QStringLiteral("durationBudget")).toMap();
@@ -591,10 +630,13 @@ void DubbingTranslationFixService::applyAcceptedCandidate(
     segment.insert(QStringLiteral("durationUnits"), phonemes);
     segment.insert(QStringLiteral("phonemeDistance"),
                    qAbs(phonemes - budget.value(QStringLiteral("targetUnits")).toInt()));
-    segment.insert(QStringLiteral("durationStatus"), QStringLiteral("within-budget"));
+    segment.insert(QStringLiteral("durationStatus"), withinBudget
+                       ? QStringLiteral("within-budget")
+                       : QStringLiteral("needs-review"));
     segment.insert(QStringLiteral("durationMetric"), QStringLiteral("phoneme-distance"));
-    segment.insert(QStringLiteral("candidateSelectionMetric"),
-                   QStringLiteral("lm-studio-qwen-rewrite-v1"));
+    segment.insert(QStringLiteral("candidateSelectionMetric"), withinBudget
+                       ? QStringLiteral("lm-studio-qwen-rewrite-v1")
+                       : QStringLiteral("lm-studio-closest-safe-rewrite-v1"));
     segment.insert(QStringLiteral("rewriteProvider"), QStringLiteral("lm-studio"));
     segment.insert(QStringLiteral("rewriteModel"),
                    m_configuration.value(QStringLiteral("model")));

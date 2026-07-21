@@ -411,7 +411,6 @@ Item {
                             Text { text: root.stepTitle(root.reviewStepId).toUpperCase(); color: Theme.textPrimary; font.pixelSize: Theme.fontLarge; font.bold: true }
                             Text { text: qsTr("Review and edit every segment before continuing."); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
                         }
-                        PrimaryButton { text: qsTr("Add segment"); iconName: "more-horizontal"; quiet: true; enabled: dubbing.hasProject && !dubbing.processing; onClicked: dubbing.addSegment(0, 2000, "") }
                     }
                     RowLayout { Layout.fillWidth: true; spacing: Theme.paddingSmall
                         Field { Layout.fillWidth: true; placeholderText: qsTr("Search segments...") }

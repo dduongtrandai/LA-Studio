@@ -4,6 +4,7 @@
 #include "tts/TtsEngine.h"
 #include "controllers/dubbing/DubbingJobRunner.h"
 #include "controllers/dubbing/DubbingTranslationFixService.h"
+#include "dubbing/EspeakNgPhonemizer.h"
 #include "dubbing/workflow/DubbingWorkflowDefinition.h"
 #include "dubbing/workflow/DubbingWorkflowNodes.h"
 #include "workflows/WorkflowGraphRunner.h"
@@ -1486,6 +1487,15 @@ void DubbingController::updateSegment(int index, const QVariantMap &patch)
 {
     if (index < 0 || index >= m_project.segments.size()) return;
     QVariantMap segment = m_project.segments.at(index).toMap();
+    const bool sourceTextChanged = patch.contains(QStringLiteral("sourceText"))
+        && patch.value(QStringLiteral("sourceText")).toString()
+            != segment.value(QStringLiteral("sourceText")).toString();
+    const bool targetTextChanged = patch.contains(QStringLiteral("targetText"))
+        && patch.value(QStringLiteral("targetText")).toString()
+            != segment.value(QStringLiteral("targetText")).toString();
+    const bool speakerChanged = patch.contains(QStringLiteral("speakerId"))
+        && patch.value(QStringLiteral("speakerId")).toString()
+            != segment.value(QStringLiteral("speakerId")).toString();
     const qint64 startMs = patch.value(QStringLiteral("startMs"), segment.value(QStringLiteral("startMs"))).toLongLong();
     const qint64 endMs = patch.value(QStringLiteral("endMs"), segment.value(QStringLiteral("endMs"))).toLongLong();
     if (endMs <= startMs) {
@@ -1495,7 +1505,7 @@ void DubbingController::updateSegment(int index, const QVariantMap &patch)
     for (auto it = patch.cbegin(); it != patch.cend(); ++it) segment.insert(it.key(), it.value());
     segment.insert(QStringLiteral("startMs"), startMs);
     segment.insert(QStringLiteral("endMs"), endMs);
-    if (patch.contains(QStringLiteral("sourceText"))) {
+    if (sourceTextChanged) {
         // Word timestamps are derived from the source transcript. Any source edit
         // invalidates the previous alignment and forces the next refinement pass
         // to treat this segment as an ASR/manual-timing fallback.
@@ -1514,14 +1524,33 @@ void DubbingController::updateSegment(int index, const QVariantMap &patch)
         segment.remove(QStringLiteral("targetChunks"));
         segment.remove(QStringLiteral("pauseAligned"));
     }
-    if (patch.contains(QStringLiteral("targetText")) || patch.contains(QStringLiteral("speakerId"))) {
+    if (targetTextChanged || speakerChanged) {
         segment.insert(QStringLiteral("state"), QStringLiteral("stale"));
-        if (patch.contains(QStringLiteral("targetText"))) {
-            segment.remove(QStringLiteral("durationUnits"));
-            segment.remove(QStringLiteral("durationStatus"));
+        if (targetTextChanged) {
+            const QVariantMap budget = segment.value(QStringLiteral("durationBudget")).toMap();
+            const int durationUnits = budget.isEmpty()
+                ? -1
+                : EspeakNgPhonemizer::count(
+                      segment.value(QStringLiteral("targetText")).toString(),
+                      m_project.targetLanguage);
+            if (durationUnits >= 0) {
+                const int minimum = budget.value(QStringLiteral("minUnits")).toInt();
+                const int maximum = budget.value(QStringLiteral("maxUnits")).toInt();
+                segment.insert(QStringLiteral("durationUnits"), durationUnits);
+                segment.insert(QStringLiteral("phonemeDistance"),
+                               qAbs(durationUnits
+                                    - budget.value(QStringLiteral("targetUnits")).toInt()));
+                segment.insert(QStringLiteral("durationStatus"),
+                               durationUnits >= minimum && durationUnits <= maximum
+                                   ? QStringLiteral("within-budget")
+                                   : QStringLiteral("needs-review"));
+            } else {
+                segment.remove(QStringLiteral("durationUnits"));
+                segment.remove(QStringLiteral("durationStatus"));
+                segment.remove(QStringLiteral("phonemeDistance"));
+            }
             segment.remove(QStringLiteral("durationPrompt"));
             segment.remove(QStringLiteral("targetChunks"));
-            segment.remove(QStringLiteral("phonemeDistance"));
             segment.remove(QStringLiteral("referenceTranslation"));
             segment.remove(QStringLiteral("pauseAligned"));
             segment.remove(QStringLiteral("candidateSelectionMetric"));
