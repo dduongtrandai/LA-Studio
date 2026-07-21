@@ -389,6 +389,7 @@ Item {
                         onReloadRequested: dubbing.reloadWorkflowNodeModel(nodeId)
                         onRunRequested: root.runStep(nodeId)
                         onNextRequested: root.runNextNode(nodeId)
+                        onFixRequested: translationFixDialog.openForAll()
                     }
                     RowLayout { Layout.fillWidth: true
                         ColumnLayout { Layout.fillWidth: true; spacing: 1
@@ -406,12 +407,19 @@ Item {
                             Text { text: qsTr("TIME"); Layout.preferredWidth: 88; color: Theme.textSecondary; font.pixelSize: 10; font.bold: true }
                             Text { text: qsTr("SOURCE / TARGET TEXT"); Layout.fillWidth: true; color: Theme.textSecondary; font.pixelSize: 10; font.bold: true }
                             Text { text: qsTr("STATE"); Layout.preferredWidth: 64; color: Theme.textSecondary; font.pixelSize: 10; font.bold: true }
-                            Item { Layout.preferredWidth: 64 }
+                            Item { Layout.preferredWidth: 126 }
                         }
                     }
                     ListView {
                         Layout.fillWidth: true; Layout.fillHeight: true; clip: true; spacing: 5; model: dubbing.segments
                         delegate: Rectangle {
+                            id: segmentDelegate
+                            property bool needsTranslationFix:
+                                root.reviewStepId === "translate"
+                                && (modelData.targetText || "") !== ""
+                                && modelData.durationBudget !== undefined
+                                && dubbing.translationSegmentNeedsFix(index)
+
                             width: ListView.view.width; height: 98; radius: Theme.radiusSmall
                             color: root.selectedSegment === index ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.12) : Qt.rgba(1, 1, 1, 0.025)
                             border.color: root.selectedSegment === index ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.55) : Qt.rgba(1, 1, 1, 0.06); border.width: 1
@@ -434,7 +442,8 @@ Item {
                                               ? qsTr("Budget %1–%2 phonemes · current %3 · %4")
                                                     .arg(modelData.durationBudget.minUnits || 0)
                                                     .arg(modelData.durationBudget.maxUnits || 0)
-                                                    .arg(modelData.durationUnits || 0)
+                                                    .arg(modelData.durationUnits !== undefined
+                                                         ? modelData.durationUnits : "—")
                                                     .arg(modelData.durationStatus || qsTr("pending"))
                                               : ""
                                         color: modelData.durationStatus === "within-budget" ? Theme.success : Theme.warning
@@ -443,7 +452,27 @@ Item {
                                     }
                                 }
                                 Text { text: modelData.state || qsTr("Ready"); color: modelData.state === "stale" ? Theme.warning : Theme.textSecondary; font.pixelSize: 10; Layout.preferredWidth: 64; horizontalAlignment: Text.AlignRight }
-                                PrimaryButton { text: qsTr("Remove"); quiet: true; Layout.preferredWidth: 64; onClicked: dubbing.removeSegment(index) }
+                                RowLayout {
+                                    Layout.preferredWidth: 126
+                                    spacing: Theme.paddingSmall
+                                    PrimaryButton {
+                                        visible: root.reviewStepId === "translate"
+                                                 && (modelData.targetText || "") !== ""
+                                                 && modelData.durationBudget !== undefined
+                                        text: qsTr("Fix")
+                                        iconName: "spark"
+                                        quiet: true
+                                        Layout.preferredWidth: 54
+                                        enabled: !dubbing.processing
+                                                 && segmentDelegate.needsTranslationFix
+                                        toolTip: segmentDelegate.needsTranslationFix
+                                                 ? qsTr("Rewrite only this segment")
+                                                 : qsTr("This segment is already within its phoneme budget")
+                                        onClicked: translationFixDialog.openForSegment(index)
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                    PrimaryButton { text: qsTr("Remove"); quiet: true; Layout.preferredWidth: 64; onClicked: dubbing.removeSegment(index) }
+                                }
                             }
                         }
                         Column { anchors.centerIn: parent; visible: dubbing.segments.length === 0; spacing: Theme.paddingSmall
@@ -624,6 +653,12 @@ Item {
             subtitleExportFileDialog.open()
         }
         onPackageExportRequested: packageExportFolderDialog.open()
+    }
+
+    DubbingTranslationFixDialog {
+        id: translationFixDialog
+        parent: Overlay.overlay
+        dubbing: root.dubbing
     }
 
     FileDialog {

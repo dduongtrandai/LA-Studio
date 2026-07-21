@@ -3,6 +3,7 @@
 #include "SttSessionController.h"
 #include "tts/TtsEngine.h"
 #include "controllers/dubbing/DubbingJobRunner.h"
+#include "controllers/dubbing/DubbingTranslationFixService.h"
 #include "dubbing/workflow/DubbingWorkflowDefinition.h"
 #include "dubbing/workflow/DubbingWorkflowNodes.h"
 #include "workflows/WorkflowGraphRunner.h"
@@ -153,6 +154,24 @@ DubbingController::DubbingController(SttSessionController *sttSession, TtsEngine
 {
     m_translation = translation;
     m_runner = new DubbingJobRunner(sttSession, tts, translation, models, runtimes, this);
+    m_translationFix = new DubbingTranslationFixService(this);
+    connect(m_translationFix, &DubbingTranslationFixService::stateChanged,
+            this, [this]() {
+        emit translationFixChanged();
+        emit processingChanged();
+        emit errorChanged();
+        emit workflowChanged();
+    });
+    connect(m_translationFix, &DubbingTranslationFixService::completed,
+            this, [this](const QVariantList &segments, int, int) {
+        m_project.segments = segments;
+        emit segmentsChanged();
+        emit translationFixChanged();
+        emit workflowChanged();
+        persistAfterEdit();
+    });
+    connect(m_translationFix, &DubbingTranslationFixService::connectionTested,
+            this, &DubbingController::translationFixConnectionTested);
     if (AppController::instance() && AppController::instance()->sessionRegistry()) {
         for (IModelSession *session : AppController::instance()->sessionRegistry()->sessions()) {
             if (!session) continue;
@@ -271,22 +290,56 @@ DubbingController::DubbingController(SttSessionController *sttSession, TtsEngine
 
 bool DubbingController::processing() const
 {
-    return m_runner->processing() || (m_workflowRunner && m_workflowRunner->running());
+    return (m_translationFix && m_translationFix->busy())
+        || m_runner->processing()
+        || (m_workflowRunner && m_workflowRunner->running());
 }
 
 QString DubbingController::stage() const
 {
+    if (m_translationFix && m_translationFix->busy())
+        return QStringLiteral("translation-fix");
     return m_runner->stage();
 }
 
 int DubbingController::progress() const
 {
+    if (m_translationFix && m_translationFix->busy())
+        return m_translationFix->progress();
     return m_workflowRunner && m_workflowRunner->running() ? m_workflowRunner->progress() : m_runner->progress();
 }
 
 QString DubbingController::lastError() const
 {
+    if (m_translationFix && !m_translationFix->lastError().isEmpty())
+        return m_translationFix->lastError();
     return (m_workflowRunner && !m_workflowRunner->error().isEmpty()) ? m_workflowRunner->error() : m_runner->lastError();
+}
+
+bool DubbingController::translationFixing() const
+{
+    return m_translationFix && m_translationFix->busy();
+}
+
+int DubbingController::translationFixProgress() const
+{
+    return m_translationFix ? m_translationFix->progress() : 0;
+}
+
+QString DubbingController::translationFixStatus() const
+{
+    return m_translationFix ? m_translationFix->statusText() : QString();
+}
+
+QVariantMap DubbingController::translationFixConfiguration() const
+{
+    return m_translationFix ? m_translationFix->configuration() : QVariantMap();
+}
+
+int DubbingController::translationFixCandidateCount() const
+{
+    return DubbingTranslationFixService::eligibleSegmentCount(
+        m_project.segments, m_project.targetLanguage);
 }
 
 QString DubbingController::previewPath() const
@@ -1249,8 +1302,50 @@ void DubbingController::generateAudio()
 void DubbingController::cancelProcessing()
 {
     m_pendingExportPath.clear();
+    if (m_translationFix) m_translationFix->cancel();
     if (m_workflowRunner && m_workflowRunner->running()) m_workflowRunner->cancel();
     m_runner->cancel();
+}
+
+bool DubbingController::fixTranslations(const QVariantMap &configuration)
+{
+    if (!m_translationFix || processing()) return false;
+    clearError();
+    return m_translationFix->start(
+        m_project.sourceLanguage, m_project.targetLanguage,
+        m_project.segments, configuration);
+}
+
+bool DubbingController::fixTranslationSegment(
+    int index, const QVariantMap &configuration)
+{
+    if (!m_translationFix || processing()
+        || index < 0 || index >= m_project.segments.size())
+        return false;
+    clearError();
+    return m_translationFix->start(
+        m_project.sourceLanguage, m_project.targetLanguage,
+        m_project.segments, configuration, index);
+}
+
+bool DubbingController::translationSegmentNeedsFix(int index) const
+{
+    if (index < 0 || index >= m_project.segments.size()) return false;
+    return DubbingTranslationFixService::eligibleSegmentCount(
+               {m_project.segments.at(index)}, m_project.targetLanguage)
+        == 1;
+}
+
+void DubbingController::testTranslationFixConnection(
+    const QVariantMap &configuration)
+{
+    if (!m_translationFix || processing()) return;
+    m_translationFix->testConnection(configuration);
+}
+
+void DubbingController::cancelTranslationFix()
+{
+    if (m_translationFix) m_translationFix->cancel();
 }
 
 bool DubbingController::exportMedia(const QString &path)
@@ -1473,6 +1568,7 @@ void DubbingController::setSpeakerVoice(int speakerIndex, const QVariantMap &voi
 
 void DubbingController::clearError()
 {
+    if (m_translationFix) m_translationFix->clearError();
     m_runner->clearError();
 }
 

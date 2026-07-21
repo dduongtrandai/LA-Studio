@@ -20,6 +20,7 @@ class ModelManager;
 class RuntimeManager;
 class TranslationEngine;
 class DubbingJobRunner;
+class DubbingTranslationFixService;
 
 class DubbingController : public QObject
 {
@@ -60,6 +61,11 @@ class DubbingController : public QObject
     Q_PROPERTY(QVariantMap currentStepOutput READ currentStepOutput NOTIFY workflowChanged)
     Q_PROPERTY(QString lastCompletedStepId READ lastCompletedStepId NOTIFY workflowChanged)
     Q_PROPERTY(QVariantList history READ history NOTIFY historyChanged)
+    Q_PROPERTY(bool translationFixing READ translationFixing NOTIFY translationFixChanged)
+    Q_PROPERTY(int translationFixProgress READ translationFixProgress NOTIFY translationFixChanged)
+    Q_PROPERTY(QString translationFixStatus READ translationFixStatus NOTIFY translationFixChanged)
+    Q_PROPERTY(QVariantMap translationFixConfiguration READ translationFixConfiguration NOTIFY translationFixChanged)
+    Q_PROPERTY(int translationFixCandidateCount READ translationFixCandidateCount NOTIFY segmentsChanged)
 
 public:
     explicit DubbingController(SttSessionController *sttSession, TtsEngine *tts,
@@ -107,6 +113,11 @@ public:
     QVariantMap currentStepOutput() const;
     QString lastCompletedStepId() const { return m_lastCompletedStepId; }
     QVariantList history() const { return m_history; }
+    bool translationFixing() const;
+    int translationFixProgress() const;
+    QString translationFixStatus() const;
+    QVariantMap translationFixConfiguration() const;
+    int translationFixCandidateCount() const;
 
     void setSourceLanguage(const QString &value);
     void setTargetLanguage(const QString &value);
@@ -151,6 +162,13 @@ public:
     Q_INVOKABLE bool unloadWorkflowNodeModel(const QString &nodeId);
     Q_INVOKABLE bool reloadWorkflowNodeModel(const QString &nodeId);
     Q_INVOKABLE bool setWorkflowNodeParameters(const QString &nodeId, const QVariantMap &parameters);
+    Q_INVOKABLE bool fixTranslations(const QVariantMap &configuration = QVariantMap());
+    Q_INVOKABLE bool fixTranslationSegment(
+        int index, const QVariantMap &configuration = QVariantMap());
+    Q_INVOKABLE bool translationSegmentNeedsFix(int index) const;
+    Q_INVOKABLE void testTranslationFixConnection(
+        const QVariantMap &configuration = QVariantMap());
+    Q_INVOKABLE void cancelTranslationFix();
 
 signals:
     void projectChanged();
@@ -161,6 +179,8 @@ signals:
     void exportChanged();
     void workflowChanged();
     void historyChanged();
+    void translationFixChanged();
+    void translationFixConnectionTested(bool success, const QString &message);
 
 private slots:
     void onIngestFinished(bool success, const QVariantMap &manifest);
@@ -194,6 +214,7 @@ private:
     SttSessionController *m_sttSession = nullptr;
     TtsEngine *m_tts = nullptr;
     TranslationEngine *m_translation = nullptr;
+    DubbingTranslationFixService *m_translationFix = nullptr;
 };
 
 } // namespace LAStudio

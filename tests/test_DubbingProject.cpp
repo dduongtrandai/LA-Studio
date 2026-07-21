@@ -3,6 +3,7 @@
 #include "dubbing/DubbingProject.h"
 #include "controllers/dubbing/DubbingController.h"
 #include "controllers/dubbing/DubbingJobRunner.h"
+#include "controllers/dubbing/DubbingTranslationFixService.h"
 #include "dubbing/AlignmentRefinementService.h"
 #include "dubbing/DubbingSegmentNormalizer.h"
 #include "dubbing/DubbingDuration.h"
@@ -19,6 +20,73 @@
 #include <QtTest>
 
 namespace LAStudio {
+
+void TestDubbingProject::normalizesLmStudioTranslationFixConfiguration()
+{
+    const QVariantMap config =
+        DubbingTranslationFixService::normalizedConfiguration({
+            {QStringLiteral("serverUrl"),
+             QStringLiteral(" http://127.0.0.1:1234/v1/chat/completions ")},
+            {QStringLiteral("model"), QStringLiteral(" qwen3.5-2b ")},
+            {QStringLiteral("maxAttempts"), 99},
+            {QStringLiteral("temperature"), 4.0}
+        });
+    QCOMPARE(config.value(QStringLiteral("serverUrl")).toString(),
+             QStringLiteral("http://127.0.0.1:1234/v1/chat/completions"));
+    QCOMPARE(config.value(QStringLiteral("model")).toString(),
+             QStringLiteral("qwen3.5-2b"));
+    QCOMPARE(config.value(QStringLiteral("maxAttempts")).toInt(), 8);
+    QCOMPARE(config.value(QStringLiteral("temperature")).toDouble(), 1.5);
+    QCOMPARE(
+        DubbingTranslationFixService::chatUrl(
+            config.value(QStringLiteral("serverUrl")).toString()).toString(),
+        QStringLiteral("http://127.0.0.1:1234/api/v1/chat"));
+    QCOMPARE(
+        DubbingTranslationFixService::modelsUrl(
+            config.value(QStringLiteral("serverUrl")).toString()).toString(),
+        QStringLiteral("http://127.0.0.1:1234/api/v1/models"));
+}
+
+void TestDubbingProject::parsesLmStudioTranslationFixResponses()
+{
+    QCOMPARE(
+        DubbingTranslationFixService::cleanAssistantText(
+            QStringLiteral("<think>internal reasoning</think>\n"
+                           "Bản dịch: \"Một câu đã sửa.\"")),
+        QStringLiteral("Một câu đã sửa."));
+    QCOMPARE(
+        DubbingTranslationFixService::cleanAssistantText(
+            QStringLiteral("```text\nMột câu khác.\n```")),
+        QStringLiteral("Một câu khác."));
+}
+
+void TestDubbingProject::fixesOnlyTranslationsAbovePhonemeBudget()
+{
+    const QString text = QStringLiteral("Đây là một câu dịch để kiểm tra.");
+    const int phonemes =
+        DubbingDurationPlanner::countPhonemes(text, QStringLiteral("vi"));
+    QVERIFY(phonemes > 1);
+
+    const QVariantMap overBudget{
+        {QStringLiteral("targetText"), text},
+        {QStringLiteral("durationBudget"),
+         QVariantMap{{QStringLiteral("minUnits"), 1},
+                     {QStringLiteral("maxUnits"), phonemes - 1}}}};
+    const QVariantMap underBudget{
+        {QStringLiteral("targetText"), text},
+        {QStringLiteral("durationBudget"),
+         QVariantMap{{QStringLiteral("minUnits"), phonemes + 1},
+                     {QStringLiteral("maxUnits"), phonemes + 5}}}};
+    const QVariantMap withinBudget{
+        {QStringLiteral("targetText"), text},
+        {QStringLiteral("durationBudget"),
+         QVariantMap{{QStringLiteral("minUnits"), phonemes},
+                     {QStringLiteral("maxUnits"), phonemes}}}};
+
+    QCOMPARE(DubbingTranslationFixService::eligibleSegmentCount(
+                 {overBudget, underBudget, withinBudget}, QStringLiteral("vi")),
+             1);
+}
 
 void TestDubbingProject::roundTripsVersionedJson()
 {

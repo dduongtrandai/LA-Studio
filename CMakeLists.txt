@@ -185,6 +185,7 @@ set(LASTUDIO_SOURCES
     src/controllers/dubbing/DubbingSynthesisJob.cpp
     src/controllers/dubbing/DubbingExportJob.cpp
     src/controllers/dubbing/DubbingTranslationJob.cpp
+    src/controllers/dubbing/DubbingTranslationFixService.cpp
     src/separation/SeparationAudioIO.cpp
     src/separation/SourceSeparationService.cpp
     src/separation/SeparationWorker.cpp
@@ -333,6 +334,7 @@ set(LASTUDIO_HEADERS
     src/controllers/dubbing/DubbingSynthesisJob.h
     src/controllers/dubbing/DubbingExportJob.h
     src/controllers/dubbing/DubbingTranslationJob.h
+    src/controllers/dubbing/DubbingTranslationFixService.h
     src/separation/SeparationTypes.h
     src/separation/SeparationAudioIO.h
     src/separation/SourceSeparationService.h
@@ -434,6 +436,7 @@ qt_add_qml_module(LAStudio
         qml/components/alignment/AlignmentPlayerButton.qml
         qml/components/alignment/AlignmentResultMetric.qml
         qml/components/dubbing/DubbingExportDialog.qml
+        qml/components/dubbing/DubbingTranslationFixDialog.qml
         qml/components/dubbing/DubbingHistoryPanel.qml
         qml/components/dubbing/DubbingProjectStatusPanel.qml
         qml/components/dubbing/DubbingNodeSettingsPanel.qml

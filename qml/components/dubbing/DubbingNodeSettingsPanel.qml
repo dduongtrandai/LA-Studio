@@ -22,6 +22,7 @@ Rectangle {
     signal reloadRequested()
     signal runRequested()
     signal nextRequested()
+    signal fixRequested()
 
     Layout.fillWidth: true
     Layout.preferredHeight: 66
@@ -57,6 +58,16 @@ Rectangle {
         PrimaryButton { iconName: "power"; iconOnly: true; toolTip: qsTr("Unload model"); quiet: true; visible: root.canUnload(); enabled: !root.lifecycleBusy(); onClicked: root.unloadRequested() }
         PrimaryButton { visible: root.canRun; iconName: "play"; iconOnly: true; toolTip: qsTr("Run"); enabled: !root.dubbing.processing && root.runReady; onClicked: root.runRequested() }
         PrimaryButton { visible: root.canRerun; iconName: "run-again"; iconOnly: true; toolTip: qsTr("Run again"); quiet: true; enabled: !root.dubbing.processing && root.runReady; onClicked: root.runRequested() }
+        PrimaryButton {
+            visible: root.nodeId === "translate"
+                     && root.dubbing.translationFixCandidateCount > 0
+            text: qsTr("Fix %1").arg(root.dubbing.translationFixCandidateCount)
+            iconName: "spark"
+            quiet: true
+            loading: root.dubbing.translationFixing
+            enabled: !root.dubbing.processing
+            onClicked: root.fixRequested()
+        }
         PrimaryButton { visible: root.nextNodeId !== "" && root.nextReady; text: qsTr("Next"); iconName: "chevron-right"; enabled: !root.dubbing.processing; onClicked: root.nextRequested() }
     }
 

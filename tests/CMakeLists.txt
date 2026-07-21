@@ -89,6 +89,7 @@ set(TEST_SOURCES
     ../src/controllers/dubbing/DubbingSynthesisJob.cpp
     ../src/controllers/dubbing/DubbingExportJob.cpp
     ../src/controllers/dubbing/DubbingTranslationJob.cpp
+    ../src/controllers/dubbing/DubbingTranslationFixService.cpp
     ../src/dubbing/DubbingTranslationService.cpp
     ../src/dubbing/media/MediaToolService.cpp
     ../src/dubbing/media/AtomicMediaCommit.cpp

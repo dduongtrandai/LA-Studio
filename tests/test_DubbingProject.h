@@ -32,6 +32,9 @@ private slots:
     void buildsPauseAlignedTtsChunks();
     void extractsAlignedPauses();
     void roundTripsDurationSettings();
+    void normalizesLmStudioTranslationFixConfiguration();
+    void parsesLmStudioTranslationFixResponses();
+    void fixesOnlyTranslationsAbovePhonemeBudget();
 };
 
 } // namespace LAStudio
