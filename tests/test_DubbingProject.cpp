@@ -7,6 +7,7 @@
 #include "dubbing/AlignmentRefinementService.h"
 #include "dubbing/DubbingSegmentNormalizer.h"
 #include "dubbing/DubbingDuration.h"
+#include "dubbing/DubbingVoiceReferenceSelector.h"
 #include "dubbing/media/AtomicMediaCommit.h"
 #include "controllers/app/AppController.h"
 #include "audio/WavIO.h"
@@ -325,6 +326,79 @@ void TestDubbingProject::audioGenerationUsesSelectedVoiceForEverySegment()
         QVERIFY(!wav.samples.isEmpty());
         QVERIFY(qAbs(wav.samples.first() - 0.2f) < 0.001f);
     }
+}
+
+void TestDubbingProject::selectsBestAutomaticVoiceReference()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    constexpr int sampleRate = 24000;
+    QVector<float> samples(sampleRate * 6);
+    for (int i = 0; i < sampleRate * 3; ++i) samples[i] = 1.0f;
+    constexpr double pi = 3.14159265358979323846;
+    for (int i = sampleRate * 3; i < samples.size(); ++i)
+        samples[i] = 0.1f * qSin(2.0 * pi * 220.0 * i / sampleRate);
+    const QString sourcePath = dir.filePath(QStringLiteral("source.wav"));
+    QVERIFY(WavIO::saveFloat(sourcePath, samples.constData(), samples.size(), sampleRate));
+
+    const QVariantList segments{
+        QVariantMap{{QStringLiteral("startMs"), 0},
+                    {QStringLiteral("endMs"), 3000},
+                    {QStringLiteral("sourceText"), QStringLiteral("Clipped speech")}},
+        QVariantMap{{QStringLiteral("startMs"), 3000},
+                    {QStringLiteral("endMs"), 6000},
+                    {QStringLiteral("sourceText"), QStringLiteral("Clean speech")}}
+    };
+    const QString projectPath = dir.filePath(QStringLiteral("project.ladub.json"));
+    const DubbingVoiceReference selected =
+        DubbingVoiceReferenceSelector::select(sourcePath, segments, projectPath);
+
+    QVERIFY2(selected.isValid(), qPrintable(selected.error));
+    QCOMPARE(selected.startMs, qint64(3000));
+    QCOMPARE(selected.endMs, qint64(6000));
+    QCOMPARE(selected.referenceText, QStringLiteral("Clean speech"));
+    QVERIFY(QFileInfo::exists(selected.audioPath));
+}
+
+void TestDubbingProject::audioGenerationUsesAutomaticVoiceReference()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    constexpr int sampleRate = 24000;
+    QVector<float> source(sampleRate * 4);
+    constexpr double pi = 3.14159265358979323846;
+    for (int i = 0; i < source.size(); ++i)
+        source[i] = 0.1f * qSin(2.0 * pi * 180.0 * i / sampleRate);
+    const QString sourcePath = dir.filePath(QStringLiteral("source.wav"));
+    QVERIFY(WavIO::saveFloat(sourcePath, source.constData(), source.size(), sampleRate));
+
+    TtsEngine tts;
+    tts.loadModel(QStringLiteral("mock-model.onnx"));
+    DubbingJobRunner runner(nullptr, &tts);
+    QSignalSpy completedSpy(&runner, &DubbingJobRunner::stageCompleted);
+    QSignalSpy errorSpy(&runner, &DubbingJobRunner::errorOccurred);
+    const QVariantList segments{
+        QVariantMap{{QStringLiteral("id"), QStringLiteral("s1")},
+                    {QStringLiteral("startMs"), 0},
+                    {QStringLiteral("endMs"), 4000},
+                    {QStringLiteral("sourceText"), QStringLiteral("Original reference words")},
+                    {QStringLiteral("targetText"), QStringLiteral("Translated speech")}}
+    };
+    runner.startAudioGeneration(
+        segments, dir.filePath(QStringLiteral("project.ladub.json")),
+        QVariantMap{{QStringLiteral("autoSelectVoiceReference"), true},
+                    {QStringLiteral("autoReferenceSourcePath"), sourcePath}});
+
+    QTRY_COMPARE_WITH_TIMEOUT(completedSpy.size(), 1, 3000);
+    QCOMPARE(errorSpy.size(), 0);
+    const QVariantMap generated = completedSpy.constFirst().at(1).toMap()
+                                      .value(QStringLiteral("timeline")).toList().first().toMap();
+    QCOMPARE(generated.value(QStringLiteral("voiceReferenceText")).toString(),
+             QStringLiteral("Original reference words"));
+    QVERIFY(QFileInfo::exists(generated.value(QStringLiteral("voiceReferencePath")).toString()));
+    QCOMPARE(tts.lastGenerationMode(), QStringLiteral("voice-cloning"));
 }
 
 void TestDubbingProject::audioMixRunsAsynchronously()

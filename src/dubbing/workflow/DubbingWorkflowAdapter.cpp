@@ -37,9 +37,13 @@ void DubbingWorkflowAdapter::start(const QString &nodeType, const QVariantMap &i
                                    parameters.value(QStringLiteral("targetLanguage")).toString(),
                                    inputs.value(QStringLiteral("transcript")).toList(), parameters);
     } else if (nodeType == QStringLiteral("dubbing.synthesize-segments")) {
+        QVariantMap synthesisSettings = parameters.value(QStringLiteral("synthesisSettings")).toMap();
+        const QString referenceAudio = inputs.value(QStringLiteral("referenceAudio")).toString();
+        if (!referenceAudio.isEmpty())
+            synthesisSettings.insert(QStringLiteral("autoReferenceSourcePath"), referenceAudio);
         m_runner->startAudioGeneration(inputs.value(QStringLiteral("transcript")).toList(),
                                        parameters.value(QStringLiteral("projectPath")).toString(),
-                                       parameters.value(QStringLiteral("synthesisSettings")).toMap());
+                                       synthesisSettings);
     } else if (nodeType == QStringLiteral("dubbing.fit-timing")) {
         m_runner->fitTiming(inputs.value(QStringLiteral("timeline")).toList(),
                             parameters.value(QStringLiteral("projectPath")).toString());

@@ -6,6 +6,8 @@
 #include <QVariantMap>
 #include <QVector>
 
+#include "dubbing/DubbingVoiceReferenceSelector.h"
+
 namespace LAStudio {
 
 class TtsEngine;
@@ -41,6 +43,9 @@ private:
     QVariantList m_segments;
     QString m_projectPath;
     QVariantMap m_settings;
+    QVariantMap m_cacheSettings;
+    DubbingVoiceReference m_voiceReference;
+    bool m_useVoiceCloning = false;
     QString m_runId;
     QString m_nodeRunId;
     int m_generationIndex = -1;

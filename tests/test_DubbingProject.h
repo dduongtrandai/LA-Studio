@@ -19,6 +19,8 @@ private slots:
     void alignmentRefinementFallsBackWithoutDependencies();
     void audioGenerationWaitsForCompletedSynthesis();
     void audioGenerationUsesSelectedVoiceForEverySegment();
+    void selectsBestAutomaticVoiceReference();
+    void audioGenerationUsesAutomaticVoiceReference();
     void audioMixRunsAsynchronously();
     void commitsMediaExportAtomically();
     void sourceTextEditInvalidatesWordTiming();

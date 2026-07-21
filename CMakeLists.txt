@@ -170,6 +170,8 @@ set(LASTUDIO_SOURCES
     src/dubbing/DubbingProject.cpp
     src/dubbing/EspeakNgPhonemizer.cpp
     src/dubbing/DubbingDuration.cpp
+    src/dubbing/DubbingVoiceReferenceSelector.cpp
+    src/dubbing/DubbingVoiceReferenceSelector.h
     src/dubbing/DubbingTimingProfile.cpp
     src/dubbing/DubbingTimingService.cpp
     src/controllers/dubbing/DubbingController.cpp

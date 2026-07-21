@@ -458,6 +458,8 @@ QVariantList DubbingController::workflowNodes() const
             item.insert(QStringLiteral("providerName"), selected.value(QStringLiteral("modelName")));
             item.insert(QStringLiteral("selectedFamilyId"), selected.value(QStringLiteral("familyId")));
             item.insert(QStringLiteral("selectedRuntimeId"), selected.value(QStringLiteral("runtimeId")));
+            item.insert(QStringLiteral("supportsVoiceCloning"),
+                        selected.value(QStringLiteral("supportsVoiceCloning")).toBool());
             const QString capabilityId = selected.value(QStringLiteral("capabilityId")).toString();
             IModelSession *session = AppController::instance() && AppController::instance()->sessionRegistry()
                 ? AppController::instance()->sessionRegistry()->sessionForCapability(capabilityId) : nullptr;
@@ -589,6 +591,13 @@ bool DubbingController::setWorkflowNodeModel(const QString &nodeId,
         return false;
     }
 
+    const bool supportsVoiceCloning = family.value(QStringLiteral("supportsCloning")).toBool()
+        || family.value(QStringLiteral("capabilities")).toStringList().contains(QStringLiteral("voice-cloning"));
+    QVariantMap parameters = m_workflowNodeConfigurations.value(nodeId).toMap()
+                                 .value(QStringLiteral("parameters")).toMap();
+    if (!supportsVoiceCloning)
+        parameters.remove(QStringLiteral("autoSelectVoiceReference"));
+
     QVariantMap selected{{QStringLiteral("familyId"), familyId},
                          {QStringLiteral("runtimeId"), config.runtimeId},
                          {QStringLiteral("runtimeVersion"), config.runtimeVersion},
@@ -596,6 +605,8 @@ bool DubbingController::setWorkflowNodeModel(const QString &nodeId,
                           {QStringLiteral("modelName"), family.value(QStringLiteral("title"))},
                           {QStringLiteral("capabilityId"), capabilityId},
                           {QStringLiteral("configurationSignature"), resolved.signature},
+                          {QStringLiteral("supportsVoiceCloning"), supportsVoiceCloning},
+                          {QStringLiteral("parameters"), parameters},
                           {QStringLiteral("familyConfig"), family},
                           {QStringLiteral("parameterDefinitions"), family.value(QStringLiteral("parameterDefinitions"))},
                           {QStringLiteral("studioConfig"),
@@ -805,9 +816,14 @@ bool DubbingController::runWorkflow(const QString &outputPath)
             node.parameters.insert(QStringLiteral("mode"), QStringLiteral("never"));
             node.properties = node.parameters;
         } else if (node.id == QStringLiteral("synthesize")) {
+            QVariantMap synthesisSettings = modelConfig.value(QStringLiteral("parameters")).toMap();
+            synthesisSettings.insert(QStringLiteral("autoReferenceSourcePath"),
+                                     !m_project.analysisAudioPath.isEmpty()
+                                         ? m_project.analysisAudioPath : m_project.masterAudioPath);
+            if (!synthesisSettings.contains(QStringLiteral("lang")))
+                synthesisSettings.insert(QStringLiteral("lang"), m_project.targetLanguage);
             node.parameters.insert(QStringLiteral("projectPath"), m_project.projectPath);
-            node.parameters.insert(QStringLiteral("synthesisSettings"),
-                                   modelConfig.value(QStringLiteral("parameters")).toMap());
+            node.parameters.insert(QStringLiteral("synthesisSettings"), synthesisSettings);
             node.properties = node.parameters;
         } else if (node.id == QStringLiteral("fit-timing")) {
             node.parameters.insert(QStringLiteral("projectPath"), m_project.projectPath);
@@ -1294,9 +1310,14 @@ void DubbingController::translateSource()
 
 void DubbingController::generateAudio()
 {
-    const QVariantMap synthesisSettings = m_workflowNodeConfigurations
+    QVariantMap synthesisSettings = m_workflowNodeConfigurations
         .value(QStringLiteral("synthesize")).toMap()
         .value(QStringLiteral("parameters")).toMap();
+    synthesisSettings.insert(QStringLiteral("autoReferenceSourcePath"),
+                             !m_project.analysisAudioPath.isEmpty()
+                                 ? m_project.analysisAudioPath : m_project.masterAudioPath);
+    if (!synthesisSettings.contains(QStringLiteral("lang")))
+        synthesisSettings.insert(QStringLiteral("lang"), m_project.targetLanguage);
     m_runner->startAudioGeneration(m_project.segments, m_project.projectPath, synthesisSettings);
 }
 

@@ -14,6 +14,7 @@
 #include <QTemporaryDir>
 #include <QSignalSpy>
 #include <QtTest>
+#include <algorithm>
 
 namespace LAStudio {
 
@@ -129,12 +130,17 @@ void TestWorkflowGraph::buildsCanonicalDubbingWorkflowDefinition()
     QCOMPARE(graph.version, DubbingWorkflowDefinition::Version);
     QCOMPARE(graph.kind, QStringLiteral("system"));
     QCOMPARE(graph.nodes.size(), 13);
-    QCOMPARE(graph.edges.size(), 14);
+    QCOMPARE(graph.edges.size(), 15);
     QVERIFY(graph.interfaceDefinition.value(QStringLiteral("inputs")).toList().size() == 3);
     QCOMPARE(graph.policies.value(QStringLiteral("maxParallelNodes")).toInt(), 2);
     QCOMPARE(graph.nodes.at(0).id, QStringLiteral("media-input"));
     QCOMPARE(graph.nodes.at(5).typeId, QStringLiteral("text.translate-transcript"));
     QCOMPARE(graph.edges.at(0).id, QStringLiteral("l01"));
+    const auto referenceEdge = std::find_if(graph.edges.cbegin(), graph.edges.cend(),
+        [](const WorkflowGraphEdge &edge) { return edge.id == QStringLiteral("l07b"); });
+    QVERIFY(referenceEdge != graph.edges.cend());
+    QCOMPARE(referenceEdge->sourceNodeId, QStringLiteral("source-separate"));
+    QCOMPARE(referenceEdge->targetPortId, QStringLiteral("referenceAudio"));
     QVERIFY(graph.topologicalOrder().size() == graph.nodes.size());
     QVERIFY(graph.canonicalJson().contains("system.dubbing.default"));
 }

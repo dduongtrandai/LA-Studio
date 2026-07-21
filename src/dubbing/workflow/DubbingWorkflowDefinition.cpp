@@ -91,6 +91,7 @@ WorkflowGraph DubbingWorkflowDefinition::create()
         link(QStringLiteral("l05"), QStringLiteral("translate"), QStringLiteral("transcript"), QStringLiteral("review-translation"), QStringLiteral("artifact")),
         link(QStringLiteral("l06"), QStringLiteral("review-translation"), QStringLiteral("artifact"), QStringLiteral("assign-voices"), QStringLiteral("transcript")),
         link(QStringLiteral("l07"), QStringLiteral("assign-voices"), QStringLiteral("transcript"), QStringLiteral("synthesize"), QStringLiteral("transcript")),
+        link(QStringLiteral("l07b"), QStringLiteral("source-separate"), QStringLiteral("vocals"), QStringLiteral("synthesize"), QStringLiteral("referenceAudio")),
         link(QStringLiteral("l08"), QStringLiteral("synthesize"), QStringLiteral("timeline"), QStringLiteral("fit-timing"), QStringLiteral("timeline")),
         link(QStringLiteral("l09"), QStringLiteral("fit-timing"), QStringLiteral("timeline"), QStringLiteral("review-conflicts"), QStringLiteral("artifact")),
         link(QStringLiteral("l10"), QStringLiteral("review-conflicts"), QStringLiteral("artifact"), QStringLiteral("mix"), QStringLiteral("timeline")),

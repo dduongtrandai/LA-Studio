@@ -228,9 +228,11 @@ void TtsEngine::synthesize(const QString &text, int speakerId, float speed, cons
 
 void TtsEngine::cloneVoice(const QString &text, const QString &referencePath, const QVariantMap &settings)
 {
-    Q_UNUSED(text);
     Q_UNUSED(referencePath);
-    Q_UNUSED(settings);
+    s_mockIsCloneAction = true;
+    s_mockLastGenerationMode = QStringLiteral("voice-cloning");
+    emit lastGenerationModeChanged();
+    synthesize(text, 0, 1.0f, settings);
 }
 
 void TtsEngine::designVoice(const QString &text, const QVariantMap &settings)

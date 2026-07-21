@@ -168,6 +168,29 @@ Rectangle {
                 }
 
                 SettingsSection {
+                    title: qsTr("Voice cloning")
+                    iconName: "spark"
+                    visible: root.nodeId === "synthesize"
+                             && root.node
+                             && root.node.supportsVoiceCloning === true
+
+                    ToggleRow {
+                        text: qsTr("Auto-select a clean voice reference")
+                        checked: root.dynamicSettings.autoSelectVoiceReference === true
+                        enabled: !root.dubbing.processing
+                        onToggled: root.updateParameter("autoSelectVoiceReference", checked)
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: qsTr("Scores 3-15 second source speech windows, saves the best window as a reference, and uses its transcript to clone the source voice.")
+                        color: Theme.textSecondary
+                        font.pixelSize: 10
+                        wrapMode: Text.WordWrap
+                    }
+                }
+
+                SettingsSection {
                     title: qsTr("Duration-aware dubbing")
                     iconName: "clock"
                     visible: root.nodeId === "translate"

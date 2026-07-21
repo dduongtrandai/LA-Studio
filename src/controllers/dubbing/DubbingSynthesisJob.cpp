@@ -81,13 +81,31 @@ bool DubbingSynthesisJob::start(const QVariantList &segments, const QString &pro
     m_segments = segments;
     m_projectPath = projectPath;
     m_settings = settings;
+    m_cacheSettings = settings;
+    m_useVoiceCloning = settings.value(QStringLiteral("autoSelectVoiceReference")).toBool();
+    m_voiceReference = {};
+    if (m_useVoiceCloning) {
+        m_voiceReference = DubbingVoiceReferenceSelector::select(
+            settings.value(QStringLiteral("autoReferenceSourcePath")).toString(),
+            segments, projectPath);
+        if (!m_voiceReference.isValid()) {
+            fail(m_voiceReference.error);
+            return false;
+        }
+        m_settings.insert(QStringLiteral("ref_text"), m_voiceReference.referenceText);
+        m_cacheSettings.insert(QStringLiteral("selectedReferencePath"), m_voiceReference.audioPath);
+        m_cacheSettings.insert(QStringLiteral("selectedReferenceText"), m_voiceReference.referenceText);
+        m_cacheSettings.insert(QStringLiteral("selectedReferenceQuality"), m_voiceReference.qualityScore);
+    }
+    m_settings.remove(QStringLiteral("autoSelectVoiceReference"));
+    m_settings.remove(QStringLiteral("autoReferenceSourcePath"));
     m_runId = runId;
     m_generationIndex = -1;
     bool hasTargetText = false;
     for (int i = 0; i < m_segments.size(); ++i) {
         const QVariantMap segment = m_segments.at(i).toMap();
         hasTargetText = hasTargetText || !segment.value(QStringLiteral("targetText")).toString().trimmed().isEmpty();
-        if (needsSynthesis(segment, m_tts->activeSignature(), m_settings)) {
+        if (needsSynthesis(segment, m_tts->activeSignature(), m_cacheSettings)) {
             m_generationIndex = i;
             break;
         }
@@ -130,7 +148,10 @@ void DubbingSynthesisJob::startCurrentChunk()
     }
     const QString text = m_chunks.at(m_chunkIndex).toMap().value(QStringLiteral("text")).toString().trimmed();
     if (text.isEmpty()) { fail(QStringLiteral("Pause alignment produced an empty TTS chunk.")); return; }
-    m_tts->synthesize(text, 0, 1.0f, m_settings);
+    if (m_useVoiceCloning)
+        m_tts->cloneVoice(text, m_voiceReference.audioPath, m_settings);
+    else
+        m_tts->synthesize(text, 0, 1.0f, m_settings);
 }
 
 void DubbingSynthesisJob::onSynthesisFinished(const QByteArray &pcm16, int sampleRate)
@@ -178,7 +199,14 @@ void DubbingSynthesisJob::onSynthesisFinished(const QByteArray &pcm16, int sampl
     QVariantMap updated = segment;
     updated.insert(QStringLiteral("clipPath"), clipPath);
     updated.insert(QStringLiteral("clipArtifact"), artifact.toJson().toVariantMap());
-    updated.insert(QStringLiteral("cacheFingerprint"), fingerprint(segment, m_tts->activeSignature(), m_settings));
+    updated.insert(QStringLiteral("cacheFingerprint"), fingerprint(segment, m_tts->activeSignature(), m_cacheSettings));
+    if (m_useVoiceCloning) {
+        updated.insert(QStringLiteral("voiceReferencePath"), m_voiceReference.audioPath);
+        updated.insert(QStringLiteral("voiceReferenceText"), m_voiceReference.referenceText);
+        updated.insert(QStringLiteral("voiceReferenceStartMs"), m_voiceReference.startMs);
+        updated.insert(QStringLiteral("voiceReferenceEndMs"), m_voiceReference.endMs);
+        updated.insert(QStringLiteral("voiceReferenceQuality"), m_voiceReference.qualityScore);
+    }
     updated.insert(QStringLiteral("sampleRate"), sampleRate);
     updated.insert(QStringLiteral("sampleCount"), samples.size());
     updated.insert(QStringLiteral("waveformSamples"), waveformPreview(samples));
@@ -192,7 +220,7 @@ void DubbingSynthesisJob::onSynthesisFinished(const QByteArray &pcm16, int sampl
     emit segmentUpdated(m_generationIndex, updated);
 
     int next = m_generationIndex + 1;
-    while (next < m_segments.size() && !needsSynthesis(m_segments.at(next).toMap(), m_tts->activeSignature(), m_settings)) ++next;
+    while (next < m_segments.size() && !needsSynthesis(m_segments.at(next).toMap(), m_tts->activeSignature(), m_cacheSettings)) ++next;
     if (next >= m_segments.size()) { m_generationIndex = -1; fitGeneratedSegments(); return; }
     m_generationIndex = next;
     m_nodeRunId = QUuid::createUuid().toString(QUuid::WithoutBraces);
