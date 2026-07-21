@@ -174,6 +174,19 @@ Item {
         }
     }
 
+    component SegmentTextArea: AppTextArea {
+        color: Theme.textPrimary
+        placeholderTextColor: Theme.textSecondary
+        font.pixelSize: Theme.fontSmall
+        selectByMouse: true
+        wrapMode: Text.Wrap
+        padding: Theme.paddingSmall
+        Layout.fillWidth: true
+        Layout.minimumHeight: 30
+        Layout.preferredHeight: Math.max(30, contentHeight + padding * 2)
+        implicitHeight: Math.max(30, contentHeight + padding * 2)
+    }
+
     component Panel: Rectangle {
         color: Theme.surface
         radius: Theme.radiusMedium
@@ -409,7 +422,7 @@ Item {
                             Text { text: qsTr("TIME"); Layout.preferredWidth: 88; color: Theme.textSecondary; font.pixelSize: 10; font.bold: true }
                             Text { text: qsTr("SOURCE / TARGET TEXT"); Layout.fillWidth: true; color: Theme.textSecondary; font.pixelSize: 10; font.bold: true }
                             Text { text: qsTr("STATE"); Layout.preferredWidth: 64; color: Theme.textSecondary; font.pixelSize: 10; font.bold: true }
-                            Item { Layout.preferredWidth: 126 }
+                            Item { Layout.preferredWidth: 84 }
                         }
                     }
                     ListView {
@@ -422,7 +435,9 @@ Item {
                                 && modelData.durationBudget !== undefined
                                 && dubbing.translationSegmentNeedsFix(index)
 
-                            width: ListView.view.width; height: 98; radius: Theme.radiusSmall
+                            width: ListView.view.width
+                            height: Math.max(98, segmentTextColumn.implicitHeight + Theme.paddingSmall * 2)
+                            radius: Theme.radiusSmall
                             color: root.selectedSegment === index ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.12) : Qt.rgba(1, 1, 1, 0.025)
                             border.color: root.selectedSegment === index ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.55) : Qt.rgba(1, 1, 1, 0.06); border.width: 1
                             MouseArea {
@@ -434,9 +449,17 @@ Item {
                             }
                             RowLayout { anchors.fill: parent; anchors.margins: Theme.paddingSmall; spacing: Theme.paddingSmall
                                 Text { text: "%1–%2".arg(modelData.startMs).arg(modelData.endMs); color: Theme.textSecondary; font.pixelSize: 10; Layout.preferredWidth: 88; elide: Text.ElideRight }
-                                ColumnLayout { Layout.fillWidth: true; spacing: 3
-                                    Field { text: modelData.sourceText || ""; placeholderText: qsTr("Source transcript"); implicitHeight: 30; Layout.fillWidth: true; onEditingFinished: dubbing.updateSegment(index, { sourceText: text }) }
-                                    Field { text: modelData.targetText || ""; placeholderText: qsTr("Target translation"); implicitHeight: 30; Layout.fillWidth: true; onEditingFinished: dubbing.updateSegment(index, { targetText: text }) }
+                                ColumnLayout { id: segmentTextColumn; Layout.fillWidth: true; spacing: 3
+                                    SegmentTextArea {
+                                        text: modelData.sourceText || ""
+                                        placeholderText: qsTr("Source transcript")
+                                        onActiveFocusChanged: if (!activeFocus) dubbing.updateSegment(index, { sourceText: text })
+                                    }
+                                    SegmentTextArea {
+                                        text: modelData.targetText || ""
+                                        placeholderText: qsTr("Target translation")
+                                        onActiveFocusChanged: if (!activeFocus) dubbing.updateSegment(index, { targetText: text })
+                                    }
                                     Text {
                                         Layout.fillWidth: true
                                         visible: modelData.durationBudget !== undefined
@@ -455,25 +478,41 @@ Item {
                                 }
                                 Text { text: modelData.state || qsTr("Ready"); color: modelData.state === "stale" ? Theme.warning : Theme.textSecondary; font.pixelSize: 10; Layout.preferredWidth: 64; horizontalAlignment: Text.AlignRight }
                                 RowLayout {
-                                    Layout.preferredWidth: 126
+                                    Layout.preferredWidth: 84
+                                    Layout.minimumWidth: 84
+                                    Layout.alignment: Qt.AlignVCenter
                                     spacing: Theme.paddingSmall
-                                    PrimaryButton {
+                                    Item {
                                         visible: root.reviewStepId === "translate"
-                                                 && (modelData.targetText || "") !== ""
-                                                 && modelData.durationBudget !== undefined
-                                        text: qsTr("Fix")
-                                        iconName: "spark"
-                                        quiet: true
-                                        Layout.preferredWidth: 54
-                                        enabled: !dubbing.processing
-                                                 && segmentDelegate.needsTranslationFix
-                                        toolTip: segmentDelegate.needsTranslationFix
-                                                 ? qsTr("Rewrite only this segment")
-                                                 : qsTr("This segment is already within its phoneme budget")
-                                        onClicked: translationFixDialog.openForSegment(index)
+                                        Layout.preferredWidth: 38
+                                        Layout.minimumWidth: 38
+                                        Layout.preferredHeight: 38
+                                        Layout.alignment: Qt.AlignVCenter
+                                        PrimaryButton {
+                                            anchors.fill: parent
+                                            visible: (modelData.targetText || "") !== ""
+                                                     && modelData.durationBudget !== undefined
+                                            text: ""
+                                            iconName: "spark"
+                                            iconOnly: true
+                                            quiet: true
+                                            enabled: !dubbing.processing
+                                                     && segmentDelegate.needsTranslationFix
+                                            toolTip: segmentDelegate.needsTranslationFix
+                                                     ? qsTr("Rewrite only this segment")
+                                                     : qsTr("This segment is already within its phoneme budget")
+                                            onClicked: translationFixDialog.openForSegment(index)
+                                        }
                                     }
-                                    Item { Layout.fillWidth: true }
-                                    PrimaryButton { text: qsTr("Remove"); quiet: true; Layout.preferredWidth: 64; onClicked: dubbing.removeSegment(index) }
+                                    PrimaryButton {
+                                        text: ""
+                                        iconName: "trash"
+                                        iconOnly: true
+                                        quiet: true
+                                        textColor: Theme.danger
+                                        toolTip: qsTr("Remove segment")
+                                        onClicked: dubbing.removeSegment(index)
+                                    }
                                 }
                             }
                         }
