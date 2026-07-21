@@ -162,7 +162,7 @@ RowLayout {
 
     Rectangle {
         id: leftRail
-        Layout.preferredWidth: (root.showLeftPanel && root.isLeftPanelOpen) ? 332 : (root.showLeftPanel ? 46 : 0)
+        Layout.preferredWidth: (root.showLeftPanel && root.isLeftPanelOpen) ? 332 : 0
         Layout.fillHeight: true
         color: Theme.surface
         clip: true
@@ -187,39 +187,6 @@ RowLayout {
             visible: root.isLeftPanelOpen
         }
 
-        Button {
-            id: openLeftRailButton
-            anchors.top: parent.top
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.topMargin: Theme.paddingLarge
-            visible: !root.isLeftPanelOpen
-            implicitWidth: 30
-            implicitHeight: 34
-            flat: true
-
-            AppToolTip {
-                text: qsTr("Show history")
-                visible: parent.hovered
-            }
-
-            contentItem: LineIcon {
-                name: "history"
-                color: openLeftRailButton.hovered ? Theme.accent : Theme.textSecondary
-                anchors.centerIn: parent
-                width: 18
-                height: 18
-            }
-
-            background: Rectangle {
-                radius: 7
-                color: openLeftRailButton.hovered ? Qt.rgba(1, 1, 1, 0.05) : Qt.rgba(1, 1, 1, 0.025)
-                border.color: openLeftRailButton.hovered ? Qt.rgba(0.49, 0.30, 1.0, 0.55) : Qt.rgba(1, 1, 1, 0.08)
-                border.width: 1
-            }
-
-            onClicked: root.isLeftPanelOpen = true
-            HoverHandler { cursorShape: Qt.PointingHandCursor }
-        }
     }
 
     ColumnLayout {
@@ -263,9 +230,15 @@ RowLayout {
             workflowTitle: root.workflowTitle
             workflowStatusText: root.workflowStatusText
             workflowActionText: root.workflowActionText
+            showLeftSidebarButton: root.showLeftPanel
+            leftSidebarOpen: root.isLeftPanelOpen
+            showSettingsButton: root.showSettingsPanel
+            settingsOpen: root.isSettingsOpen
             onBackClicked: root.requestBack()
             onRuntimeClicked: root.requestConfigurationPicker()
             onWorkflowClicked: root.requestWorkflow()
+            onLeftSidebarToggled: root.isLeftPanelOpen = !root.isLeftPanelOpen
+            onSettingsToggled: root.isSettingsOpen = !root.isSettingsOpen
             onReloadRequested: root.requestReload()
             onEjectRequested: root.requestEject()
             onLoadedModelPickerRequested: loadedModelDialog.open()
@@ -564,7 +537,7 @@ RowLayout {
 
     Rectangle {
         id: settingsRail
-        Layout.preferredWidth: root.showSettingsPanel ? (root.isSettingsOpen ? 332 : 46) : 0
+        Layout.preferredWidth: (root.showSettingsPanel && root.isSettingsOpen) ? 332 : 0
         Layout.fillHeight: true
         color: Theme.surface
         clip: true
@@ -592,38 +565,5 @@ RowLayout {
             Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutQuad } }
         }
 
-        Button {
-            id: openSettingsRailButton
-            anchors.top: parent.top
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.topMargin: Theme.paddingLarge
-            visible: !root.isSettingsOpen
-            implicitWidth: 30
-            implicitHeight: 34
-            flat: true
-
-            AppToolTip {
-                text: qsTr("Show settings")
-                visible: parent.hovered
-            }
-
-            contentItem: LineIcon {
-                name: "sliders"
-                color: openSettingsRailButton.hovered ? Theme.accent : Theme.textSecondary
-                anchors.centerIn: parent
-                width: 18
-                height: 18
-            }
-
-            background: Rectangle {
-                radius: 7
-                color: openSettingsRailButton.hovered ? Qt.rgba(1, 1, 1, 0.05) : Qt.rgba(1, 1, 1, 0.025)
-                border.color: openSettingsRailButton.hovered ? Qt.rgba(0.49, 0.30, 1.0, 0.55) : Qt.rgba(1, 1, 1, 0.08)
-                border.width: 1
-            }
-
-            onClicked: root.isSettingsOpen = true
-            HoverHandler { cursorShape: Qt.PointingHandCursor }
-        }
     }
 }

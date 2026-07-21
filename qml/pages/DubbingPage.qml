@@ -314,8 +314,10 @@ Item {
             statusText: root.dubbing.processing ? qsTr("%1 · %2%").arg(root.stepTitle(root.dubbing.currentStepId)).arg(root.dubbing.progress) : (root.dubbing.workflowMode === "step" ? qsTr("Ready for node run") : qsTr("Ready"))
             defaultExportPath: root.defaultExportPath()
             historyOpen: root.isHistoryOpen
+            settingsOpen: root.isNodeInspectorOpen
             onStepSelected: root.reviewStepId = stepId
             onHistoryToggled: root.isHistoryOpen = !root.isHistoryOpen
+            onSettingsToggled: root.isNodeInspectorOpen = !root.isNodeInspectorOpen
             onGenerateRequested: root.dubbing.startAutomaticWorkflow(root.defaultExportPath())
             onWorkflowRequested: root.openWorkflowCanvas()
             onSaveRequested: root.dubbing.saveProject()
@@ -577,41 +579,6 @@ Item {
                 onCloseRequested: root.isNodeInspectorOpen = false
             }
 
-            Rectangle {
-                Layout.preferredWidth: 46
-                Layout.fillHeight: true
-                visible: {
-                    var selectedNode = root.workflowNode(root.reviewStepId)
-                    return !root.isNodeInspectorOpen
-                            && selectedNode && selectedNode.configurable === true
-                }
-                color: Theme.surface
-                radius: Theme.radiusSmall
-                border.color: Qt.rgba(1, 1, 1, 0.08)
-
-                Button {
-                    anchors.top: parent.top
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.topMargin: Theme.paddingLarge
-                    implicitWidth: 30
-                    implicitHeight: 34
-                    flat: true
-                    onClicked: root.isNodeInspectorOpen = true
-                    contentItem: LineIcon {
-                        name: "sliders"
-                        color: parent.hovered ? Theme.accent : Theme.textSecondary
-                        anchors.centerIn: parent
-                        width: 18
-                        height: 18
-                    }
-                    background: Rectangle {
-                        radius: 7
-                        color: parent.hovered ? Qt.rgba(1, 1, 1, 0.05) : Qt.rgba(1, 1, 1, 0.025)
-                        border.color: Qt.rgba(1, 1, 1, 0.08)
-                        border.width: 1
-                    }
-                }
-            }
         }
 
         DubbingProjectStatusPanel {

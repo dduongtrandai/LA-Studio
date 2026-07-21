@@ -41,6 +41,10 @@ Rectangle {
     property string workflowTitle: qsTr("Workflow")
     property string workflowStatusText: ""
     property string workflowActionText: qsTr("Set up workflow")
+    property bool showLeftSidebarButton: false
+    property bool leftSidebarOpen: false
+    property bool showSettingsButton: false
+    property bool settingsOpen: false
     readonly property bool showLoadedModelCard: root.modelLoaded && root.width >= 1180
     readonly property bool showRuntimeCard: root.modelConfigured && root.width >= 760
     readonly property bool showStatusDetails: root.width >= 760
@@ -55,6 +59,8 @@ Rectangle {
     signal configureCurrentModelRequested()
     signal loadedModelPickerRequested()
     signal workflowClicked()
+    signal leftSidebarToggled()
+    signal settingsToggled()
 
     function loadedFilesSummary() {
         var count = root.loadedModelFiles ? root.loadedModelFiles.length : 0
@@ -83,6 +89,15 @@ Rectangle {
         anchors.rightMargin: Theme.paddingLarge
         spacing: Theme.paddingMedium
         clip: true
+
+        ToolIconButton {
+            visible: root.showLeftSidebarButton
+            iconName: "history"
+            toolTip: root.leftSidebarOpen ? qsTr("Hide history") : qsTr("Show history")
+            checkable: true
+            checked: root.leftSidebarOpen
+            onClicked: root.leftSidebarToggled()
+        }
 
         ToolIconButton {
             iconName: "chevron-left"
@@ -476,6 +491,16 @@ Rectangle {
                 }
             }
         }
+
+        ToolIconButton {
+            visible: root.showSettingsButton
+            iconName: "sliders"
+            toolTip: root.settingsOpen ? qsTr("Hide settings") : qsTr("Show settings")
+            checkable: true
+            checked: root.settingsOpen
+            onClicked: root.settingsToggled()
+        }
+
     }
 
     Rectangle {

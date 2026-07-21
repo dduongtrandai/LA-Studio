@@ -15,9 +15,11 @@ Rectangle {
     required property string statusText
     required property string defaultExportPath
     property bool historyOpen: false
+    property bool settingsOpen: false
 
     signal stepSelected(string stepId)
     signal historyToggled()
+    signal settingsToggled()
     signal generateRequested()
     signal workflowRequested()
     signal saveRequested()
@@ -35,8 +37,15 @@ Rectangle {
         anchors.rightMargin: Theme.paddingLarge
         spacing: Theme.paddingMedium
 
+        SidebarToggleButton {
+            iconName: "history"
+            toolTip: root.historyOpen ? qsTr("Hide dubbing history") : qsTr("Show dubbing history")
+            active: root.historyOpen
+            onClicked: root.historyToggled()
+        }
+
         RowLayout {
-            Layout.preferredWidth: 205
+            Layout.preferredWidth: 165
             spacing: Theme.paddingSmall
             LineIcon { name: "dubbing"; color: Theme.accentLight; Layout.preferredWidth: 21; Layout.preferredHeight: 21 }
             ColumnLayout {
@@ -44,43 +53,6 @@ Rectangle {
                 spacing: 0
                 Text { text: qsTr("Dubbing Studio"); color: Theme.textPrimary; font.pixelSize: Theme.fontLarge; font.bold: true }
                 Text { text: root.dubbing.hasProject ? qsTr("Project workspace") : qsTr("New project"); color: Theme.textSecondary; font.pixelSize: 10 }
-            }
-            Button {
-                id: historyButton
-
-                implicitWidth: 32
-                implicitHeight: 32
-                flat: true
-                checkable: true
-                checked: root.historyOpen
-
-                AppToolTip {
-                    text: root.historyOpen ? qsTr("Hide dubbing history") : qsTr("Show dubbing history")
-                    visible: historyButton.hovered
-                }
-
-                contentItem: LineIcon {
-                    anchors.centerIn: parent
-                    name: "history"
-                    color: root.historyOpen ? Theme.accentLight
-                                            : (historyButton.hovered ? Theme.textPrimary : Theme.textSecondary)
-                    width: 18
-                    height: 18
-                }
-
-                background: Rectangle {
-                    radius: 7
-                    color: root.historyOpen
-                           ? Qt.rgba(0.49, 0.30, 1.0, 0.16)
-                           : (historyButton.hovered ? Qt.rgba(1, 1, 1, 0.055) : "transparent")
-                    border.color: root.historyOpen
-                                  ? Qt.rgba(0.49, 0.30, 1.0, 0.42)
-                                  : (historyButton.hovered ? Qt.rgba(1, 1, 1, 0.10) : "transparent")
-                    border.width: 1
-                }
-
-                onClicked: root.historyToggled()
-                HoverHandler { cursorShape: Qt.PointingHandCursor }
             }
         }
 
@@ -136,5 +108,49 @@ Rectangle {
         }
         PrimaryButton { text: qsTr("Save"); iconName: "save"; quiet: true; enabled: root.dubbing.hasProject; onClicked: root.saveRequested() }
         PrimaryButton { text: qsTr("Export"); iconName: "download"; enabled: root.dubbing.hasProject && !root.dubbing.processing; onClicked: root.exportRequested() }
+        SidebarToggleButton {
+            iconName: "sliders"
+            toolTip: root.settingsOpen ? qsTr("Hide settings") : qsTr("Show settings")
+            active: root.settingsOpen
+            onClicked: root.settingsToggled()
+        }
+    }
+
+    component SidebarToggleButton: Button {
+        id: sidebarButton
+        property string iconName: "sliders"
+        property string toolTip: ""
+        property bool active: false
+
+        implicitWidth: 32
+        implicitHeight: 32
+        flat: true
+
+        AppToolTip {
+            text: sidebarButton.toolTip
+            visible: sidebarButton.hovered
+        }
+
+        contentItem: LineIcon {
+            anchors.centerIn: parent
+            name: sidebarButton.iconName
+            color: sidebarButton.active ? Theme.accentLight
+                                        : (sidebarButton.hovered ? Theme.textPrimary : Theme.textSecondary)
+            width: 18
+            height: 18
+        }
+
+        background: Rectangle {
+            radius: 7
+            color: sidebarButton.active
+                   ? Qt.rgba(0.49, 0.30, 1.0, 0.16)
+                   : (sidebarButton.hovered ? Qt.rgba(1, 1, 1, 0.055) : "transparent")
+            border.color: sidebarButton.active
+                          ? Qt.rgba(0.49, 0.30, 1.0, 0.42)
+                          : (sidebarButton.hovered ? Qt.rgba(1, 1, 1, 0.10) : "transparent")
+            border.width: 1
+        }
+
+        HoverHandler { cursorShape: Qt.PointingHandCursor }
     }
 }
