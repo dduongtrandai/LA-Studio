@@ -85,25 +85,40 @@ Rectangle {
                 font.letterSpacing: 1.1
             }
 
-            RowLayout {
+            Rectangle {
                 Layout.fillWidth: true
-                spacing: Theme.paddingSmall
-                QualityModeButton {
-                    Layout.fillWidth: true
-                    text: qsTr("Fast")
-                    iconName: "activity"
-                    selected: root.dubbing.dubbingQuality === "fast"
-                    onClicked: root.dubbing.dubbingQuality = "fast"
-                }
-                QualityModeButton {
-                    Layout.fillWidth: true
-                    text: qsTr("Adaptive")
-                    iconName: "spark"
-                    selected: root.dubbing.dubbingQuality === "adaptive"
-                    warning: selected && !root.dubbing.adaptiveReady
-                    onClicked: {
-                        root.dubbing.dubbingQuality = "adaptive"
-                        if (!root.dubbing.adaptiveReady) root.adaptiveSetupRequested()
+                Layout.preferredHeight: 38
+                radius: Theme.radiusSmall
+                color: Qt.rgba(1, 1, 1, 0.025)
+                border.color: Qt.rgba(1, 1, 1, 0.08)
+                border.width: 1
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: 3
+                    spacing: 3
+
+                    QualityModeButton {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.preferredWidth: 1
+                        text: qsTr("Fast")
+                        iconName: "activity"
+                        selected: root.dubbing.dubbingQuality === "fast"
+                        onClicked: root.dubbing.dubbingQuality = "fast"
+                    }
+                    QualityModeButton {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.preferredWidth: 1
+                        text: qsTr("Adaptive")
+                        iconName: "spark"
+                        selected: root.dubbing.dubbingQuality === "adaptive"
+                        warning: selected && !root.dubbing.adaptiveReady
+                        onClicked: {
+                            root.dubbing.dubbingQuality = "adaptive"
+                            if (!root.dubbing.adaptiveReady) root.adaptiveSetupRequested()
+                        }
                     }
                 }
             }
@@ -180,37 +195,37 @@ Rectangle {
         required property string iconName
         required property bool selected
         property bool warning: false
-        implicitHeight: 34
+        implicitHeight: 32
         padding: 0
         contentItem: RowLayout {
             spacing: 6
+            Item { Layout.fillWidth: true }
             LineIcon {
                 name: modeButton.iconName
                 color: modeButton.warning ? Theme.warning
                                            : (modeButton.selected ? Theme.accentLight : Theme.textSecondary)
                 Layout.preferredWidth: 15
                 Layout.preferredHeight: 15
-                Layout.leftMargin: Theme.paddingSmall
             }
             Text {
-                Layout.fillWidth: true
                 text: modeButton.text
                 color: modeButton.selected ? Theme.textPrimary : Theme.textSecondary
                 font.pixelSize: Theme.fontSmall
                 font.bold: modeButton.selected
             }
+            Item { Layout.fillWidth: true }
         }
         background: Rectangle {
-            radius: Theme.radiusSmall
+            radius: Theme.radiusSmall - 2
             color: modeButton.selected
-                   ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.13)
-                   : (modeButton.hovered ? Qt.rgba(1, 1, 1, 0.05) : Qt.rgba(1, 1, 1, 0.025))
+                   ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.16)
+                   : (modeButton.hovered ? Qt.rgba(1, 1, 1, 0.05) : "transparent")
             border.color: modeButton.warning
                           ? Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.45)
                           : (modeButton.selected
-                             ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.48)
-                             : Qt.rgba(1, 1, 1, 0.08))
-            border.width: 1
+                             ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.55)
+                             : "transparent")
+            border.width: modeButton.selected ? 1 : 0
         }
         HoverHandler { cursorShape: Qt.PointingHandCursor }
     }
