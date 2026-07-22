@@ -1,7 +1,13 @@
 #include "LlmChatEngine.h"
 #include "runtimes/LlamaTranslationInterface.h"
+#include "runtimehost/RuntimeHostClient.h"
+#include "runtimehost/RuntimeHostManager.h"
 
+#include <QCoreApplication>
+#include <QDir>
+#include <QFileInfo>
 #include <QMetaType>
+#include <QCborArray>
 
 namespace LAStudio {
 
@@ -14,12 +20,53 @@ public:
 public slots:
     void load(const QString &runtimePath, const QString &modelPath, bool useGpu)
     {
+        const QByteArray hostOverride = qgetenv("LASTUDIO_RUNTIME_HOST").trimmed().toLower();
+        m_hosted = hostOverride != "0" && hostOverride != "off" && hostOverride != "false";
+        if (m_hosted) {
+            QString hostError;
+            const bool gpu = useGpu || runtimePath.contains(QStringLiteral("cuda"), Qt::CaseInsensitive);
+            if (!RuntimeHostManager::instance().acquire(QStringLiteral("llama-chat"), gpu, &hostError)) {
+                emit loaded(false, hostError);
+                return;
+            }
+            m_gpuPermit = gpu;
+            const QString hostPath = QDir(QCoreApplication::applicationDirPath())
+                                         .absoluteFilePath(QStringLiteral("LAStudioRuntimeHost.exe"));
+            if (QFileInfo(hostPath).isFile()
+                && m_hostClient.start(hostPath, &hostError)) {
+                const QCborMap config{
+                    {QStringLiteral("adapter"), QStringLiteral("llama-chat")},
+                    {QStringLiteral("runtimePath"), runtimePath},
+                    {QStringLiteral("model"), modelPath},
+                    {QStringLiteral("useGpu"), useGpu}
+                };
+                QCborValue schema;
+                if (m_hostClient.load(config, &schema, &hostError)) {
+                    emit loaded(true, {});
+                    return;
+                }
+            }
+            RuntimeHostManager::instance().release(QStringLiteral("llama-chat"), m_gpuPermit);
+            m_gpuPermit = false;
+            emit loaded(false, hostError.isEmpty()
+                             ? QStringLiteral("Could not start llama RuntimeHost.") : hostError);
+            return;
+        }
         QString error;
         const bool ok = m_interface.load(runtimePath, modelPath, &error, useGpu);
         emit loaded(ok, error);
     }
     void unload()
     {
+        if (m_hosted) {
+            QString ignored;
+            m_hostClient.shutdown(&ignored);
+            RuntimeHostManager::instance().release(QStringLiteral("llama-chat"), m_gpuPermit);
+            m_gpuPermit = false;
+            m_hosted = false;
+            emit unloaded();
+            return;
+        }
         m_interface.unload();
         emit unloaded();
     }
@@ -29,6 +76,35 @@ public slots:
     {
         auto cancelToken = std::make_shared<std::atomic_bool>(false);
         m_cancelToken = cancelToken;
+        if (m_hosted) {
+            m_hostClient.setProgressCallback([this, requestId](const QCborMap &progress) {
+                emit tokenGenerated(requestId, progress.value(QStringLiteral("stage")).toString());
+            });
+            QVariantList messageList;
+            for (const QVariantMap &message : messages) messageList.append(message);
+            const QCborMap request{
+                {QStringLiteral("messages"), QCborValue::fromVariant(messageList)},
+                {QStringLiteral("contextTokens"), contextTokens},
+                {QStringLiteral("maxTokens"), maxTokens},
+                {QStringLiteral("temperature"), static_cast<double>(temperature)},
+                {QStringLiteral("topP"), static_cast<double>(topP)},
+                {QStringLiteral("topK"), topK},
+                {QStringLiteral("repeatPenalty"), static_cast<double>(repeatPenalty)}
+            };
+            QCborMap result;
+            QString error;
+            const bool ok = m_hostClient.execute(request, {}, &result, nullptr, nullptr, &error);
+            m_hostClient.setProgressCallback({});
+            m_cancelToken.reset();
+            if (cancelToken->load(std::memory_order_relaxed)) {
+                emit cancelled(requestId, result.value(QStringLiteral("fullText")).toString());
+            } else if (ok) {
+                emit finished(requestId, result.value(QStringLiteral("fullText")).toString());
+            } else {
+                emit failed(requestId, error);
+            }
+            return;
+        }
         QString text;
         QString error;
         const bool ok = m_interface.generateChat(
@@ -47,6 +123,11 @@ public slots:
     }
     void cancel()
     {
+        if (m_hosted) {
+            if (m_cancelToken) m_cancelToken->store(true, std::memory_order_relaxed);
+            m_hostClient.cancelCurrent();
+            return;
+        }
         if (m_cancelToken) m_cancelToken->store(true, std::memory_order_relaxed);
         m_interface.cancel();
     }
@@ -61,6 +142,9 @@ signals:
 
 private:
     LlamaTranslationInterface m_interface;
+    RuntimeHostClient m_hostClient;
+    bool m_hosted = false;
+    bool m_gpuPermit = false;
     std::shared_ptr<std::atomic_bool> m_cancelToken;
 };
 

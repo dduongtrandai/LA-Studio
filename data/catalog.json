@@ -2629,7 +2629,11 @@
           "library": "omnivoice.dll",
           "version": "v0.1.3",
           "source": "https://github.com/dduongtrandai/omnivoice.cpp/releases/download/",
-          "type": "tts"
+          "type": "tts",
+          "metadata": {
+            "executionMode": "hosted",
+            "hostAdapter": "omnivoice"
+          }
         },
         {
           "id": "omnivoice.cpp-win-x86_64-cuda-12",
@@ -2640,7 +2644,11 @@
           "library": "omnivoice.dll",
           "version": "v0.1.3",
           "source": "https://github.com/dduongtrandai/omnivoice.cpp/releases/download/",
-          "type": "tts"
+          "type": "tts",
+          "metadata": {
+            "executionMode": "hosted",
+            "hostAdapter": "omnivoice"
+          }
         },
         {
           "id": "omnivoice.cpp-win-x86_64-vulkan",
@@ -2651,7 +2659,11 @@
           "library": "omnivoice.dll",
           "version": "v0.1.3",
           "source": "https://github.com/dduongtrandai/omnivoice.cpp/releases/download/",
-          "type": "tts"
+          "type": "tts",
+          "metadata": {
+            "executionMode": "hosted",
+            "hostAdapter": "omnivoice"
+          }
         }
       ],
       "studio": {
@@ -9679,7 +9691,11 @@
           "library": "whisper.dll",
           "version": "v1.8.4",
           "source": "https://github.com/ggml-org/whisper.cpp/releases/download/",
-          "type": "stt"
+          "type": "stt",
+          "metadata": {
+            "executionMode": "hosted",
+            "hostAdapter": "whisper"
+          }
         },
         {
           "id": "whisper.cpp-win-x86_64-cuda-12",
@@ -9690,7 +9706,11 @@
           "library": "whisper.dll",
           "version": "v1.8.4",
           "source": "https://github.com/ggml-org/whisper.cpp/releases/download/",
-          "type": "stt"
+          "type": "stt",
+          "metadata": {
+            "executionMode": "hosted",
+            "hostAdapter": "whisper"
+          }
         }
       ],
       "studio": {
@@ -11366,7 +11386,11 @@
           "modelFormats": [
             "gguf"
           ],
-          "protocolVersion": "llama-c-api-b10036"
+          "protocolVersion": "llama-c-api-b10036",
+          "metadata": {
+            "executionMode": "hosted",
+            "hostAdapter": "llama"
+          }
         },
         {
           "id": "llama-win-x86_64-cuda-12.4",
@@ -11386,7 +11410,11 @@
           "modelFormats": [
             "gguf"
           ],
-          "protocolVersion": "llama-c-api-b10036"
+          "protocolVersion": "llama-c-api-b10036",
+          "metadata": {
+            "executionMode": "hosted",
+            "hostAdapter": "llama"
+          }
         }
       ],
       "studio": {

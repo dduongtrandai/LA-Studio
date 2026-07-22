@@ -294,6 +294,9 @@ laStudio:
       version: v1.8.4
       source: https://github.com/ggml-org/whisper.cpp/releases/download/
       type: stt
+      metadata:
+        executionMode: hosted
+        hostAdapter: whisper
     - id: whisper.cpp-win-x86_64-cuda-12
       engineFamily: whisper.cpp
       label: CUDA 12
@@ -303,6 +306,9 @@ laStudio:
       version: v1.8.4
       source: https://github.com/ggml-org/whisper.cpp/releases/download/
       type: stt
+      metadata:
+        executionMode: hosted
+        hostAdapter: whisper
   studio:
     stt:
       layout: stt

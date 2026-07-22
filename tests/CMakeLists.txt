@@ -18,6 +18,7 @@ set(TEST_SOURCES
     test_TranslationProject.cpp
     test_WorkflowGraph.cpp
     test_SourceSeparation.cpp
+    test_RuntimeHostProtocol.cpp
     mocks/SttEngine.cpp
     mocks/SttEngineInstance.cpp
     mocks/TtsEngine.cpp
@@ -138,6 +139,12 @@ set(TEST_SOURCES
     ../src/core/QmlLogger.cpp
     ../src/audio/WavIO.cpp
     ../src/audio/AudioFileDecoder.cpp
+    ../src/runtimehost/RuntimeHostProtocol.cpp
+    ../src/runtimehost/RuntimeHostClient.cpp
+    ../src/runtimehost/RuntimeHostSharedBuffer.cpp
+    ../src/runtimehost/RuntimeHostManager.cpp
+    ../src/runtimehost/HostedWhisperBackend.cpp
+    ../src/runtimehost/HostedLlamaTranslationBackend.cpp
     ../src/audio/WaveformProvider.cpp
 
     ../src/core/DownloadManager.h
@@ -149,6 +156,7 @@ set(TEST_SOURCES
     ../src/audio/AudioRecorder.h
     ../src/audio/AudioPlayer.h
     ../src/audio/AudioFileDecoder.h
+    ../src/runtimehost/RuntimeHostProtocol.h
     ../src/core/HFHubClient.h
     ../src/controllers/app/AppController.h
     ../src/controllers/shared/AppUpdateService.h
@@ -203,6 +211,7 @@ set(TEST_SOURCES
     ../src/separation/backends/sherpa/SherpaOnnxRuntime.h
     ../src/separation/backends/sherpa/SherpaOnnxSeparationBackend.h
     test_SourceSeparation.h
+    test_RuntimeHostProtocol.h
     test_TranslationProject.h
     ../src/controllers/separation/VoiceIsolatorController.h
 )

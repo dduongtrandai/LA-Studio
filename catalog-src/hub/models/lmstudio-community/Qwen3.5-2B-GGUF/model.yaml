@@ -60,6 +60,9 @@ laStudio:
       modelFormats:
         - gguf
       protocolVersion: llama-c-api-b10036
+      metadata:
+        executionMode: hosted
+        hostAdapter: llama
     - id: llama-win-x86_64-cuda-12.4
       engineFamily: llama
       backend: llama
@@ -76,6 +79,9 @@ laStudio:
       modelFormats:
         - gguf
       protocolVersion: llama-c-api-b10036
+      metadata:
+        executionMode: hosted
+        hostAdapter: llama
   studio:
     llm-chat:
       layout: chat

@@ -2,6 +2,23 @@
 #include "WhisperSttBackend.h"
 #include "QwenSttBackend.h"
 #include "NemotronSttBackend.h"
+#include "runtimehost/HostedWhisperBackend.h"
+
+#include <QByteArray>
+
+namespace {
+bool useHostedWhisper()
+{
+    const QByteArray value = qgetenv("LASTUDIO_RUNTIME_HOST").trimmed().toLower();
+    return value != "0" && value != "off" && value != "false";
+}
+
+std::unique_ptr<LAStudio::SttBackend> createWhisperBackend()
+{
+    if (useHostedWhisper()) return std::make_unique<LAStudio::HostedWhisperBackend>();
+    return std::make_unique<LAStudio::WhisperSttBackend>();
+}
+}
 
 namespace LAStudio {
 
@@ -13,7 +30,7 @@ std::unique_ptr<SttBackend> SttBackendFactory::create(const QVariantMap &config)
 
     if (!backend.isEmpty()) {
         if (backend.contains(QStringLiteral("whisper"))) {
-            return std::make_unique<WhisperSttBackend>();
+            return createWhisperBackend();
         }
         if (backend.contains(QStringLiteral("qwen3")) || backend.contains(QStringLiteral("crispasr"))) {
             return std::make_unique<QwenSttBackend>();
@@ -29,7 +46,7 @@ std::unique_ptr<SttBackend> SttBackendFactory::create(const QVariantMap &config)
                            modelPath.contains(QStringLiteral("whisper"), Qt::CaseInsensitive);
 
     if (isWhisper) {
-        return std::make_unique<WhisperSttBackend>();
+        return createWhisperBackend();
     }
 
     const bool isNemotron = modelPath.contains(QStringLiteral("nemotron"), Qt::CaseInsensitive);
@@ -45,7 +62,7 @@ std::unique_ptr<SttBackend> SttBackendFactory::create(const QVariantMap &config)
     }
 
     // STT currently supports Whisper family by default.
-    return std::make_unique<WhisperSttBackend>();
+    return createWhisperBackend();
 }
 
 } // namespace LAStudio

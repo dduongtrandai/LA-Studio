@@ -86,6 +86,13 @@ set(LASTUDIO_SOURCES
     src/core/VoiceCloningUtils.cpp
     src/core/InferenceThreadPolicy.cpp
     src/inference/WorkerThreadHost.cpp
+    src/runtimehost/RuntimeHostClient.cpp
+    src/runtimehost/RuntimeHostProtocol.cpp
+    src/runtimehost/RuntimeHostSharedBuffer.cpp
+    src/runtimehost/RuntimeHostManager.cpp
+    src/runtimehost/HostedOmnivoiceBackend.cpp
+    src/runtimehost/HostedWhisperBackend.cpp
+    src/runtimehost/HostedLlamaTranslationBackend.cpp
     src/translation/TranslationEngine.cpp
     src/translation/TranslationEngineInstance.cpp
     src/translation/TranslationWorker.cpp
@@ -228,6 +235,12 @@ set(LASTUDIO_HEADERS
     src/inference/InstanceRegistry.h
     src/inference/InferenceCancellation.h
     src/inference/WorkerThreadHost.h
+    src/runtimehost/RuntimeHostClient.h
+    src/runtimehost/RuntimeHostSharedBuffer.h
+    src/runtimehost/RuntimeHostManager.h
+    src/runtimehost/HostedOmnivoiceBackend.h
+    src/runtimehost/HostedWhisperBackend.h
+    src/runtimehost/HostedLlamaTranslationBackend.h
     src/core/Settings.h
     src/core/HFHubClient.h
     src/core/DownloadManager.h
@@ -579,6 +592,61 @@ if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
 
+# Runtime hosts load native model DLLs in their own Windows process so
+# incompatible dependencies such as ggml.dll never share one module table
+# with LA Studio or another runtime family.
+add_executable(LAStudioRuntimeHost
+    src/runtimehost/main.cpp
+    src/runtimehost/RuntimeHostProtocol.cpp
+    src/runtimehost/RuntimeHostSharedBuffer.cpp
+    src/runtimehost/RuntimeHostServer.cpp
+    src/runtimehost/RuntimeHostWorker.cpp
+    src/runtimehost/RuntimeHostAdapter.cpp
+    src/tts/backends/OmnivoiceBackend.cpp
+    src/stt/backends/WhisperSttBackend.cpp
+    src/translation/backends/LlamaTranslationBackend.cpp
+    src/translation/LlamaTranslationInterface.cpp
+    src/audio/WavIO.cpp
+    src/audio/AudioFileDecoder.cpp
+    src/core/Logger.cpp
+    src/core/PathUtils.cpp
+    src/core/InferenceThreadPolicy.cpp
+    src/runtimehost/RuntimeHostProtocol.h
+    src/runtimehost/RuntimeHostSharedBuffer.h
+    src/runtimehost/RuntimeHostServer.h
+    src/runtimehost/RuntimeHostWorker.h
+    src/runtimehost/RuntimeHostAdapter.h
+)
+target_include_directories(LAStudioRuntimeHost PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/src/core
+    ${CMAKE_SOURCE_DIR}/src/audio
+    ${CMAKE_SOURCE_DIR}/src/tts
+    ${CMAKE_SOURCE_DIR}/src/tts/backends
+    ${CMAKE_SOURCE_DIR}/src/stt
+    ${CMAKE_SOURCE_DIR}/src/stt/backends
+    ${CMAKE_SOURCE_DIR}/src/translation
+    ${CMAKE_SOURCE_DIR}/src/translation/backends
+    ${CMAKE_SOURCE_DIR}/include
+    ${LLAMA_CPP_SOURCE_DIR}/include
+    ${LLAMA_CPP_SOURCE_DIR}/ggml/include
+)
+if(ENABLE_OMNIVOICE)
+    target_include_directories(LAStudioRuntimeHost PRIVATE
+        ${CMAKE_SOURCE_DIR}/omnivoice.cpp/src
+    )
+endif()
+target_link_libraries(LAStudioRuntimeHost PRIVATE
+    Qt6::Core
+    Qt6::Network
+    Qt6::Multimedia
+)
+target_compile_definitions(LAStudioRuntimeHost PRIVATE
+    NOMINMAX
+    WIN32_LEAN_AND_MEAN
+    LA_ENABLE_OMNIVOICE
+)
+
 if(WIN32)
     target_compile_definitions(LAStudio PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
     target_link_libraries(LAStudio PRIVATE dxgi)
@@ -626,6 +694,10 @@ endif()
 # Install the executable
 install(TARGETS LAStudio
     BUNDLE DESTINATION .
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(TARGETS LAStudioRuntimeHost
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 

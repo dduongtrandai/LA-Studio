@@ -16,6 +16,7 @@
 #include "test_TranslationProject.h"
 #include "test_WorkflowGraph.h"
 #include "test_SourceSeparation.h"
+#include "test_RuntimeHostProtocol.h"
 #include "test_SubtitleVoice.h"
 
 #include <QFile>
@@ -136,6 +137,11 @@ int main(int argc, char *argv[])
     {
         LAStudio::TestSubtitleVoice suite;
         runSuite(&suite, "TestSubtitleVoice");
+    }
+
+    {
+        LAStudio::TestRuntimeHostProtocol suite;
+        runSuite(&suite, "TestRuntimeHostProtocol");
     }
 
     std::cout << "\n==================================================\n";

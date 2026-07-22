@@ -6,8 +6,22 @@
 #include "VibevoiceBackend.h"
 #include "VieneuTtsBackend.h"
 #include "OmnivoiceBackend.h"
+#include "runtimehost/HostedOmnivoiceBackend.h"
 
 namespace LAStudio {
+
+namespace {
+std::unique_ptr<TtsBackend> createOmnivoiceBackend()
+{
+    // The in-process variant remains available only for local diagnostics;
+    // production defaults to the process-isolated DLL host.
+    const QByteArray overrideValue = qgetenv("LASTUDIO_RUNTIME_HOST").trimmed().toLower();
+    if (overrideValue == "0" || overrideValue == "off" || overrideValue == "false") {
+        return std::make_unique<OmnivoiceBackend>();
+    }
+    return std::make_unique<HostedOmnivoiceBackend>();
+}
+}
 
 std::unique_ptr<TtsBackend> TtsBackendFactory::create(const QVariantMap &config)
 {
@@ -32,7 +46,7 @@ std::unique_ptr<TtsBackend> TtsBackendFactory::create(const QVariantMap &config)
         if (backend.contains(QStringLiteral("vibevoice")))
             return std::make_unique<VibevoiceBackend>();
         if (backend.contains(QStringLiteral("omnivoice")))
-            return std::make_unique<OmnivoiceBackend>();
+            return createOmnivoiceBackend();
         return nullptr;
     }
 
@@ -82,7 +96,7 @@ std::unique_ptr<TtsBackend> TtsBackendFactory::create(const QVariantMap &config)
         return std::make_unique<VibevoiceBackend>();
     }
     if (isOmni) {
-        return std::make_unique<OmnivoiceBackend>();
+        return createOmnivoiceBackend();
     }
     return nullptr;
 }

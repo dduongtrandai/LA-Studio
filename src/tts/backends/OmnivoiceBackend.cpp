@@ -3,12 +3,8 @@
 #include "core/Logger.h"
 #include "core/PathUtils.h"
 #include <runtimes/OmnivoiceInterface.h>
-#include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QProcess>
-#include <QRegularExpression>
-#include <QTemporaryDir>
 #include <cstring>
 #include <utility>
 
@@ -99,28 +95,6 @@ bool OmnivoiceBackend::load(const QVariantMap &config, QString &error, QVariantL
     guidance["description"] = "Controls style adherence.";
     schema.append(guidance);
 
-#ifdef Q_OS_WIN
-    // Whisper, llama.cpp and OmniVoice ship different builds of DLLs with
-    // identical names (ggml.dll, ggml-cuda.dll and cuBLAS). Windows resolves
-    // dependent modules process-wide by basename, so loading OmniVoice after
-    // translation may silently bind it to llama.cpp's incompatible GGML
-    // binaries. The packaged CLI is a small official host for the same runtime;
-    // running it out-of-process gives its DLL set an independent loader scope.
-    const QString cliPath = QDir(QFileInfo(runtimePath).absolutePath())
-                                .absoluteFilePath(QStringLiteral("omnivoice-tts.exe"));
-    if (QFileInfo(cliPath).isFile()) {
-        m_useIsolatedProcess = true;
-        m_cliPath = cliPath;
-        m_modelPath = modelPath;
-        m_codecPath = codecPath;
-        s_sessionOmniRuntimePath = runtimePath;
-        Logger::info("OmnivoiceBackend",
-                     QStringLiteral("OmniVoice configured with isolated worker process to avoid "
-                                    "GGML/CUDA DLL collisions"));
-        return true;
-    }
-#endif
-
     auto& oi = OmnivoiceInterface::instance();
     if (!runtimePath.isEmpty()) {
         if (!s_sessionOmniRuntimePath.isEmpty() &&
@@ -186,10 +160,6 @@ bool OmnivoiceBackend::load(const QVariantMap &config, QString &error, QVariantL
 
 void OmnivoiceBackend::unload()
 {
-    m_useIsolatedProcess = false;
-    m_cliPath.clear();
-    m_modelPath.clear();
-    m_codecPath.clear();
     if (m_context) {
         auto& oi = OmnivoiceInterface::instance();
         if (oi.isLoaded()) {
@@ -206,9 +176,6 @@ bool OmnivoiceBackend::synthesize(const QString &text, float speed, const QVaria
 {
     Q_UNUSED(speed);
     m_cancelRequested = false;
-    if (m_useIsolatedProcess) {
-        return synthesizeIsolated(text, QString(), settings, samples, sampleRate, error);
-    }
     auto& oi = OmnivoiceInterface::instance();
     if (!oi.isLoaded() || !m_context) {
         error = QStringLiteral("Omnivoice runtime was unloaded unexpectedly.");
@@ -308,16 +275,6 @@ bool OmnivoiceBackend::synthesize(const QString &text, float speed, const QVaria
 bool OmnivoiceBackend::cloneVoice(const QString &text, const QString &referencePath, const QVariantMap &settings, 
                                QVector<float> &samples, int &sampleRate, QString &error)
 {
-    m_cancelRequested = false;
-    if (m_useIsolatedProcess) {
-        return synthesizeIsolated(text, referencePath, settings, samples, sampleRate, error);
-    }
-    auto& oi = OmnivoiceInterface::instance();
-    if (!oi.isLoaded() || !m_context) {
-        error = QStringLiteral("Omnivoice runtime was unloaded unexpectedly.");
-        return false;
-    }
-
     QString decodeError;
     WavIO::WavData refData = AudioFileDecoder::decodeMono(
         PathUtils::toNativeShortPath(referencePath), 24000, &decodeError);
@@ -326,12 +283,25 @@ bool OmnivoiceBackend::cloneVoice(const QString &text, const QString &referenceP
         Logger::error("OmnivoiceBackend", error);
         return false;
     }
-
     Logger::info("OmnivoiceBackend", QString("Reference audio loaded successfully: %1 samples @ %2 Hz")
-                 .arg(refData.samples.size())
-                 .arg(refData.sampleRate));
+                 .arg(refData.samples.size()).arg(refData.sampleRate));
+    return cloneVoiceWithReferenceSamples(text, refData.samples, settings,
+                                           samples, sampleRate, error);
+}
 
-    const QVector<float> &refSamples = refData.samples;
+bool OmnivoiceBackend::cloneVoiceWithReferenceSamples(const QString &text,
+                                                       const QVector<float> &refSamples,
+                                                       const QVariantMap &settings,
+                                                       QVector<float> &samples,
+                                                       int &sampleRate,
+                                                       QString &error)
+{
+    m_cancelRequested = false;
+    auto& oi = OmnivoiceInterface::instance();
+    if (!oi.isLoaded() || !m_context) {
+        error = QStringLiteral("Omnivoice runtime was unloaded unexpectedly.");
+        return false;
+    }
 
     QByteArray textBytes = text.toUtf8();
     QByteArray langBytes;
@@ -438,165 +408,6 @@ bool OmnivoiceBackend::cloneVoice(const QString &text, const QString &referenceP
 
     oi.ov_audio_free(&out);
     Logger::info("OmnivoiceBackend", QString("Voice cloning successful"));
-    return true;
-}
-
-bool OmnivoiceBackend::synthesizeIsolated(const QString &text,
-                                          const QString &referencePath,
-                                          const QVariantMap &settings,
-                                          QVector<float> &samples,
-                                          int &sampleRate,
-                                          QString &error)
-{
-    if (!QFileInfo(m_cliPath).isFile()
-        || !QFileInfo(m_modelPath).isFile()
-        || !QFileInfo(m_codecPath).isFile()) {
-        error = QStringLiteral("OmniVoice isolated worker configuration is incomplete.");
-        return false;
-    }
-
-    QTemporaryDir temporaryDir(QStringLiteral("%1/lastudio-omnivoice-XXXXXX")
-                                   .arg(QDir::tempPath()));
-    if (!temporaryDir.isValid()) {
-        error = QStringLiteral("Could not create temporary directory for OmniVoice worker.");
-        return false;
-    }
-
-    const QString outputPath = QDir(temporaryDir.path()).absoluteFilePath(
-        QStringLiteral("output.wav"));
-    QStringList arguments{
-        QStringLiteral("--model"), m_modelPath,
-        QStringLiteral("--codec"), m_codecPath,
-        QStringLiteral("--no-fa"),
-        QStringLiteral("--clamp-fp16"),
-        QStringLiteral("-o"), outputPath
-    };
-
-    const QString language = settings.value(QStringLiteral("lang")).toString().trimmed();
-    if (!language.isEmpty())
-        arguments << QStringLiteral("--lang") << language;
-    const QString instruct = settings.value(QStringLiteral("instruct")).toString().trimmed();
-    if (!instruct.isEmpty())
-        arguments << QStringLiteral("--instruct") << instruct;
-
-    float durationSec = settings.value(QStringLiteral("duration_sec")).toFloat();
-    if (durationSec <= 0.0f && settings.value(QStringLiteral("T_override")).toInt() > 0)
-        durationSec = settings.value(QStringLiteral("T_override")).toInt() / 25.0f;
-    if (durationSec > 0.0f)
-        arguments << QStringLiteral("--duration") << QString::number(durationSec, 'f', 3);
-
-    if (settings.contains(QStringLiteral("mg_seed")))
-        arguments << QStringLiteral("--seed")
-                  << QString::number(settings.value(QStringLiteral("mg_seed")).toULongLong());
-    if (settings.contains(QStringLiteral("chunk_duration_sec")))
-        arguments << QStringLiteral("--chunk-duration")
-                  << QString::number(settings.value(QStringLiteral("chunk_duration_sec")).toFloat());
-    if (settings.contains(QStringLiteral("chunk_threshold_sec")))
-        arguments << QStringLiteral("--chunk-threshold")
-                  << QString::number(settings.value(QStringLiteral("chunk_threshold_sec")).toFloat());
-
-    if (!referencePath.isEmpty()) {
-        if (!QFileInfo(referencePath).isFile()) {
-            error = QStringLiteral("OmniVoice reference audio is missing: %1").arg(referencePath);
-            return false;
-        }
-        const QString referenceText = settings.value(QStringLiteral("ref_text")).toString().trimmed();
-        if (referenceText.isEmpty()) {
-            error = QStringLiteral("OmniVoice voice cloning requires a reference transcript.");
-            return false;
-        }
-        const QString referenceTextPath = QDir(temporaryDir.path()).absoluteFilePath(
-            QStringLiteral("reference.txt"));
-        QFile referenceTextFile(referenceTextPath);
-        if (!referenceTextFile.open(QIODevice::WriteOnly | QIODevice::Truncate)
-            || referenceTextFile.write(referenceText.toUtf8()) < 0) {
-            error = QStringLiteral("Could not prepare OmniVoice reference transcript.");
-            return false;
-        }
-        referenceTextFile.close();
-        arguments << QStringLiteral("--ref-wav") << referencePath
-                  << QStringLiteral("--ref-text") << referenceTextPath;
-        if (settings.contains(QStringLiteral("denoise"))
-            && !settings.value(QStringLiteral("denoise")).toBool())
-            arguments << QStringLiteral("--no-denoise");
-        if (settings.contains(QStringLiteral("preprocess_prompt"))
-            && !settings.value(QStringLiteral("preprocess_prompt")).toBool())
-            arguments << QStringLiteral("--no-preprocess-prompt");
-    }
-
-    QProcess process;
-    process.setWorkingDirectory(QFileInfo(m_cliPath).absolutePath());
-    process.setProcessChannelMode(QProcess::SeparateChannels);
-    process.start(m_cliPath, arguments, QIODevice::ReadWrite);
-    if (!process.waitForStarted(10000)) {
-        error = QStringLiteral("Could not start isolated OmniVoice worker: %1")
-                    .arg(process.errorString());
-        return false;
-    }
-    process.write(text.toUtf8());
-    process.write("\n");
-    process.closeWriteChannel();
-
-    QString workerLog;
-    QByteArray pendingLog;
-    int lastStep = 0;
-    const QRegularExpression stepPattern(
-        QStringLiteral("\\[MaskGIT-Step\\]\\s+(\\d+)/(\\d+)"));
-    auto consumeLog = [&](const QByteArray &chunk) {
-        pendingLog += chunk;
-        qsizetype newline = -1;
-        while ((newline = pendingLog.indexOf('\n')) >= 0) {
-            const QString line = QString::fromUtf8(pendingLog.left(newline)).trimmed();
-            pendingLog.remove(0, newline + 1);
-            if (line.isEmpty()) continue;
-            workerLog += line + QLatin1Char('\n');
-            Logger::debug("OmnivoiceWorker", line);
-            const QRegularExpressionMatch match = stepPattern.match(line);
-            if (match.hasMatch()) {
-                const int current = match.captured(1).toInt();
-                const int total = match.captured(2).toInt();
-                if (current > lastStep && m_progressCallback) {
-                    lastStep = current;
-                    if (!m_progressCallback(current, total, QStringLiteral("maskgit"), 1, 1))
-                        m_cancelRequested = true;
-                }
-            }
-        }
-    };
-
-    while (!process.waitForFinished(100)) {
-        consumeLog(process.readAllStandardError());
-        consumeLog(process.readAllStandardOutput());
-        if (m_cancelRequested.load()) {
-            process.terminate();
-            if (!process.waitForFinished(2000)) process.kill();
-            process.waitForFinished();
-            error = QStringLiteral("OmniVoice generation was cancelled.");
-            return false;
-        }
-    }
-    consumeLog(process.readAllStandardError());
-    consumeLog(process.readAllStandardOutput());
-    if (!pendingLog.isEmpty()) workerLog += QString::fromUtf8(pendingLog).trimmed();
-
-    if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
-        const QStringList lines = workerLog.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
-        const QString detail = lines.isEmpty() ? process.errorString() : lines.constLast();
-        error = QStringLiteral("Isolated OmniVoice worker failed: %1").arg(detail);
-        Logger::error("OmnivoiceBackend", error);
-        return false;
-    }
-
-    const WavIO::WavData output = WavIO::loadAsFloat(outputPath);
-    if (output.samples.isEmpty() || output.sampleRate <= 0) {
-        error = QStringLiteral("OmniVoice worker completed without valid audio output.");
-        return false;
-    }
-    samples = output.samples;
-    sampleRate = output.sampleRate;
-    Logger::info("OmnivoiceBackend",
-                 QStringLiteral("Isolated OmniVoice worker generated %1 samples at %2 Hz")
-                     .arg(samples.size()).arg(sampleRate));
     return true;
 }
 
