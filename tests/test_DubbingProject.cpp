@@ -26,6 +26,8 @@ void TestDubbingProject::normalizesLmStudioTranslationFixConfiguration()
 {
     const QVariantMap config =
         DubbingTranslationFixService::normalizedConfiguration({
+            {QStringLiteral("provider"), QStringLiteral("api")},
+            {QStringLiteral("configured"), true},
             {QStringLiteral("serverUrl"),
              QStringLiteral(" http://127.0.0.1:1234/v1/chat/completions ")},
             {QStringLiteral("model"), QStringLiteral(" qwen3.5-2b ")},
@@ -34,6 +36,8 @@ void TestDubbingProject::normalizesLmStudioTranslationFixConfiguration()
         });
     QCOMPARE(config.value(QStringLiteral("serverUrl")).toString(),
              QStringLiteral("http://127.0.0.1:1234/v1/chat/completions"));
+    QCOMPARE(config.value(QStringLiteral("provider")).toString(), QStringLiteral("api"));
+    QVERIFY(config.value(QStringLiteral("configured")).toBool());
     QCOMPARE(config.value(QStringLiteral("model")).toString(),
              QStringLiteral("qwen3.5-2b"));
     QCOMPARE(config.value(QStringLiteral("maxAttempts")).toInt(), 8);
@@ -46,6 +50,14 @@ void TestDubbingProject::normalizesLmStudioTranslationFixConfiguration()
         DubbingTranslationFixService::modelsUrl(
             config.value(QStringLiteral("serverUrl")).toString()).toString(),
         QStringLiteral("http://127.0.0.1:1234/api/v1/models"));
+
+    const QVariantMap invalidProvider =
+        DubbingTranslationFixService::normalizedConfiguration({
+            {QStringLiteral("provider"), QStringLiteral("unknown")}
+        });
+    QCOMPARE(invalidProvider.value(QStringLiteral("provider")).toString(),
+             QStringLiteral("lmstudio"));
+    QVERIFY(!invalidProvider.value(QStringLiteral("configured")).toBool());
 }
 
 void TestDubbingProject::parsesLmStudioTranslationFixResponses()
@@ -108,6 +120,7 @@ void TestDubbingProject::roundTripsVersionedJson()
     original.sourceMediaPath = QStringLiteral("C:/media/demo.mp4");
     original.sourceLanguage = QStringLiteral("en");
     original.targetLanguage = QStringLiteral("vi");
+    original.dubbingQuality = QStringLiteral("adaptive");
     original.speakers.append(QVariantMap{{QStringLiteral("id"), QStringLiteral("speaker-1")} });
     original.segments.append(QVariantMap{{QStringLiteral("startMs"), 1000},
                                          {QStringLiteral("endMs"), 2400},
@@ -121,6 +134,7 @@ void TestDubbingProject::roundTripsVersionedJson()
     QVERIFY2(DubbingProject::load(original.projectPath, loaded, &error), qPrintable(error));
     QCOMPARE(loaded.sourceMediaPath, original.sourceMediaPath);
     QCOMPARE(loaded.targetLanguage, original.targetLanguage);
+    QCOMPARE(loaded.dubbingQuality, QStringLiteral("adaptive"));
     QCOMPARE(loaded.segments.size(), 1);
     QCOMPARE(loaded.segments.first().toMap().value(QStringLiteral("startMs")).toLongLong(), qint64(1000));
 }
@@ -137,6 +151,7 @@ void TestDubbingProject::migratesLegacyProjectsToLlmRewritePipeline()
     };
     QVERIFY2(DubbingProject::fromJson(legacy, migrated, &error), qPrintable(error));
     QVERIFY(migrated.durationControl.value(QStringLiteral("autoRewrite")).toBool());
+    QCOMPARE(migrated.dubbingQuality, QStringLiteral("fast"));
 
     DubbingProject current;
     const QJsonObject explicitOptOut{

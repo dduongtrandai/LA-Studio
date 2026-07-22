@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import "../base"
 import "../shared"
@@ -10,6 +11,7 @@ Rectangle {
     required property var dubbing
     required property var languageCatalog
     required property string currentStepTitle
+    signal adaptiveSetupRequested()
 
     Layout.fillWidth: true
     Layout.preferredHeight: 136
@@ -71,6 +73,64 @@ Rectangle {
         Rectangle { Layout.fillHeight: true; Layout.preferredWidth: 1; color: Qt.rgba(1, 1, 1, 0.08) }
 
         ColumnLayout {
+            Layout.preferredWidth: 250
+            Layout.fillHeight: true
+            spacing: 4
+
+            Text {
+                text: qsTr("DUBBING QUALITY")
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSmall
+                font.bold: true
+                font.letterSpacing: 1.1
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Theme.paddingSmall
+                QualityModeButton {
+                    Layout.fillWidth: true
+                    text: qsTr("Fast")
+                    iconName: "activity"
+                    selected: root.dubbing.dubbingQuality === "fast"
+                    onClicked: root.dubbing.dubbingQuality = "fast"
+                }
+                QualityModeButton {
+                    Layout.fillWidth: true
+                    text: qsTr("Adaptive")
+                    iconName: "spark"
+                    selected: root.dubbing.dubbingQuality === "adaptive"
+                    warning: selected && !root.dubbing.adaptiveReady
+                    onClicked: {
+                        root.dubbing.dubbingQuality = "adaptive"
+                        if (!root.dubbing.adaptiveReady) root.adaptiveSetupRequested()
+                    }
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                text: root.dubbing.dubbingQuality === "fast"
+                      ? qsTr("Direct local workflow without LLM adaptation.")
+                      : root.dubbing.adaptiveStatusText
+                color: root.dubbing.dubbingQuality === "adaptive" && !root.dubbing.adaptiveReady
+                       ? Theme.warning : Theme.textSecondary
+                font.pixelSize: 10
+                elide: Text.ElideRight
+            }
+
+            PrimaryButton {
+                visible: root.dubbing.dubbingQuality === "adaptive"
+                text: qsTr("Configure LLM")
+                iconName: "settings"
+                quiet: true
+                onClicked: root.adaptiveSetupRequested()
+            }
+        }
+
+        Rectangle { Layout.fillHeight: true; Layout.preferredWidth: 1; color: Qt.rgba(1, 1, 1, 0.08) }
+
+        ColumnLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
             spacing: 4
@@ -113,5 +173,45 @@ Rectangle {
             Text { Layout.fillWidth: true; text: root.dubbing.exportPath.length > 0 ? root.dubbing.exportPath : (root.dubbing.previewPath.length > 0 ? root.dubbing.previewPath : qsTr("Final output has not been created.")); color: root.dubbing.exportPath.length > 0 ? Theme.success : Theme.textSecondary; font.pixelSize: 10; elide: Text.ElideMiddle }
             PrimaryButton { text: qsTr("Cancel processing"); visible: root.dubbing.processing; buttonColor: Theme.danger; onClicked: root.dubbing.cancelProcessing() }
         }
+    }
+
+    component QualityModeButton: Button {
+        id: modeButton
+        required property string iconName
+        required property bool selected
+        property bool warning: false
+        implicitHeight: 34
+        padding: 0
+        contentItem: RowLayout {
+            spacing: 6
+            LineIcon {
+                name: modeButton.iconName
+                color: modeButton.warning ? Theme.warning
+                                           : (modeButton.selected ? Theme.accentLight : Theme.textSecondary)
+                Layout.preferredWidth: 15
+                Layout.preferredHeight: 15
+                Layout.leftMargin: Theme.paddingSmall
+            }
+            Text {
+                Layout.fillWidth: true
+                text: modeButton.text
+                color: modeButton.selected ? Theme.textPrimary : Theme.textSecondary
+                font.pixelSize: Theme.fontSmall
+                font.bold: modeButton.selected
+            }
+        }
+        background: Rectangle {
+            radius: Theme.radiusSmall
+            color: modeButton.selected
+                   ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.13)
+                   : (modeButton.hovered ? Qt.rgba(1, 1, 1, 0.05) : Qt.rgba(1, 1, 1, 0.025))
+            border.color: modeButton.warning
+                          ? Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.45)
+                          : (modeButton.selected
+                             ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.48)
+                             : Qt.rgba(1, 1, 1, 0.08))
+            border.width: 1
+        }
+        HoverHandler { cursorShape: Qt.PointingHandCursor }
     }
 }

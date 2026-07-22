@@ -87,6 +87,13 @@ DubbingTranslationFixService::DubbingTranslationFixService(QObject *parent)
         {QStringLiteral("serverUrl"),
          settings.value(QStringLiteral("dubbing/translationFixServerUrl"),
                         QStringLiteral("http://127.0.0.1:1234")).toString()},
+        {QStringLiteral("provider"),
+         settings.value(QStringLiteral("dubbing/adaptiveProvider"),
+                        settings.value(QStringLiteral("dubbing/cinematicProvider"),
+                                       QStringLiteral("lmstudio"))).toString()},
+        {QStringLiteral("configured"),
+         settings.value(QStringLiteral("dubbing/adaptiveConfigured"),
+                        settings.value(QStringLiteral("dubbing/cinematicConfigured"), false)).toBool()},
         {QStringLiteral("model"),
          settings.value(QStringLiteral("dubbing/translationFixModel"),
                         QStringLiteral("qwen3.5-2b")).toString()},
@@ -104,6 +111,14 @@ QVariantMap DubbingTranslationFixService::normalizedConfiguration(
     const QVariantMap &configuration)
 {
     QVariantMap result;
+    QString provider = configuration.value(QStringLiteral("provider"),
+                                           QStringLiteral("lmstudio"))
+                           .toString().trimmed().toLower();
+    if (provider != QStringLiteral("api") && provider != QStringLiteral("local"))
+        provider = QStringLiteral("lmstudio");
+    result.insert(QStringLiteral("provider"), provider);
+    result.insert(QStringLiteral("configured"),
+                  configuration.value(QStringLiteral("configured"), false).toBool());
     result.insert(QStringLiteral("serverUrl"),
                   configuration.value(QStringLiteral("serverUrl"),
                                       QStringLiteral("http://127.0.0.1:1234"))
@@ -121,10 +136,17 @@ QVariantMap DubbingTranslationFixService::normalizedConfiguration(
     return result;
 }
 
+void DubbingTranslationFixService::setConfiguration(const QVariantMap &configuration)
+{
+    if (m_busy || m_testing) return;
+    m_configuration = normalizedConfiguration(configuration);
+    saveConfiguration();
+    emit stateChanged();
+}
+
 QUrl DubbingTranslationFixService::chatUrl(const QString &serverUrl)
 {
-    return QUrl(normalizedServerBase(serverUrl)
-                + QStringLiteral("/api/v1/chat"));
+    return QUrl(normalizedServerBase(serverUrl) + QStringLiteral("/api/v1/chat"));
 }
 
 QUrl DubbingTranslationFixService::modelsUrl(const QString &serverUrl)
@@ -175,6 +197,10 @@ bool DubbingTranslationFixService::isCloserToBudget(
 void DubbingTranslationFixService::saveConfiguration()
 {
     QSettings settings(settingsPath(), QSettings::IniFormat);
+    settings.setValue(QStringLiteral("dubbing/adaptiveProvider"),
+                      m_configuration.value(QStringLiteral("provider")));
+    settings.setValue(QStringLiteral("dubbing/adaptiveConfigured"),
+                      m_configuration.value(QStringLiteral("configured")));
     settings.setValue(QStringLiteral("dubbing/translationFixServerUrl"),
                       m_configuration.value(QStringLiteral("serverUrl")));
     settings.setValue(QStringLiteral("dubbing/translationFixModel"),
@@ -196,14 +222,26 @@ bool DubbingTranslationFixService::start(
     if (m_busy || m_testing) return false;
     m_configuration = normalizedConfiguration(configuration.isEmpty()
                                                   ? m_configuration : configuration);
-    const QUrl endpoint = chatUrl(
+    const QString provider = m_configuration.value(QStringLiteral("provider")).toString();
+    if (provider == QStringLiteral("local")) {
+        setError(QStringLiteral("Local translation models do not use the remote rewrite service."));
+        return false;
+    }
+    const QString base = normalizedServerBase(
         m_configuration.value(QStringLiteral("serverUrl")).toString());
+    const QUrl endpoint(provider == QStringLiteral("api")
+                            ? base + QStringLiteral("/v1/chat/completions")
+                            : base + QStringLiteral("/api/v1/chat"));
     if (!endpoint.isValid() || endpoint.host().isEmpty()) {
-        setError(QStringLiteral("LM Studio server URL is invalid."));
+        setError(provider == QStringLiteral("api")
+                     ? QStringLiteral("LLM API URL is invalid.")
+                     : QStringLiteral("LM Studio server URL is invalid."));
         return false;
     }
     if (m_configuration.value(QStringLiteral("model")).toString().isEmpty()) {
-        setError(QStringLiteral("LM Studio model identifier is required."));
+        setError(provider == QStringLiteral("api")
+                     ? QStringLiteral("LLM API model identifier is required.")
+                     : QStringLiteral("LM Studio model identifier is required."));
         return false;
     }
 
@@ -239,8 +277,8 @@ bool DubbingTranslationFixService::start(
     setBusy(true);
     Logger::info(
         QStringLiteral("DubbingTranslationFix"),
-        QStringLiteral("Starting LM Studio rewrite endpoint=%1 model=%2 segments=%3 selectedIndex=%4 maxAttempts=%5 targetLanguage=%6")
-            .arg(endpoint.toString(),
+        QStringLiteral("Starting %1 rewrite endpoint=%2 model=%3 segments=%4 selectedIndex=%5 maxAttempts=%6 targetLanguage=%7")
+            .arg(provider, endpoint.toString(),
                  m_configuration.value(QStringLiteral("model")).toString())
             .arg(m_eligibleIndices.size()).arg(segmentIndex).arg(m_maxAttempts)
             .arg(targetLanguage));
@@ -254,10 +292,22 @@ void DubbingTranslationFixService::testConnection(
     if (m_busy || m_testing) return;
     m_configuration = normalizedConfiguration(configuration.isEmpty()
                                                   ? m_configuration : configuration);
-    const QUrl endpoint = modelsUrl(
+    const QString provider = m_configuration.value(QStringLiteral("provider")).toString();
+    if (provider == QStringLiteral("local")) {
+        saveConfiguration();
+        emit connectionTested(true, QStringLiteral("Local LA Studio model selected."));
+        emit stateChanged();
+        return;
+    }
+    const QString base = normalizedServerBase(
         m_configuration.value(QStringLiteral("serverUrl")).toString());
+    const QUrl endpoint(provider == QStringLiteral("api")
+                            ? base + QStringLiteral("/v1/models")
+                            : base + QStringLiteral("/api/v1/models"));
     if (!endpoint.isValid() || endpoint.host().isEmpty()) {
-        emit connectionTested(false, QStringLiteral("LM Studio server URL is invalid."));
+        emit connectionTested(false, provider == QStringLiteral("api")
+                                          ? QStringLiteral("LLM API URL is invalid.")
+                                          : QStringLiteral("LM Studio server URL is invalid."));
         return;
     }
     saveConfiguration();
@@ -285,11 +335,15 @@ void DubbingTranslationFixService::testConnection(
             QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const QString model = m_configuration.value(QStringLiteral("model")).toString();
         bool found = false;
-        const QJsonArray models = QJsonDocument::fromJson(body).object()
-                                      .value(QStringLiteral("models")).toArray();
+        const QString provider = m_configuration.value(QStringLiteral("provider")).toString();
+        const QJsonObject response = QJsonDocument::fromJson(body).object();
+        const QJsonArray models = provider == QStringLiteral("api")
+            ? response.value(QStringLiteral("data")).toArray()
+            : response.value(QStringLiteral("models")).toArray();
         for (const QJsonValue &value : models) {
             const QJsonObject modelObject = value.toObject();
-            if (modelObject.value(QStringLiteral("key")).toString() == model) {
+            if (modelObject.value(provider == QStringLiteral("api")
+                                      ? QStringLiteral("id") : QStringLiteral("key")).toString() == model) {
                 found = true;
                 break;
             }
@@ -311,10 +365,14 @@ void DubbingTranslationFixService::testConnection(
         else if (reply->error() != QNetworkReply::NoError)
             message = QStringLiteral("Connection failed: %1").arg(reply->errorString());
         else if (!found)
-            message = QStringLiteral("Connected, but model \"%1\" was not listed by LM Studio.")
-                          .arg(model);
+            message = QStringLiteral("Connected, but model \"%1\" was not listed by %2.")
+                          .arg(model, provider == QStringLiteral("api")
+                                          ? QStringLiteral("the LLM API")
+                                          : QStringLiteral("LM Studio"));
         else
-            message = QStringLiteral("LM Studio returned HTTP %1: %2")
+            message = QStringLiteral("%1 returned HTTP %2: %3")
+                          .arg(provider == QStringLiteral("api")
+                                   ? QStringLiteral("LLM API") : QStringLiteral("LM Studio"))
                           .arg(status).arg(responseError(body));
         Logger::info(QStringLiteral("DubbingTranslationFix"),
                      QStringLiteral("Connection test success=%1 endpoint=%2 model=%3 message=%4")
@@ -380,29 +438,45 @@ void DubbingTranslationFixService::requestAttempt()
     if (!m_busy) return;
     const QVariantMap segment =
         m_segments.at(m_eligibleIndices.at(m_segmentPosition)).toMap();
+    const QString provider = m_configuration.value(QStringLiteral("provider")).toString();
     QJsonObject payload;
     payload.insert(QStringLiteral("model"),
                    m_configuration.value(QStringLiteral("model")).toString());
     payload.insert(QStringLiteral("temperature"),
                    m_configuration.value(QStringLiteral("temperature")).toDouble());
-    payload.insert(QStringLiteral("max_output_tokens"), 384);
+    payload.insert(provider == QStringLiteral("api") ? QStringLiteral("max_tokens")
+                                                       : QStringLiteral("max_output_tokens"), 384);
     payload.insert(QStringLiteral("stream"), false);
-    payload.insert(QStringLiteral("store"), false);
-    payload.insert(QStringLiteral("reasoning"), QStringLiteral("off"));
+    if (provider != QStringLiteral("api")) {
+        payload.insert(QStringLiteral("store"), false);
+        payload.insert(QStringLiteral("reasoning"), QStringLiteral("off"));
+    }
     payload.insert(QStringLiteral("top_p"), 0.8);
-    payload.insert(QStringLiteral("top_k"), 20);
-    payload.insert(QStringLiteral("system_prompt"),
-                   QStringLiteral(
-                       "You repair translations for timed dubbing. Preserve the complete source "
+    if (provider != QStringLiteral("api"))
+        payload.insert(QStringLiteral("top_k"), 20);
+    const QString systemPrompt = QStringLiteral(
+                        "You repair translations for timed dubbing. Preserve the complete source "
                        "meaning and the meaning of the current translation: facts, names, numbers, "
                        "rank/order, time, comparison, causality, and negation. Rewrite naturally in "
                        "the requested target language while meeting the supplied eSpeak NG phoneme "
                        "maximum. Never invent or omit information. Return only the rewritten "
-                       "translation, without analysis, labels, quotes, or a phoneme count."));
-    payload.insert(QStringLiteral("input"), buildPrompt(segment));
+                        "translation, without analysis, labels, quotes, or a phoneme count.");
+    if (provider == QStringLiteral("api")) {
+        payload.insert(QStringLiteral("messages"), QJsonArray{
+            QJsonObject{{QStringLiteral("role"), QStringLiteral("system")},
+                        {QStringLiteral("content"), systemPrompt}},
+            QJsonObject{{QStringLiteral("role"), QStringLiteral("user")},
+                        {QStringLiteral("content"), buildPrompt(segment)}}});
+    } else {
+        payload.insert(QStringLiteral("system_prompt"), systemPrompt);
+        payload.insert(QStringLiteral("input"), buildPrompt(segment));
+    }
 
-    QNetworkRequest request(chatUrl(
-        m_configuration.value(QStringLiteral("serverUrl")).toString()));
+    const QString base = normalizedServerBase(
+        m_configuration.value(QStringLiteral("serverUrl")).toString());
+    QNetworkRequest request(QUrl(provider == QStringLiteral("api")
+                                     ? base + QStringLiteral("/v1/chat/completions")
+                                     : base + QStringLiteral("/api/v1/chat")));
     request.setHeader(QNetworkRequest::ContentTypeHeader,
                       QStringLiteral("application/json"));
     request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LA-Studio"));
@@ -440,13 +514,23 @@ void DubbingTranslationFixService::handleAttemptResponse(QNetworkReply *reply)
         const QString detail = reply->error() != QNetworkReply::NoError
             ? reply->errorString() : responseError(body);
         reply->deleteLater();
-        setError(QStringLiteral("LM Studio request failed (HTTP %1): %2")
+        const QString provider = m_configuration.value(QStringLiteral("provider")).toString();
+        setError(QStringLiteral("%1 request failed (HTTP %2): %3")
+                     .arg(provider == QStringLiteral("api")
+                              ? QStringLiteral("LLM API") : QStringLiteral("LM Studio"))
                      .arg(status).arg(detail));
         return;
     }
 
     const QJsonObject root = QJsonDocument::fromJson(body).object();
     QString content;
+    const QString provider = m_configuration.value(QStringLiteral("provider")).toString();
+    if (provider == QStringLiteral("api")) {
+        const QJsonArray choices = root.value(QStringLiteral("choices")).toArray();
+        if (!choices.isEmpty())
+            content = choices.first().toObject().value(QStringLiteral("message"))
+                          .toObject().value(QStringLiteral("content")).toString();
+    }
     const QJsonArray output = root.value(QStringLiteral("output")).toArray();
     for (const QJsonValue &value : output) {
         const QJsonObject item = value.toObject();
@@ -459,7 +543,9 @@ void DubbingTranslationFixService::handleAttemptResponse(QNetworkReply *reply)
     const QString candidate = cleanAssistantText(content);
     reply->deleteLater();
     if (candidate.isEmpty()) {
-        setError(QStringLiteral("LM Studio returned an empty translation."));
+        setError(provider == QStringLiteral("api")
+                     ? QStringLiteral("LLM API returned an empty translation.")
+                     : QStringLiteral("LM Studio returned an empty translation."));
         return;
     }
 

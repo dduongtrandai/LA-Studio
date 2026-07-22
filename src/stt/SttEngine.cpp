@@ -1,13 +1,15 @@
 #include "SttEngine.h"
 #include <runtimes/CrispNemotronSttInterface.h>
 #include <runtimes/CrispQwen3SttInterface.h>
+#include <runtimes/WhisperInterface.h>
 #include <QFileInfo>
 
 namespace LAStudio {
 
 namespace {
-void unloadCrispSttRuntimes()
+void unloadSttRuntimes()
 {
+    WhisperInterface::instance().unload();
     CrispNemotronSttInterface::instance().unload();
     CrispQwen3SttInterface::instance().unload();
 }
@@ -22,7 +24,7 @@ SttEngine::~SttEngine()
 {
     qDeleteAll(m_instances.values());
     m_instances.clear();
-    unloadCrispSttRuntimes();
+    unloadSttRuntimes();
 }
 
 SttEngineInstance *SttEngine::activeInstance() const
@@ -133,10 +135,10 @@ void SttEngine::unloadInstance(const QString &signature)
     inst->deleteLater();
 
     if (m_instances.size() == 0) {
-        // CrispASR keeps its QLibrary and preloaded GGML dependencies alive
-        // after the model session closes. Release them at the engine boundary
-        // so an incompatible llama.cpp GGML build can be loaded next.
-        unloadCrispSttRuntimes();
+        // STT interfaces keep their runtime libraries alive independently of
+        // model contexts. Release them at the engine boundary so a later
+        // llama.cpp runtime cannot bind to Whisper/Crisp's incompatible GGML.
+        unloadSttRuntimes();
     }
 
     if (wasActive) {

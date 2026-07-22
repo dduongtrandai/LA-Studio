@@ -55,6 +55,7 @@ public:
     void startTranscription(const QString &sourceLanguage, const QString &sourceMediaPath);
     void startTranslation(const QString &sourceLanguage, const QString &targetLanguage, const QVariantList &segments,
                           const QVariantMap &modelConfiguration = QVariantMap());
+    void setTranslationFixConfiguration(const QVariantMap &configuration);
     void startAudioGeneration(const QVariantList &segments, const QString &projectPath,
                               const QVariantMap &synthesisSettings = QVariantMap());
     void fitTiming(const QVariantList &segments, const QString &projectPath);
@@ -113,6 +114,7 @@ private:
     DubbingTranslationJob *m_translationJob = nullptr;
     DubbingTranslationFixService *m_autoTranslationFix = nullptr;
     QVariantMap m_translationConfiguration;
+    QVariantMap m_translationFixConfiguration;
     QString m_translationSourceLanguage;
     QString m_translationTargetLanguage;
     QString m_pendingSourceAudioPath;

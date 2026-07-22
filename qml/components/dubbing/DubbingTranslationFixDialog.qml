@@ -12,6 +12,8 @@ Dialog {
     property string connectionMessage: ""
     property bool connectionSuccess: false
     property int segmentIndex: -1
+    readonly property string providerName: (dubbing.translationFixConfiguration || {}).provider === "api"
+                                           ? qsTr("LLM API") : qsTr("LM Studio")
 
     function repairCount() {
         return segmentIndex >= 0 ? 1 : dubbing.translationFixCandidateCount
@@ -39,6 +41,8 @@ Dialog {
 
     function currentConfiguration() {
         return {
+            provider: (dubbing.translationFixConfiguration || {}).provider || "lmstudio",
+            configured: true,
             serverUrl: serverUrlField.text.trim(),
             model: modelField.text.trim(),
             apiKey: apiKeyField.text.trim(),
@@ -118,9 +122,10 @@ Dialog {
                 Text {
                     Layout.fillWidth: true
                     text: root.segmentIndex >= 0
-                          ? qsTr("Rewrite only segment %1 with an LM Studio model.")
-                                .arg(root.segmentIndex + 1)
-                          : qsTr("Rewrite over-budget segments with an LM Studio model.")
+                          ? qsTr("Rewrite only segment %1 with the configured %2 model.")
+                                .arg(root.segmentIndex + 1).arg(root.providerName)
+                          : qsTr("Rewrite over-budget segments with the configured %1 model.")
+                                .arg(root.providerName)
                     color: Theme.textSecondary
                     font.pixelSize: Theme.fontSmall
                     elide: Text.ElideRight
@@ -218,7 +223,7 @@ Dialog {
                     Layout.rightMargin: Theme.paddingLarge
                     spacing: Theme.paddingSmall
 
-                    FieldLabel { text: qsTr("LM Studio server URL") }
+                    FieldLabel { text: qsTr("%1 server URL").arg(root.providerName) }
                     FixField {
                         id: serverUrlField
                         Layout.fillWidth: true
@@ -227,7 +232,9 @@ Dialog {
                     }
                     Text {
                         Layout.fillWidth: true
-                        text: qsTr("Uses LM Studio /api/v1/chat with reasoning disabled for concise rewrites.")
+                        text: root.providerName === qsTr("LM Studio")
+                              ? qsTr("Uses LM Studio /api/v1/chat with reasoning disabled for concise rewrites.")
+                              : qsTr("Uses an OpenAI-compatible /v1/chat/completions endpoint.")
                         color: Theme.textSecondary
                         font.pixelSize: 10
                         wrapMode: Text.WordWrap
@@ -363,7 +370,7 @@ Dialog {
                          && serverUrlField.text.trim() !== ""
                          && modelField.text.trim() !== ""
                 onClicked: {
-                    root.connectionMessage = qsTr("Checking LM Studio...")
+                    root.connectionMessage = qsTr("Checking %1...").arg(root.providerName)
                     root.connectionSuccess = false
                     root.dubbing.testTranslationFixConnection(
                                 root.currentConfiguration())

@@ -172,13 +172,17 @@ DubbingJobRunner::DubbingJobRunner(SttSessionController *sttSession, TtsEngine *
         const bool autoRewrite = durationControl.value(QStringLiteral("autoRewrite"), true).toBool();
         const int candidates = DubbingTranslationFixService::eligibleSegmentCount(
             segments, m_translationTargetLanguage);
-        if (autoRewrite && candidates > 0 && m_autoTranslationFix) {
+        QVariantMap fixConfiguration = m_translationFixConfiguration.isEmpty()
+            ? (m_autoTranslationFix ? m_autoTranslationFix->configuration() : QVariantMap())
+            : m_translationFixConfiguration;
+        if (autoRewrite && candidates > 0 && m_autoTranslationFix
+            && fixConfiguration.value(QStringLiteral("provider")).toString()
+                   != QStringLiteral("local")) {
             Logger::info(QStringLiteral("DubbingPipeline"),
                          QStringLiteral("[translation] automatically shortening %1 overlong segment(s) with the configured LLM")
                              .arg(candidates));
             m_run.setProgress(70);
             emit stateChanged();
-            QVariantMap fixConfiguration = m_autoTranslationFix->configuration();
             fixConfiguration.insert(QStringLiteral("maxAttempts"),
                                     durationControl.value(QStringLiteral("maxPreTtsIterations"), 4));
             if (m_autoTranslationFix->start(m_translationSourceLanguage,
@@ -188,6 +192,11 @@ DubbingJobRunner::DubbingJobRunner(SttSessionController *sttSession, TtsEngine *
         }
         finishTranslation(segments);
     });
+}
+
+void DubbingJobRunner::setTranslationFixConfiguration(const QVariantMap &configuration)
+{
+    m_translationFixConfiguration = configuration;
 }
 
 void DubbingJobRunner::finishTranslation(const QVariantList &segments)

@@ -23,6 +23,7 @@ public:
     QString statusText() const { return m_statusText; }
     QString lastError() const { return m_lastError; }
     QVariantMap configuration() const { return m_configuration; }
+    void setConfiguration(const QVariantMap &configuration);
 
     bool start(const QString &sourceLanguage, const QString &targetLanguage,
                const QVariantList &segments, const QVariantMap &configuration,

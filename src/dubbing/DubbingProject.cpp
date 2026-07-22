@@ -47,6 +47,7 @@ QJsonObject DubbingProject::toJson() const
     json.insert(QStringLiteral("sourceIsVideo"), sourceIsVideo);
     json.insert(QStringLiteral("sourceLanguage"), sourceLanguage);
     json.insert(QStringLiteral("targetLanguage"), targetLanguage);
+    json.insert(QStringLiteral("dubbingQuality"), dubbingQuality);
     json.insert(QStringLiteral("durationControl"), QJsonObject::fromVariantMap(durationControl));
     json.insert(QStringLiteral("speakers"), QJsonArray::fromVariantList(speakers));
     json.insert(QStringLiteral("segments"), QJsonArray::fromVariantList(segments));
@@ -72,6 +73,9 @@ bool DubbingProject::fromJson(const QJsonObject &json, DubbingProject &project, 
     project.sourceIsVideo = json.value(QStringLiteral("sourceIsVideo")).toBool();
     project.sourceLanguage = json.value(QStringLiteral("sourceLanguage")).toString(QStringLiteral("en"));
     project.targetLanguage = json.value(QStringLiteral("targetLanguage")).toString(QStringLiteral("vi"));
+    project.dubbingQuality = json.value(QStringLiteral("dubbingQuality")).toString(QStringLiteral("fast"));
+    if (project.dubbingQuality != QStringLiteral("adaptive"))
+        project.dubbingQuality = QStringLiteral("fast");
     project.durationControl = json.value(QStringLiteral("durationControl")).toObject().toVariantMap();
     if (project.durationControl.isEmpty()) {
         project.durationControl = QVariantMap{{QStringLiteral("enabled"), version >= 3},

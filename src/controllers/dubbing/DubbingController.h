@@ -68,6 +68,10 @@ class DubbingController : public QObject
     Q_PROPERTY(QString translationFixStatus READ translationFixStatus NOTIFY translationFixChanged)
     Q_PROPERTY(QVariantMap translationFixConfiguration READ translationFixConfiguration NOTIFY translationFixChanged)
     Q_PROPERTY(int translationFixCandidateCount READ translationFixCandidateCount NOTIFY segmentsChanged)
+    Q_PROPERTY(QString dubbingQuality READ dubbingQuality WRITE setDubbingQuality NOTIFY projectChanged)
+    Q_PROPERTY(QString adaptiveProvider READ adaptiveProvider NOTIFY translationFixChanged)
+    Q_PROPERTY(bool adaptiveReady READ adaptiveReady NOTIFY workflowChanged)
+    Q_PROPERTY(QString adaptiveStatusText READ adaptiveStatusText NOTIFY workflowChanged)
 
 public:
     explicit DubbingController(SttSessionController *sttSession, TtsEngine *tts,
@@ -121,10 +125,15 @@ public:
     QString translationFixStatus() const;
     QVariantMap translationFixConfiguration() const;
     int translationFixCandidateCount() const;
+    QString dubbingQuality() const { return m_project.dubbingQuality; }
+    QString adaptiveProvider() const;
+    bool adaptiveReady() const;
+    QString adaptiveStatusText() const;
 
     void setSourceLanguage(const QString &value);
     void setTargetLanguage(const QString &value);
     void setDurationControl(const QVariantMap &value);
+    void setDubbingQuality(const QString &value);
 
     Q_INVOKABLE bool newProject(const QString &path = QString());
     Q_INVOKABLE bool openProject(const QString &path);
@@ -172,6 +181,7 @@ public:
     Q_INVOKABLE void testTranslationFixConnection(
         const QVariantMap &configuration = QVariantMap());
     Q_INVOKABLE void cancelTranslationFix();
+    Q_INVOKABLE void setAdaptiveConfiguration(const QVariantMap &configuration);
 
 signals:
     void projectChanged();

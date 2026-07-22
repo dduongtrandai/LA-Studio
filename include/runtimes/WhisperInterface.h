@@ -206,14 +206,31 @@ public:
     }
 
     void unload() {
-        // Keep the DLL loaded to prevent OpenMP/GGML runtime crashes on unload/reload.
-        // The model memory itself is freed via free_context.
+        // Callers must close every whisper_context before unloading the runtime.
+        // Leaving whisper.dll resident also leaves its GGML dependencies resident;
+        // a later llama.cpp runtime can then bind to that incompatible GGML ABI.
+        init_from_file = nullptr;
+        free_context = nullptr;
+        context_default_params = nullptr;
+        full_default_params = nullptr;
+        full_run = nullptr;
+        full_n_segments = nullptr;
+        full_get_segment_text = nullptr;
+        full_get_segment_t0 = nullptr;
+        full_get_segment_t1 = nullptr;
+        full_n_tokens = nullptr;
+        full_get_token_text = nullptr;
+        full_get_token_data = nullptr;
+        print_system_info = nullptr;
+        if (m_lib.isLoaded()) {
+            m_lib.unload();
+        }
     }
 
     bool load(const QString& libPath) {
         if (m_lib.isLoaded()) {
             if (m_lib.fileName() == libPath) return true;
-            m_lib.unload();
+            unload();
         }
 
         QFileInfo fi(libPath);
@@ -254,7 +271,7 @@ public:
                   full_get_segment_text && full_get_segment_t0 && full_get_segment_t1;
 
         if (!ok) {
-            m_lib.unload();
+            unload();
         }
         return ok;
     }

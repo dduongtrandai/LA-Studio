@@ -23,6 +23,7 @@ Item {
     property bool isHistoryOpen: true
     property bool isNodeInspectorOpen: true
     property string pendingHistoryDeleteId: ""
+    property bool qualityModelSelection: false
     readonly property var languageCatalog: AppController.catalog.languageSet("default")
 
     StudioPageController {
@@ -331,7 +332,12 @@ Item {
             onStepSelected: root.reviewStepId = stepId
             onHistoryToggled: root.isHistoryOpen = !root.isHistoryOpen
             onSettingsToggled: root.isNodeInspectorOpen = !root.isNodeInspectorOpen
-            onGenerateRequested: root.dubbing.startAutomaticWorkflow(root.defaultExportPath())
+            onGenerateRequested: {
+                if (root.dubbing.dubbingQuality === "adaptive" && !root.dubbing.adaptiveReady)
+                    qualityDialog.open()
+                else
+                    root.dubbing.startAutomaticWorkflow(root.defaultExportPath())
+            }
             onWorkflowRequested: root.openWorkflowCanvas()
             onSaveRequested: root.dubbing.saveProject()
             onExportRequested: exportOptionsDialog.open()
@@ -623,6 +629,7 @@ Item {
             dubbing: root.dubbing
             languageCatalog: root.languageCatalog
             currentStepTitle: root.stepTitle(root.dubbing.currentStepId)
+            onAdaptiveSetupRequested: qualityDialog.open()
         }
     }
 
@@ -664,6 +671,15 @@ Item {
         id: translationFixDialog
         parent: Overlay.overlay
         dubbing: root.dubbing
+    }
+
+    DubbingQualityDialog {
+        id: qualityDialog
+        dubbing: root.dubbing
+        onLocalModelRequested: {
+            root.qualityModelSelection = true
+            nodeModelDialog.openFor("translate")
+        }
     }
 
     FileDialog {
@@ -751,6 +767,11 @@ Item {
         nodeConfigurations: dubbing.workflowNodeConfigurations
         onConfigurationAccepted: function(nodeId, familyId, runtimeId, runtimeVersion, selectedFiles) {
             dubbing.setWorkflowNodeModel(nodeId, familyId, runtimeId, runtimeVersion, selectedFiles)
+            if (root.qualityModelSelection && nodeId === "translate") {
+                root.qualityModelSelection = false
+                qualityDialog.localModelConfigured()
+            }
         }
+        onClosed: root.qualityModelSelection = false
     }
 }

@@ -439,6 +439,7 @@ qt_add_qml_module(LAStudio
         qml/components/alignment/AlignmentResultMetric.qml
         qml/components/dubbing/DubbingExportDialog.qml
         qml/components/dubbing/DubbingTranslationFixDialog.qml
+        qml/components/dubbing/DubbingQualityDialog.qml
         qml/components/dubbing/DubbingHistoryPanel.qml
         qml/components/dubbing/DubbingProjectStatusPanel.qml
         qml/components/dubbing/DubbingNodeSettingsPanel.qml
