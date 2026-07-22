@@ -359,11 +359,13 @@ bool DubbingController::adaptiveReady() const
     const QVariantMap config = translationFixConfiguration();
     if (!config.value(QStringLiteral("configured")).toBool()) return false;
     if (adaptiveProvider() == QStringLiteral("local")) {
-        auto *app = AppController::instance();
-        auto *session = app && app->sessionRegistry()
-            ? app->sessionRegistry()->sessionForCapability(QStringLiteral("translation")) : nullptr;
-        return !m_workflowNodeConfigurations.value(QStringLiteral("translate")).toMap().isEmpty()
-            && session && session->canProcess();
+        StudioConfiguration selection;
+        selection.capabilityId = QStringLiteral("llm-chat");
+        selection.familyId = config.value(QStringLiteral("model")).toString();
+        selection.runtimeId = config.value(QStringLiteral("runtimeId")).toString();
+        selection.runtimeVersion = config.value(QStringLiteral("runtimeVersion")).toString();
+        selection.selectedFiles = config.value(QStringLiteral("selectedFiles")).toMap();
+        return StudioConfigurationResolver::resolve(selection).isValid;
     }
     return !config.value(QStringLiteral("serverUrl")).toString().trimmed().isEmpty()
         && !config.value(QStringLiteral("model")).toString().trimmed().isEmpty();
@@ -373,10 +375,8 @@ QString DubbingController::adaptiveStatusText() const
 {
     if (!adaptiveReady()) return QStringLiteral("LLM setup required");
     if (adaptiveProvider() == QStringLiteral("local")) {
-        const QVariantMap selected = m_workflowNodeConfigurations
-                                         .value(QStringLiteral("translate")).toMap();
-        return selected.value(QStringLiteral("modelName"),
-                              QStringLiteral("Local model ready")).toString();
+        return translationFixConfiguration()
+            .value(QStringLiteral("model"), QStringLiteral("Local LLM ready")).toString();
     }
     const QString model = translationFixConfiguration().value(QStringLiteral("model")).toString();
     return adaptiveProvider() == QStringLiteral("api")

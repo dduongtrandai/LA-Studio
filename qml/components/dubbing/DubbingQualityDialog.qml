@@ -24,31 +24,37 @@ Dialog {
     }
 
     function currentConfiguration() {
+        var saved = dubbing.translationFixConfiguration || {}
         return {
             provider: selectedProvider,
             serverUrl: serverUrlField.text.trim(),
             model: modelField.text.trim(),
+            runtimeId: selectedProvider === "local" ? (saved.runtimeId || "") : "",
+            runtimeVersion: selectedProvider === "local" ? (saved.runtimeVersion || "") : "",
+            selectedFiles: selectedProvider === "local" ? (saved.selectedFiles || ({})) : ({}),
             apiKey: apiKeyField.text.trim(),
             maxAttempts: Number((dubbing.durationControl || {}).maxPreTtsIterations || 4),
             temperature: 0.35
         }
     }
 
-    function localModelReady() {
-        var nodes = dubbing.workflowNodes || []
-        for (var i = 0; i < nodes.length; ++i) {
-            if (nodes[i].id === "translate")
-                return !!nodes[i].selectedFamilyId && nodes[i].providerState === "ready"
-        }
-        return false
+    function localModelConfiguredState() {
+        var config = dubbing.translationFixConfiguration || {}
+        return selectedProvider === "local" && !!config.configured
+            && !!config.model && !!config.runtimeId
     }
 
-    function localModelConfigured() {
+    function localModelConfigured(familyId, runtimeId, runtimeVersion, selectedFiles) {
         selectedProvider = "local"
-        dubbing.setAdaptiveConfiguration(currentConfiguration())
+        modelField.text = familyId
+        var config = currentConfiguration()
+        config.runtimeId = runtimeId
+        config.runtimeVersion = runtimeVersion
+        config.selectedFiles = selectedFiles || ({})
+        dubbing.setAdaptiveConfiguration(config)
         dubbing.dubbingQuality = "adaptive"
-        connectionMessage = qsTr("Local model selected. Wait until its runtime reports Ready.")
-        connectionSuccess = localModelReady()
+        connectionMessage = qsTr("Local LLM configuration saved. The model is not loaded from Settings.")
+        connectionSuccess = true
     }
 
     onOpened: loadConfiguration()
@@ -135,10 +141,10 @@ Dialog {
                     }
                     ProviderRow {
                         title: qsTr("LA Studio model")
-                        description: qsTr("Choose and load a supported local translation LLM")
+                        description: qsTr("Choose a supported local LLM for the workflow")
                         iconName: "cpu"
                         selected: root.selectedProvider === "local"
-                        privacyText: root.localModelReady() ? qsTr("Ready") : qsTr("Local")
+                        privacyText: root.localModelConfiguredState() ? qsTr("Configured") : qsTr("Local")
                         onClicked: { root.selectedProvider = "local"; root.connectionSuccess = false }
                     }
                 }
@@ -169,8 +175,8 @@ Dialog {
                         anchors.fill: parent; anchors.margins: Theme.paddingMedium; spacing: Theme.paddingMedium
                         ColumnLayout {
                             Layout.fillWidth: true; spacing: 2
-                            Text { text: root.localModelReady() ? qsTr("Local model ready") : qsTr("Select a translation model and runtime"); color: root.localModelReady() ? Theme.success : Theme.warning; font.pixelSize: Theme.fontSmall; font.bold: true }
-                            Text { Layout.fillWidth: true; text: qsTr("The selected model remains on this device. Local models provide translation; remote-only length repair is skipped."); color: Theme.textSecondary; font.pixelSize: 10; wrapMode: Text.WordWrap }
+                            Text { text: root.localModelConfiguredState() ? qsTr("Local LLM configured") : qsTr("Select an LLM and runtime"); color: root.localModelConfiguredState() ? Theme.success : Theme.warning; font.pixelSize: Theme.fontSmall; font.bold: true }
+                            Text { Layout.fillWidth: true; text: qsTr("This setting stores the model and runtime selection without loading them."); color: Theme.textSecondary; font.pixelSize: 10; wrapMode: Text.WordWrap }
                         }
                         PrimaryButton { text: qsTr("Choose model"); iconName: "gallery"; quiet: true; onClicked: root.localModelRequested() }
                     }
@@ -213,7 +219,7 @@ Dialog {
             PrimaryButton { text: qsTr("Cancel"); quiet: true; onClicked: root.close() }
             PrimaryButton {
                 text: qsTr("Use Adaptive"); iconName: "spark"
-                enabled: root.selectedProvider === "local" ? root.localModelReady() : root.connectionSuccess
+                enabled: root.selectedProvider === "local" ? root.localModelConfiguredState() : root.connectionSuccess
                 onClicked: { root.dubbing.setAdaptiveConfiguration(root.currentConfiguration()); root.dubbing.dubbingQuality = "adaptive"; root.close() }
             }
         }

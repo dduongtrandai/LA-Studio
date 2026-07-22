@@ -97,6 +97,12 @@ DubbingTranslationFixService::DubbingTranslationFixService(QObject *parent)
         {QStringLiteral("model"),
          settings.value(QStringLiteral("dubbing/translationFixModel"),
                         QStringLiteral("qwen3.5-2b")).toString()},
+        {QStringLiteral("runtimeId"),
+         settings.value(QStringLiteral("dubbing/adaptiveRuntimeId")).toString()},
+        {QStringLiteral("runtimeVersion"),
+         settings.value(QStringLiteral("dubbing/adaptiveRuntimeVersion")).toString()},
+        {QStringLiteral("selectedFiles"),
+         settings.value(QStringLiteral("dubbing/adaptiveSelectedFiles")).toMap()},
         {QStringLiteral("apiKey"),
          settings.value(QStringLiteral("dubbing/translationFixApiKey"),
                         QString()).toString()},
@@ -127,6 +133,12 @@ QVariantMap DubbingTranslationFixService::normalizedConfiguration(
                   configuration.value(QStringLiteral("model"),
                                       QStringLiteral("qwen3.5-2b"))
                       .toString().trimmed());
+    result.insert(QStringLiteral("runtimeId"),
+                  configuration.value(QStringLiteral("runtimeId")).toString().trimmed());
+    result.insert(QStringLiteral("runtimeVersion"),
+                  configuration.value(QStringLiteral("runtimeVersion")).toString().trimmed());
+    result.insert(QStringLiteral("selectedFiles"),
+                  configuration.value(QStringLiteral("selectedFiles")).toMap());
     result.insert(QStringLiteral("apiKey"),
                   configuration.value(QStringLiteral("apiKey")).toString().trimmed());
     result.insert(QStringLiteral("maxAttempts"),
@@ -205,6 +217,12 @@ void DubbingTranslationFixService::saveConfiguration()
                       m_configuration.value(QStringLiteral("serverUrl")));
     settings.setValue(QStringLiteral("dubbing/translationFixModel"),
                       m_configuration.value(QStringLiteral("model")));
+    settings.setValue(QStringLiteral("dubbing/adaptiveRuntimeId"),
+                      m_configuration.value(QStringLiteral("runtimeId")));
+    settings.setValue(QStringLiteral("dubbing/adaptiveRuntimeVersion"),
+                      m_configuration.value(QStringLiteral("runtimeVersion")));
+    settings.setValue(QStringLiteral("dubbing/adaptiveSelectedFiles"),
+                      m_configuration.value(QStringLiteral("selectedFiles")));
     settings.setValue(QStringLiteral("dubbing/translationFixApiKey"),
                       m_configuration.value(QStringLiteral("apiKey")));
     settings.setValue(QStringLiteral("dubbing/translationFixMaxAttempts"),

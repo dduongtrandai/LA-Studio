@@ -17,8 +17,12 @@ Dialog {
         var item = root.nodes ? root.nodes.find(function(entry) { return entry.id === value }) : null
         if (!item || item.configurable !== true) return
 
+        openForCapability(value, item.capabilityId || "stt")
+    }
+
+    function openForCapability(value, capability) {
         root.nodeId = value
-        root.capabilityId = item.capabilityId || "stt"
+        root.capabilityId = capability
         modelController.familiesModel.setCapability(root.capabilityId)
 
         var saved = root.nodeConfigurations[root.nodeId] || {}

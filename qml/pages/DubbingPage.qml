@@ -23,12 +23,17 @@ Item {
     property bool isHistoryOpen: true
     property bool isNodeInspectorOpen: true
     property string pendingHistoryDeleteId: ""
-    property bool qualityModelSelection: false
     readonly property var languageCatalog: AppController.catalog.languageSet("default")
 
     StudioPageController {
         id: translationRecommendationController
         capabilityId: "translation"
+        autoLoadOnSync: false
+    }
+
+    StudioPageController {
+        id: adaptiveLlmController
+        capabilityId: "llm-chat"
         autoLoadOnSync: false
     }
 
@@ -676,10 +681,7 @@ Item {
     DubbingQualityDialog {
         id: qualityDialog
         dubbing: root.dubbing
-        onLocalModelRequested: {
-            root.qualityModelSelection = true
-            nodeModelDialog.openFor("translate")
-        }
+        onLocalModelRequested: nodeModelDialog.openForCapability("adaptive-llm", "llm-chat")
     }
 
     FileDialog {
@@ -766,12 +768,15 @@ Item {
         nodes: dubbing.workflowNodes
         nodeConfigurations: dubbing.workflowNodeConfigurations
         onConfigurationAccepted: function(nodeId, familyId, runtimeId, runtimeVersion, selectedFiles) {
-            dubbing.setWorkflowNodeModel(nodeId, familyId, runtimeId, runtimeVersion, selectedFiles)
-            if (root.qualityModelSelection && nodeId === "translate") {
-                root.qualityModelSelection = false
-                qualityDialog.localModelConfigured()
+            if (nodeId === "adaptive-llm") {
+                adaptiveLlmController.saveConfigurationSelection(
+                    familyId, runtimeId, runtimeVersion, selectedFiles)
+                qualityDialog.localModelConfigured(
+                    familyId, runtimeId, runtimeVersion, selectedFiles)
+            } else {
+                dubbing.setWorkflowNodeModel(
+                    nodeId, familyId, runtimeId, runtimeVersion, selectedFiles)
             }
         }
-        onClosed: root.qualityModelSelection = false
     }
 }

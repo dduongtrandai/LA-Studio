@@ -31,6 +31,10 @@ void TestDubbingProject::normalizesLmStudioTranslationFixConfiguration()
             {QStringLiteral("serverUrl"),
              QStringLiteral(" http://127.0.0.1:1234/v1/chat/completions ")},
             {QStringLiteral("model"), QStringLiteral(" qwen3.5-2b ")},
+            {QStringLiteral("runtimeId"), QStringLiteral(" llama-win-x86_64-cuda-12.4 ")},
+            {QStringLiteral("runtimeVersion"), QStringLiteral(" b10036 ")},
+            {QStringLiteral("selectedFiles"),
+             QVariantMap{{QStringLiteral("model"), QStringLiteral("Qwen3.5-2B-Q8_0.gguf")}}},
             {QStringLiteral("maxAttempts"), 99},
             {QStringLiteral("temperature"), 4.0}
         });
@@ -40,6 +44,13 @@ void TestDubbingProject::normalizesLmStudioTranslationFixConfiguration()
     QVERIFY(config.value(QStringLiteral("configured")).toBool());
     QCOMPARE(config.value(QStringLiteral("model")).toString(),
              QStringLiteral("qwen3.5-2b"));
+    QCOMPARE(config.value(QStringLiteral("runtimeId")).toString(),
+             QStringLiteral("llama-win-x86_64-cuda-12.4"));
+    QCOMPARE(config.value(QStringLiteral("runtimeVersion")).toString(),
+             QStringLiteral("b10036"));
+    QCOMPARE(config.value(QStringLiteral("selectedFiles")).toMap()
+                 .value(QStringLiteral("model")).toString(),
+             QStringLiteral("Qwen3.5-2B-Q8_0.gguf"));
     QCOMPARE(config.value(QStringLiteral("maxAttempts")).toInt(), 8);
     QCOMPARE(config.value(QStringLiteral("temperature")).toDouble(), 1.5);
     QCOMPARE(
