@@ -14,6 +14,11 @@
 #include "controllers/models/ModelSessionRegistry.h"
 #include "controllers/models/StudioConfigurationResolver.h"
 #include "controllers/models/CapabilitySettingsSchema.h"
+#include "controllers/models/DownloadInstallService.h"
+#include "core/CapabilityFamilyModel.h"
+#include "core/DownloadManager.h"
+#include "core/ModelManager.h"
+#include "core/RuntimeManager.h"
 
 #include <QFileInfo>
 #include <QFile>
@@ -29,10 +34,26 @@
 #include <QSaveFile>
 #include <QStandardPaths>
 #include <QStringList>
+#include <QTimer>
 
 namespace LAStudio {
 
 namespace {
+
+QString automaticDefaultFamilyId(const QString &capabilityId)
+{
+    if (capabilityId == QStringLiteral("stt"))
+        return QStringLiteral("whisper.cpp");
+    if (capabilityId == QStringLiteral("voice-isolation"))
+        return QStringLiteral("sherpa-onnx-spleeter-2stems-fp16");
+    if (capabilityId == QStringLiteral("translation"))
+        return QStringLiteral("hy-mt2-1.8b");
+    if (capabilityId == QStringLiteral("llm-chat"))
+        return QStringLiteral("qwen3.5-2b");
+    if (capabilityId == QStringLiteral("tts"))
+        return QStringLiteral("omnivoice");
+    return {};
+}
 
 void unloadConflictingDubbingRuntime(ModelSessionRegistry *registry,
                                      const QString &capabilityId)
@@ -43,9 +64,11 @@ void unloadConflictingDubbingRuntime(ModelSessionRegistry *registry,
     if (capabilityId == QStringLiteral("tts") ||
         capabilityId == QStringLiteral("stt")) {
         conflictingCapabilities.append(QStringLiteral("translation"));
+        conflictingCapabilities.append(QStringLiteral("llm-chat"));
     } else if (capabilityId == QStringLiteral("translation")) {
         conflictingCapabilities.append(QStringLiteral("stt"));
         conflictingCapabilities.append(QStringLiteral("tts"));
+        conflictingCapabilities.append(QStringLiteral("llm-chat"));
     } else {
         return;
     }
@@ -153,10 +176,13 @@ DubbingController::DubbingController(SttSessionController *sttSession, TtsEngine
 {
 }
 
+DubbingController::~DubbingController() = default;
+
 DubbingController::DubbingController(SttSessionController *sttSession, TtsEngine *tts,
                                      TranslationEngine *translation,
                                      ModelManager *models, RuntimeManager *runtimes, QObject *parent)
-    : QObject(parent), m_sttSession(sttSession), m_tts(tts)
+    : QObject(parent), m_sttSession(sttSession), m_tts(tts),
+      m_models(models), m_runtimes(runtimes)
 {
     m_translation = translation;
     m_runner = new DubbingJobRunner(sttSession, tts, translation, models, runtimes, this);
@@ -183,9 +209,11 @@ DubbingController::DubbingController(SttSessionController *sttSession, TtsEngine
             if (!session) continue;
             connect(session, &IModelSession::stateChanged, this, [this]() {
                 emit workflowChanged();
+                scheduleAutomaticSetupAdvance();
             });
             connect(session, &IModelSession::activeConfigurationChanged, this, [this]() {
                 emit workflowChanged();
+                scheduleAutomaticSetupAdvance();
             });
         }
     }
@@ -197,6 +225,45 @@ DubbingController::DubbingController(SttSessionController *sttSession, TtsEngine
         emit processingChanged();
         emit errorChanged();
         emit workflowChanged();
+    });
+    connect(m_workflowRunner, &WorkflowGraphRunner::nodeStarted, this,
+            [this](const QString &nodeId) {
+        const QString visibleStep = visibleStepForNode(nodeId);
+        setCurrentStep(visibleStep);
+        if (m_workflowMode == QStringLiteral("automatic")) {
+            appendAutomaticEvent(QStringLiteral("Running %1").arg(visibleStep),
+                                 QStringLiteral("running"), nodeId);
+            setAutomaticStatus(QStringLiteral("Running node: %1").arg(visibleStep));
+        }
+    });
+    connect(m_workflowRunner, &WorkflowGraphRunner::nodeCompleted, this,
+            [this](const QString &nodeId, const QVariantMap &) {
+        if (m_workflowMode == QStringLiteral("automatic")) {
+            appendAutomaticEvent(QStringLiteral("Completed %1").arg(visibleStepForNode(nodeId)),
+                                 QStringLiteral("completed"), nodeId);
+            if (nodeId == QStringLiteral("transcribe")) {
+                if (auto *app = AppController::instance(); app && app->sessionRegistry()) {
+                    if (IModelSession *stt = app->sessionRegistry()->sessionForCapability(
+                            QStringLiteral("stt"))) {
+                        const QList<SessionConfiguration> loaded = stt->loadedConfigurations();
+                        for (const SessionConfiguration &configuration : loaded)
+                            stt->requestUnloadConfiguration(configuration.signature);
+                    }
+                }
+                appendAutomaticEvent(QStringLiteral("Releasing Whisper runtime before translation"),
+                                     QStringLiteral("running"), QStringLiteral("transcribe"));
+            } else if (nodeId == QStringLiteral("translate")) {
+                if (auto *app = AppController::instance(); app && app->sessionRegistry()) {
+                    if (IModelSession *translation = app->sessionRegistry()->sessionForCapability(
+                            QStringLiteral("translation"))) {
+                        const QList<SessionConfiguration> loaded = translation->loadedConfigurations();
+                        for (const SessionConfiguration &configuration : loaded)
+                            translation->requestUnloadConfiguration(configuration.signature);
+                    }
+                }
+                prepareAutomaticVoiceRuntime();
+            }
+        }
     });
     connect(m_workflowRunner, &WorkflowGraphRunner::reviewRequested, this, [this](const QVariantMap &request) {
         m_workflowReviewRequest = request;
@@ -225,6 +292,11 @@ DubbingController::DubbingController(SttSessionController *sttSession, TtsEngine
         m_activeReviewId.clear();
         m_workflowReviewRequest.clear();
         setCurrentStep(QStringLiteral("completed"));
+        if (m_workflowMode == QStringLiteral("automatic")) {
+            setAutomaticStatus(QStringLiteral("Final dubbed media is ready"));
+            appendAutomaticEvent(QStringLiteral("Final dubbed media is ready"),
+                                 QStringLiteral("completed"), QStringLiteral("export"));
+        }
         emit workflowChanged();
     });
     connect(m_workflowRunner, &WorkflowGraphRunner::failed, this, [this](const QString &) {
@@ -234,6 +306,57 @@ DubbingController::DubbingController(SttSessionController *sttSession, TtsEngine
         setWorkflowMode(QStringLiteral("idle"));
         emit workflowChanged();
     });
+
+    if (AppController::instance()) {
+        if (auto *downloads = AppController::instance()->downloads()) {
+            connect(downloads, &DownloadManager::activeDownloadsChanged,
+                    this, &DubbingController::scheduleAutomaticSetupAdvance);
+            connect(downloads, &DownloadManager::error, this,
+                    [this](const QString &, const QString &, const QString &message) {
+                if (m_automaticSetupActive) finishAutomaticSetupFailure(message);
+            });
+        }
+        if (auto *install = AppController::instance()->downloadInstall()) {
+            connect(install, &DownloadInstallService::installStatesChanged,
+                    this, &DubbingController::scheduleAutomaticSetupAdvance);
+        }
+        if (auto *registry = AppController::instance()->sessionRegistry()) {
+            const auto watchAutomaticLoad = [this, registry](const QString &capabilityId,
+                                                              const QString &nodeId) {
+                IModelSession *session = registry->sessionForCapability(capabilityId);
+                if (!session) return;
+                connect(session, &IModelSession::errorOccurred, this,
+                        [this, capabilityId, nodeId](const QString &message) {
+                    if (!m_automaticSetupActive) return;
+                    const QVariantMap configuration =
+                        m_workflowNodeConfigurations.value(nodeId).toMap();
+                    const QString familyId = configuration.value(
+                        QStringLiteral("familyId")).toString();
+                    if (!familyId.isEmpty() && m_automaticConfiguredNodes.contains(nodeId)) {
+                        appendAutomaticEvent(
+                            QStringLiteral("Required default model %1 failed to load")
+                                .arg(familyId),
+                            QStringLiteral("failed"), nodeId);
+                        finishAutomaticSetupFailure(
+                            QStringLiteral("Failed to load required default model %1: %2")
+                                .arg(familyId, message));
+                        return;
+                    }
+                    finishAutomaticSetupFailure(
+                        QStringLiteral("Failed to load %1 model: %2")
+                            .arg(capabilityId, message));
+                });
+            };
+            watchAutomaticLoad(QStringLiteral("stt"), QStringLiteral("transcribe"));
+            watchAutomaticLoad(QStringLiteral("tts"), QStringLiteral("synthesize"));
+        }
+    }
+    if (m_models)
+        connect(m_models, &ModelManager::registryUpdated,
+                this, &DubbingController::scheduleAutomaticSetupAdvance);
+    if (m_runtimes)
+        connect(m_runtimes, &RuntimeManager::registryUpdated,
+                this, &DubbingController::scheduleAutomaticSetupAdvance);
 
     connect(m_runner, &DubbingJobRunner::stateChanged, this, [this]() {
         emit processingChanged();
@@ -288,6 +411,9 @@ DubbingController::DubbingController(SttSessionController *sttSession, TtsEngine
         }
         if (m_workflowMode == QStringLiteral("step")
             && (!m_workflowRunner || !m_workflowRunner->running())) {
+            clearError();
+            setAutomaticStatus(
+                QStringLiteral("Manual node completed: %1").arg(visibleStepForNode(nodeId)));
             advanceManualStep(nodeId);
         }
         emit workflowChanged();
@@ -296,23 +422,48 @@ DubbingController::DubbingController(SttSessionController *sttSession, TtsEngine
 
 bool DubbingController::processing() const
 {
-    return (m_translationFix && m_translationFix->busy())
+    return m_automaticSetupActive
+        || (m_translationFix && m_translationFix->busy())
         || m_runner->processing()
         || (m_workflowRunner && m_workflowRunner->running());
 }
 
 QString DubbingController::stage() const
 {
+    if (m_automaticSetupActive) return QStringLiteral("model-setup");
     if (m_translationFix && m_translationFix->busy())
         return QStringLiteral("translation-fix");
+    if (m_workflowRunner && m_workflowRunner->running()
+        && !m_workflowRunner->activeNodeId().isEmpty())
+        return m_workflowRunner->activeNodeId();
     return m_runner->stage();
 }
 
 int DubbingController::progress() const
 {
+    if (m_automaticSetupActive) {
+        const auto *app = AppController::instance();
+        const QVariantList downloads = app && app->downloads()
+            ? app->downloads()->activeDownloads() : QVariantList();
+        if (downloads.isEmpty()) return 5;
+        qint64 received = 0;
+        qint64 total = 0;
+        for (const QVariant &entry : downloads) {
+            const QVariantMap download = entry.toMap();
+            received += download.value(QStringLiteral("bytesReceived")).toLongLong();
+            total += download.value(QStringLiteral("bytesTotal")).toLongLong();
+        }
+        return total > 0 ? qBound(5, 5 + int(received * 15 / total), 20) : 8;
+    }
     if (m_translationFix && m_translationFix->busy())
         return m_translationFix->progress();
     return m_workflowRunner && m_workflowRunner->running() ? m_workflowRunner->progress() : m_runner->progress();
+}
+
+bool DubbingController::settingsLocked() const
+{
+    return m_automaticSetupActive
+        || (m_workflowMode == QStringLiteral("automatic") && processing());
 }
 
 QString DubbingController::lastError() const
@@ -488,6 +639,12 @@ QVariantList DubbingController::workflowNodes() const
         if (workflowWaitingForInput() && definition.id == m_workflowRunner->activeNodeId()) {
             state = QStringLiteral("waiting_for_input");
             detail = QStringLiteral("Review is waiting for your decision");
+        } else if (m_workflowRunner && m_workflowRunner->running()
+                   && definition.id == m_workflowRunner->activeNodeId()) {
+            state = QStringLiteral("running");
+            detail = m_workflowMode != QStringLiteral("automatic")
+                    || m_automaticStatusText.isEmpty()
+                ? QStringLiteral("Node is running") : m_automaticStatusText;
         }
         QVariantMap item = node(definition.id, definition.title, state, detail, provider).toMap();
         item.insert(QStringLiteral("parameters"), definition.parameters);
@@ -566,10 +723,20 @@ bool DubbingController::workflowReady() const
             break;
         }
     }
+    bool configuredTranslationReady = false;
+    if (translationConfigured) {
+        const QVariantMap selected = m_workflowNodeConfigurations
+                                         .value(QStringLiteral("translate")).toMap();
+        StudioConfiguration configuration;
+        configuration.capabilityId = QStringLiteral("translation");
+        configuration.familyId = selected.value(QStringLiteral("familyId")).toString();
+        configuration.runtimeId = selected.value(QStringLiteral("runtimeId")).toString();
+        configuration.runtimeVersion = selected.value(QStringLiteral("runtimeVersion")).toString();
+        configuration.selectedFiles = selected.value(QStringLiteral("selectedFiles")).toMap();
+        configuredTranslationReady = StudioConfigurationResolver::resolve(configuration).isValid;
+    }
     const bool translationReady = !translationConfigured || translatedArtifactReady
-        || (AppController::instance() && AppController::instance()->sessionRegistry()
-            && AppController::instance()->sessionRegistry()->sessionForCapability(QStringLiteral("translation"))
-            && AppController::instance()->sessionRegistry()->sessionForCapability(QStringLiteral("translation"))->canProcess());
+        || configuredTranslationReady;
     return workflowGraphValid()
         && !m_project.sourceMediaPath.isEmpty()
         && !m_project.targetLanguage.trimmed().isEmpty()
@@ -583,6 +750,17 @@ bool DubbingController::setWorkflowNodeModel(const QString &nodeId,
                                              const QString &runtimeId,
                                              const QString &runtimeVersion,
                                              const QVariantMap &selectedFiles)
+{
+    return configureWorkflowNodeModel(nodeId, familyId, runtimeId, runtimeVersion,
+                                      selectedFiles, true);
+}
+
+bool DubbingController::configureWorkflowNodeModel(const QString &nodeId,
+                                                   const QString &familyId,
+                                                   const QString &runtimeId,
+                                                   const QString &runtimeVersion,
+                                                   const QVariantMap &selectedFiles,
+                                                   bool loadSession)
 {
     QString capabilityId;
     if (nodeId == QStringLiteral("source-separate")) capabilityId = QStringLiteral("voice-isolation");
@@ -665,9 +843,11 @@ bool DubbingController::setWorkflowNodeModel(const QString &nodeId,
                           {QStringLiteral("studioConfig"),
                            family.value(QStringLiteral("studio")).toMap().value(capabilityId)}};
     m_workflowNodeConfigurations.insert(nodeId, selected);
-    unloadConflictingDubbingRuntime(app->sessionRegistry(), capabilityId);
-    if (IModelSession *session = app->sessionRegistry()->sessionForCapability(capabilityId)) {
-        session->requestLoad(capabilityId, config);
+    if (loadSession) {
+        unloadConflictingDubbingRuntime(app->sessionRegistry(), capabilityId);
+        if (IModelSession *session = app->sessionRegistry()->sessionForCapability(capabilityId)) {
+            session->requestLoad(capabilityId, config);
+        }
     }
     Logger::info(QStringLiteral("DubbingController"),
                  QStringLiteral("Workflow node model changed node=%1 family=%2 runtime=%3")
@@ -730,6 +910,8 @@ bool DubbingController::setWorkflowNodeParameters(const QString &nodeId, const Q
 
 QString DubbingController::workflowStatusText() const
 {
+    if (processing() && m_workflowMode == QStringLiteral("automatic")
+        && !m_automaticStatusText.isEmpty()) return m_automaticStatusText;
     if (processing()) return QStringLiteral("Running %1 (%2%)").arg(stage()).arg(progress());
     if (workflowReady()) return QStringLiteral("Workflow configured and ready to run");
     return QStringLiteral("Configure media, transcript, target text, and a TTS model");
@@ -776,13 +958,7 @@ QVariantMap DubbingController::workflowReviewRequest() const
 QString DubbingController::currentStepId() const
 {
     if (m_workflowRunner && m_workflowRunner->running()) {
-        const QString active = m_workflowRunner->activeNodeId();
-        if (active == QStringLiteral("media-input")) return QStringLiteral("import");
-        if (active == QStringLiteral("review-transcript")) return QStringLiteral("transcribe");
-        if (active == QStringLiteral("review-translation")) return QStringLiteral("translate");
-        if (active == QStringLiteral("assign-voices") || active == QStringLiteral("fit-timing")) return QStringLiteral("synthesize");
-        if (active == QStringLiteral("review-conflicts")) return QStringLiteral("mix");
-        return active;
+        return visibleStepForNode(m_workflowRunner->activeNodeId());
     }
     return m_currentStepId;
 }
@@ -832,6 +1008,352 @@ void DubbingController::prepareWorkflow()
     emit workflowChanged();
 }
 
+QString DubbingController::visibleStepForNode(const QString &nodeId)
+{
+    if (nodeId == QStringLiteral("media-input")) return QStringLiteral("import");
+    if (nodeId == QStringLiteral("review-transcript")) return QStringLiteral("transcribe");
+    if (nodeId == QStringLiteral("review-translation")) return QStringLiteral("translate");
+    if (nodeId == QStringLiteral("assign-voices")) return QStringLiteral("synthesize");
+    if (nodeId == QStringLiteral("fit-timing")
+        || nodeId == QStringLiteral("review-conflicts")) return QStringLiteral("mix");
+    return nodeId;
+}
+
+void DubbingController::setAutomaticStatus(const QString &message)
+{
+    if (m_automaticStatusText == message) return;
+    m_automaticStatusText = message;
+    emit workflowChanged();
+}
+
+void DubbingController::appendAutomaticEvent(const QString &message,
+                                             const QString &state,
+                                             const QString &nodeId)
+{
+    if (message.trimmed().isEmpty()) return;
+    if (!m_automaticEvents.isEmpty()) {
+        const QVariantMap last = m_automaticEvents.constLast().toMap();
+        if (last.value(QStringLiteral("message")).toString() == message
+            && last.value(QStringLiteral("state")).toString() == state)
+            return;
+    }
+    m_automaticEvents.append(QVariantMap{
+        {QStringLiteral("message"), message},
+        {QStringLiteral("state"), state},
+        {QStringLiteral("nodeId"), nodeId},
+        {QStringLiteral("timestamp"), QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss"))}
+    });
+    while (m_automaticEvents.size() > 40) m_automaticEvents.removeFirst();
+    emit workflowChanged();
+}
+
+CapabilityFamilyModel *DubbingController::automaticModel(const QString &capabilityId)
+{
+    AppController *app = AppController::instance();
+    if (!app) return nullptr;
+    std::unique_ptr<CapabilityFamilyModel> *holder = nullptr;
+    if (capabilityId == QStringLiteral("stt")) holder = &m_automaticSttModel;
+    else if (capabilityId == QStringLiteral("voice-isolation"))
+        holder = &m_automaticVoiceIsolationModel;
+    else if (capabilityId == QStringLiteral("translation")) holder = &m_automaticTranslationModel;
+    else if (capabilityId == QStringLiteral("tts")) holder = &m_automaticTtsModel;
+    else if (capabilityId == QStringLiteral("llm-chat")) holder = &m_automaticLlmModel;
+    if (!holder) return nullptr;
+    if (!*holder) {
+        *holder = std::make_unique<CapabilityFamilyModel>(
+            m_models, m_runtimes, app->registry(), app->settings(), this);
+        (*holder)->setCapability(capabilityId);
+    }
+    (*holder)->refresh();
+    return holder->get();
+}
+
+bool DubbingController::ensureAutomaticModel(const QString &nodeId,
+                                             const QString &capabilityId,
+                                             bool loadSession)
+{
+    CapabilityFamilyModel *model = automaticModel(capabilityId);
+    AppController *app = AppController::instance();
+    if (!model || !app || !app->downloadInstall() || !app->sessionRegistry()) {
+        finishAutomaticSetupFailure(
+            QStringLiteral("Automatic model setup is unavailable for %1.").arg(capabilityId));
+        return false;
+    }
+
+    QVariantMap configuration = m_workflowNodeConfigurations.value(nodeId).toMap();
+    QVariantMap recommendation;
+    if (configuration.isEmpty()) {
+        recommendation = model->configurationForFamily(
+            automaticDefaultFamilyId(capabilityId));
+        if (recommendation.isEmpty()) {
+            finishAutomaticSetupFailure(
+                QStringLiteral("The required default model %1 is not available for %2.")
+                    .arg(automaticDefaultFamilyId(capabilityId), capabilityId));
+            return false;
+        }
+    } else {
+        recommendation = {
+            {QStringLiteral("familyId"), configuration.value(QStringLiteral("familyId"))},
+            {QStringLiteral("runtimeId"), configuration.value(QStringLiteral("runtimeId"))},
+            {QStringLiteral("runtimeVersion"), configuration.value(QStringLiteral("runtimeVersion"))},
+            {QStringLiteral("selectedFiles"), configuration.value(QStringLiteral("selectedFiles"))}
+        };
+        model->setInitialSelectedFiles(recommendation.value(QStringLiteral("familyId")).toString(),
+                                       recommendation.value(QStringLiteral("selectedFiles")).toMap());
+        model->setSelectedFamilyId(recommendation.value(QStringLiteral("familyId")).toString());
+        model->refresh();
+    }
+
+    const QString familyId = recommendation.value(QStringLiteral("familyId")).toString();
+    QVariantMap familyItem = model->itemForFamily(familyId);
+    if (familyItem.isEmpty()) {
+        appendAutomaticEvent(
+            QStringLiteral("Discarded stale %1 model setting: %2").arg(capabilityId, familyId),
+            QStringLiteral("warning"), nodeId);
+        m_workflowNodeConfigurations.remove(nodeId);
+        m_automaticConfiguredNodes.remove(nodeId);
+        scheduleAutomaticSetupAdvance();
+        return false;
+    }
+
+    // A saved workflow may reference a model variant that has since been
+    // removed from the compatibility catalog. Replace only those stale roles
+    // with the currently supported selection so automatic runs can download
+    // and use the compatible file without requiring manual reconfiguration.
+    QVariantMap recommendedFiles = recommendation.value(QStringLiteral("selectedFiles")).toMap();
+    const QVariantMap supportedFiles = familyItem.value(QStringLiteral("selectedFiles")).toMap();
+    for (const QVariant &requirementValue : familyItem.value(QStringLiteral("requiredFiles")).toList()) {
+        const QVariantMap requirement = requirementValue.toMap();
+        const QString role = requirement.value(QStringLiteral("role")).toString();
+        const QString selectedFile = recommendedFiles.value(role).toString();
+        const QVariantList candidates = requirement.value(QStringLiteral("candidates")).toList();
+        const QString defaultFile = requirement.value(QStringLiteral("file")).toString();
+        const bool supported = candidates.isEmpty()
+            ? selectedFile == defaultFile : candidates.contains(selectedFile);
+        if (selectedFile.isEmpty() || !supported)
+            recommendedFiles.insert(role, supportedFiles.value(role, defaultFile));
+    }
+    recommendation.insert(QStringLiteral("selectedFiles"), recommendedFiles);
+
+    if (!familyItem.value(QStringLiteral("ready")).toBool()) {
+        if (!m_automaticDownloadsQueued.contains(capabilityId)) {
+            if (!app->downloadInstall()->enqueueRecommendedSetup(familyItem)) {
+                finishAutomaticSetupFailure(
+                    QStringLiteral("Could not start the %1 model download.").arg(capabilityId));
+                return false;
+            }
+            m_automaticDownloadsQueued.insert(capabilityId);
+            appendAutomaticEvent(
+                QStringLiteral("Downloading the default %1 model and runtime").arg(capabilityId),
+                QStringLiteral("downloading"), nodeId);
+        }
+        setAutomaticStatus(
+            QStringLiteral("Preparing %1 model: %2").arg(capabilityId,
+                familyItem.value(QStringLiteral("displayName"), familyId).toString()));
+        return false;
+    }
+
+    m_automaticDownloadsQueued.remove(capabilityId);
+    const QString runtimeId = recommendation.value(
+        QStringLiteral("runtimeId"), familyItem.value(QStringLiteral("selectedRuntimeId"))).toString();
+    const QString runtimeVersion = recommendation.value(
+        QStringLiteral("runtimeVersion"), familyItem.value(QStringLiteral("selectedRuntimeVersion"))).toString();
+    const QVariantMap selectedFiles = recommendation.value(
+        QStringLiteral("selectedFiles"), familyItem.value(QStringLiteral("selectedFiles"))).toMap();
+
+    if (!loadSession) {
+        StudioConfiguration selected;
+        selected.capabilityId = capabilityId;
+        selected.familyId = familyId;
+        selected.runtimeId = runtimeId;
+        selected.runtimeVersion = runtimeVersion;
+        selected.selectedFiles = selectedFiles;
+        if (!StudioConfigurationResolver::resolve(selected).isValid) return false;
+        if (configuration.isEmpty()) {
+            if (!configureWorkflowNodeModel(nodeId, familyId, runtimeId,
+                                            runtimeVersion, selectedFiles, false))
+                return false;
+            m_automaticConfiguredNodes.insert(nodeId);
+        }
+        return true;
+    }
+
+    IModelSession *session = app->sessionRegistry()->sessionForCapability(capabilityId);
+    if (session && session->canProcess()) return true;
+    if (session && (session->state() == ModelSessionState::Loading
+                    || session->state() == ModelSessionState::Processing)) {
+        setAutomaticStatus(QStringLiteral("Loading %1 model into memory").arg(capabilityId));
+        return false;
+    }
+    setAutomaticStatus(QStringLiteral("Loading %1 model into memory").arg(capabilityId));
+    const bool automaticallySelected = configuration.isEmpty();
+    if (automaticallySelected) m_automaticConfiguredNodes.insert(nodeId);
+    const bool configured = configureWorkflowNodeModel(
+        nodeId, familyId, runtimeId, runtimeVersion, selectedFiles, true);
+    if (!configured && automaticallySelected) m_automaticConfiguredNodes.remove(nodeId);
+    return configured && session && session->canProcess();
+}
+
+bool DubbingController::ensureAutomaticAdaptiveModel()
+{
+    if (m_project.dubbingQuality != QStringLiteral("adaptive")) return true;
+    if (adaptiveReady()) return true;
+    CapabilityFamilyModel *model = automaticModel(QStringLiteral("llm-chat"));
+    AppController *app = AppController::instance();
+    if (!model || !app || !app->downloadInstall()) {
+        finishAutomaticSetupFailure(QStringLiteral("Automatic Adaptive model setup is unavailable."));
+        return false;
+    }
+    const QVariantMap recommendation = model->configurationForFamily(
+        automaticDefaultFamilyId(QStringLiteral("llm-chat")));
+    if (recommendation.isEmpty()) {
+        finishAutomaticSetupFailure(QStringLiteral("No compatible local LLM is available for Adaptive quality."));
+        return false;
+    }
+    const QString familyId = recommendation.value(QStringLiteral("familyId")).toString();
+    const QVariantMap item = model->itemForFamily(familyId);
+    if (!item.value(QStringLiteral("ready")).toBool()) {
+        if (!m_automaticDownloadsQueued.contains(QStringLiteral("llm-chat"))) {
+            if (!app->downloadInstall()->enqueueRecommendedSetup(item)) {
+                finishAutomaticSetupFailure(QStringLiteral("Could not start the Adaptive LLM download."));
+                return false;
+            }
+            m_automaticDownloadsQueued.insert(QStringLiteral("llm-chat"));
+            appendAutomaticEvent(QStringLiteral("Downloading the default Adaptive LLM"),
+                                 QStringLiteral("downloading"), QStringLiteral("translate"));
+        }
+        setAutomaticStatus(QStringLiteral("Preparing Adaptive quality model: %1")
+                               .arg(item.value(QStringLiteral("displayName"), familyId).toString()));
+        return false;
+    }
+    QVariantMap configuration{
+        {QStringLiteral("provider"), QStringLiteral("local")},
+        {QStringLiteral("configured"), true},
+        {QStringLiteral("model"), familyId},
+        {QStringLiteral("runtimeId"), recommendation.value(QStringLiteral("runtimeId"))},
+        {QStringLiteral("runtimeVersion"), recommendation.value(QStringLiteral("runtimeVersion"))},
+        {QStringLiteral("selectedFiles"), recommendation.value(QStringLiteral("selectedFiles"))},
+        {QStringLiteral("maxAttempts"), m_project.durationControl.value(QStringLiteral("maxPreTtsIterations"), 4)},
+        {QStringLiteral("temperature"), 0.35}
+    };
+    m_translationFix->setConfiguration(configuration);
+    m_runner->setTranslationFixConfiguration(m_translationFix->configuration());
+    appendAutomaticEvent(QStringLiteral("Adaptive LLM is configured"),
+                         QStringLiteral("completed"), QStringLiteral("translate"));
+    return true;
+}
+
+void DubbingController::scheduleAutomaticSetupAdvance()
+{
+    if (!m_automaticSetupActive || m_automaticAdvanceScheduled) return;
+    m_automaticAdvanceScheduled = true;
+    QTimer::singleShot(100, this, [this]() {
+        m_automaticAdvanceScheduled = false;
+        advanceAutomaticSetup();
+    });
+}
+
+void DubbingController::prepareAutomaticVoiceRuntime()
+{
+    if (m_workflowMode != QStringLiteral("automatic")
+        || !m_workflowRunner || !m_workflowRunner->running())
+        return;
+    AppController *app = AppController::instance();
+    if (!app || !app->sessionRegistry()) return;
+    for (const QString &capabilityId : {QStringLiteral("stt"),
+                                        QStringLiteral("translation")}) {
+        IModelSession *session = app->sessionRegistry()->sessionForCapability(capabilityId);
+        if (session && (session->state() == ModelSessionState::Loading
+                        || session->state() == ModelSessionState::Processing
+                        || session->state() == ModelSessionState::Unloading
+                        || !session->loadedConfigurations().isEmpty())) {
+            QTimer::singleShot(100, this, &DubbingController::prepareAutomaticVoiceRuntime);
+            return;
+        }
+    }
+    IModelSession *tts = app->sessionRegistry()->sessionForCapability(QStringLiteral("tts"));
+    if (tts && (tts->canProcess() || tts->state() == ModelSessionState::Loading)) return;
+    setAutomaticStatus(QStringLiteral("Loading OmniVoice for the Voice node"));
+    appendAutomaticEvent(QStringLiteral("Loading OmniVoice for voice generation"),
+                         QStringLiteral("loading"), QStringLiteral("synthesize"));
+    if (!loadWorkflowNodeModel(QStringLiteral("synthesize"))) {
+        setError(QStringLiteral("Could not load OmniVoice for the Voice node."));
+        if (m_workflowRunner->running()) m_workflowRunner->cancel();
+    }
+}
+
+void DubbingController::finishAutomaticSetupFailure(const QString &message)
+{
+    if (!m_automaticSetupActive) return;
+    m_automaticSetupActive = false;
+    m_automaticOutputPath.clear();
+    m_automaticDownloadsQueued.clear();
+    m_automaticConfiguredNodes.clear();
+    setWorkflowMode(QStringLiteral("idle"));
+    setError(message);
+    setAutomaticStatus(message);
+    appendAutomaticEvent(message, QStringLiteral("failed"));
+    emit processingChanged();
+    emit workflowChanged();
+}
+
+void DubbingController::advanceAutomaticSetup()
+{
+    if (!m_automaticSetupActive) return;
+    if (auto *app = AppController::instance(); app && app->sessionRegistry()) {
+        bool waitingForRelease = false;
+        for (const QString &capabilityId : {QStringLiteral("tts"),
+                                            QStringLiteral("translation"),
+                                            QStringLiteral("llm-chat")}) {
+            IModelSession *session = app->sessionRegistry()->sessionForCapability(capabilityId);
+            if (!session) continue;
+            const QList<SessionConfiguration> loaded = session->loadedConfigurations();
+            for (const SessionConfiguration &configuration : loaded)
+                session->requestUnloadConfiguration(configuration.signature);
+            waitingForRelease = waitingForRelease || !loaded.isEmpty()
+                || session->state() == ModelSessionState::Loading
+                || session->state() == ModelSessionState::Processing
+                || session->state() == ModelSessionState::Unloading;
+        }
+        if (waitingForRelease) {
+            setAutomaticStatus(QStringLiteral("Releasing previously loaded native runtimes"));
+            scheduleAutomaticSetupAdvance();
+            return;
+        }
+    }
+    if (!ensureAutomaticModel(QStringLiteral("source-separate"),
+                              QStringLiteral("voice-isolation"), false)) return;
+    appendAutomaticEvent(QStringLiteral("Voice isolation model is ready"),
+                         QStringLiteral("completed"), QStringLiteral("source-separate"));
+    if (!ensureAutomaticModel(QStringLiteral("transcribe"), QStringLiteral("stt"), true)) return;
+    appendAutomaticEvent(QStringLiteral("Speech-to-text model is ready"),
+                         QStringLiteral("completed"), QStringLiteral("transcribe"));
+    if (!ensureAutomaticModel(QStringLiteral("translate"), QStringLiteral("translation"), false)) return;
+    appendAutomaticEvent(QStringLiteral("Translation model is ready"),
+                         QStringLiteral("completed"), QStringLiteral("translate"));
+    if (!ensureAutomaticModel(QStringLiteral("synthesize"), QStringLiteral("tts"), false)) return;
+    appendAutomaticEvent(QStringLiteral("OmniVoice is configured for the Voice node"),
+                         QStringLiteral("completed"), QStringLiteral("synthesize"));
+    if (!ensureAutomaticAdaptiveModel()) return;
+
+    const QString outputPath = m_automaticOutputPath;
+    m_automaticSetupActive = false;
+    m_automaticDownloadsQueued.clear();
+    m_automaticConfiguredNodes.clear();
+    setAutomaticStatus(QStringLiteral("Models ready. Starting the dubbing workflow."));
+    appendAutomaticEvent(QStringLiteral("All required models are ready"),
+                         QStringLiteral("completed"));
+    emit processingChanged();
+    emit workflowChanged();
+    if (m_runner) m_runner->setTranslationFixConfiguration(translationFixConfiguration());
+    setCurrentStep(QStringLiteral("ingest"));
+    if (!runWorkflow(outputPath)) {
+        setWorkflowMode(QStringLiteral("idle"));
+        setAutomaticStatus(lastError());
+        appendAutomaticEvent(lastError(), QStringLiteral("failed"));
+    }
+}
+
 bool DubbingController::runWorkflow(const QString &outputPath)
 {
     if (!m_workflowRunner || m_workflowRunner->running()) return false;
@@ -866,6 +1388,11 @@ bool DubbingController::runWorkflow(const QString &outputPath)
         if (node.id == QStringLiteral("media-input")) {
             node.parameters.insert(QStringLiteral("value"), m_project.sourceMediaPath);
             node.properties.insert(QStringLiteral("value"), m_project.sourceMediaPath);
+        } else if (node.id == QStringLiteral("transcribe")) {
+            node.parameters.insert(QStringLiteral("language"),
+                                   m_project.sourceLanguage.trimmed().isEmpty()
+                                       ? QStringLiteral("auto") : m_project.sourceLanguage);
+            node.properties = node.parameters;
         } else if (node.id == QStringLiteral("translate")) {
             node.parameters.insert(QStringLiteral("sourceLanguage"), m_project.sourceLanguage);
             node.parameters.insert(QStringLiteral("targetLanguage"), m_project.targetLanguage);
@@ -904,16 +1431,49 @@ bool DubbingController::runWorkflow(const QString &outputPath)
 
 bool DubbingController::startAutomaticWorkflow(const QString &outputPath)
 {
-    if (m_project.dubbingQuality == QStringLiteral("adaptive") && !adaptiveReady()) {
-        setError(QStringLiteral("Configure the Adaptive LLM provider before generating the final dub."));
+    if (processing()) return false;
+    const QString destination = PathUtils::urlToLocalPath(outputPath).trimmed();
+    if (destination.isEmpty()) {
+        setError(QStringLiteral("Choose an output path before generating the final dub."));
         return false;
     }
-    if (m_runner) m_runner->setTranslationFixConfiguration(translationFixConfiguration());
+    if (!workflowGraphValid() || m_project.sourceMediaPath.trimmed().isEmpty()) {
+        setError(QStringLiteral("Import source media before generating the final dub."));
+        return false;
+    }
+    clearError();
     setWorkflowMode(QStringLiteral("automatic"));
-    setCurrentStep(QStringLiteral("ingest"));
-    if (runWorkflow(outputPath)) return true;
-    setWorkflowMode(QStringLiteral("idle"));
-    return false;
+    setCurrentStep(QStringLiteral("import"));
+    m_automaticOutputPath = destination;
+    m_automaticSetupActive = true;
+    m_automaticEvents.clear();
+    m_automaticDownloadsQueued.clear();
+    m_automaticConfiguredNodes.clear();
+    setAutomaticStatus(QStringLiteral("Checking required models and runtimes"));
+    appendAutomaticEvent(QStringLiteral("Checking required models and runtimes"),
+                         QStringLiteral("running"));
+    emit processingChanged();
+    emit workflowChanged();
+    scheduleAutomaticSetupAdvance();
+    return true;
+}
+
+void DubbingController::pauseAutomaticWorkflow()
+{
+    if (m_workflowMode != QStringLiteral("automatic") || !processing()) return;
+    m_automaticSetupActive = false;
+    m_automaticOutputPath.clear();
+    m_automaticDownloadsQueued.clear();
+    m_automaticConfiguredNodes.clear();
+    if (m_translationFix) m_translationFix->cancel();
+    if (m_workflowRunner && m_workflowRunner->running()) m_workflowRunner->cancel();
+    if (m_runner) m_runner->cancel();
+    setWorkflowMode(QStringLiteral("paused"));
+    setAutomaticStatus(QStringLiteral("Paused. Settings are unlocked; Generate resumes the workflow."));
+    appendAutomaticEvent(QStringLiteral("Automatic generation paused"),
+                         QStringLiteral("paused"), currentStepId());
+    emit processingChanged();
+    emit workflowChanged();
 }
 
 void DubbingController::startStepByStep()
@@ -1016,8 +1576,13 @@ bool DubbingController::rerunStep(const QString &stepId, const QString &outputPa
         return false;
     }
 
+    clearError();
+    m_automaticEvents.clear();
     setWorkflowMode(QStringLiteral("step"));
     setCurrentStep(step);
+    setAutomaticStatus(QStringLiteral("Running manual node: %1").arg(visibleStepForNode(step)));
+    appendAutomaticEvent(QStringLiteral("Running manual node: %1").arg(visibleStepForNode(step)),
+                         QStringLiteral("running"), step);
     Logger::info(QStringLiteral("DubbingController"),
                  QStringLiteral("Rerun step step=%1 output=%2 project=%3")
                      .arg(step, outputPath, m_project.projectPath));
@@ -1408,10 +1973,24 @@ void DubbingController::generateAudio()
 
 void DubbingController::cancelProcessing()
 {
+    const bool wasAutomatic = m_workflowMode == QStringLiteral("automatic")
+        || m_automaticSetupActive;
+    m_automaticSetupActive = false;
+    m_automaticOutputPath.clear();
+    m_automaticDownloadsQueued.clear();
+    m_automaticConfiguredNodes.clear();
     m_pendingExportPath.clear();
     if (m_translationFix) m_translationFix->cancel();
     if (m_workflowRunner && m_workflowRunner->running()) m_workflowRunner->cancel();
     m_runner->cancel();
+    if (wasAutomatic) {
+        setWorkflowMode(QStringLiteral("idle"));
+        setAutomaticStatus(QStringLiteral("Automatic generation stopped"));
+        appendAutomaticEvent(QStringLiteral("Automatic generation stopped"),
+                             QStringLiteral("stopped"), currentStepId());
+    }
+    emit processingChanged();
+    emit workflowChanged();
 }
 
 bool DubbingController::fixTranslations(const QVariantMap &configuration)

@@ -367,6 +367,8 @@ def normalize_model_yaml_family(raw, source_path):
             }
             if base.get("key"):
                 requirement["modelKey"] = base["key"]
+            if base.get("preferDefault"):
+                requirement["preferDefault"] = True
             if first_source_model_id and first_source_model_id != model_id:
                 requirement["modelId"] = first_source_model_id
 
@@ -584,7 +586,7 @@ def generate_catalog(fetch_hf_stats=False):
     # Final catalog structure
     catalog = {
         "schemaVersion": "1.0.0",
-        "version": "0.1.12",
+        "version": "0.1.14",
         "modelPicks": model_picks,
         "modelCategories": model_categories,
         "ttsFamilies": tts_families,

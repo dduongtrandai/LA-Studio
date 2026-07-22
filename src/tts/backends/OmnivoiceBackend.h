@@ -26,8 +26,18 @@ public:
 private:
     static bool handleProgress(int current, int total, const char *stage, int chunkIndex, int chunkCount, void *userData);
     static bool shouldCancel(void *userData);
+    bool synthesizeIsolated(const QString &text,
+                            const QString &referencePath,
+                            const QVariantMap &settings,
+                            QVector<float> &samples,
+                            int &sampleRate,
+                            QString &error);
 
     void *m_context = nullptr;
+    bool m_useIsolatedProcess = false;
+    QString m_cliPath;
+    QString m_modelPath;
+    QString m_codecPath;
     std::atomic<bool> m_cancelRequested {false};
     std::function<bool(int current, int total, const QString &stage, int chunkIndex, int chunkCount)> m_progressCallback;
 };

@@ -40,6 +40,11 @@ private:
 
     TtsEngine *m_tts = nullptr;
     bool m_running = false;
+    bool m_waitingForModel = false;
+    QVariantList m_pendingSegments;
+    QString m_pendingProjectPath;
+    QVariantMap m_pendingSettings;
+    QString m_pendingRunId;
     QVariantList m_segments;
     QString m_projectPath;
     QVariantMap m_settings;

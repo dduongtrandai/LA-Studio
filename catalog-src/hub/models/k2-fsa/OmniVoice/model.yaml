@@ -19,15 +19,17 @@ base:
     role: tokenizer
     name: Tokenizer / Audio Codec
     purpose: Audio tokenization
-    defaultFile: omnivoice-tokenizer-F32.gguf
+    defaultFile: omnivoice-tokenizer-BF16.gguf
+    preferDefault: true
     sources:
       - type: huggingface
         user: Serveurperso
         repo: OmniVoice-GGUF
         files:
+          - name: omnivoice-tokenizer-BF16.gguf
+            size: 356 MB
           - name: omnivoice-tokenizer-Q4_K_M.gguf
           - name: omnivoice-tokenizer-Q8_0.gguf
-          - name: omnivoice-tokenizer-BF16.gguf
           - name: omnivoice-tokenizer-F32.gguf
             size: 734 MB
 metadataOverrides:

@@ -69,6 +69,8 @@ public:
     Q_INVOKABLE QVariantMap itemForFamily(const QString &familyId) const;
     Q_INVOKABLE QString firstFamilyId() const;
     Q_INVOKABLE QVariantMap recommendedConfiguration() const;
+    QVariantMap configurationForFamily(const QString &familyId) const;
+    QVariantMap recommendedConfigurationExcluding(const QStringList &excludedFamilyIds) const;
     Q_INVOKABLE bool isFileInstalled(const QVariantMap &family, const QString &fileName, const QVariantMap &req) const;
     Q_INVOKABLE bool isModelSuitable(const QString &filename, const QVariantMap &family, const QVariantMap &requirement = QVariantMap()) const;
     Q_INVOKABLE QString estimateSize(const QString &filename, const QString &defaultFile, const QString &defaultSizeStr) const;

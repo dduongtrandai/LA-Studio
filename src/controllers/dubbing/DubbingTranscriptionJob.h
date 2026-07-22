@@ -22,7 +22,8 @@ public:
     ~DubbingTranscriptionJob() override;
 
     bool running() const { return m_running; }
-    bool start(const QString &language, const QString &audioPath);
+    bool start(const QString &language, const QString &audioPath,
+               const QString &fallbackAudioPath = QString());
     void cancel();
 
 signals:
@@ -36,6 +37,7 @@ private slots:
 
 private:
     void beginAlignment(const QVariantList &segments);
+    void startAudioInput(const QString &audioPath);
     void fail(const QString &message);
 
     SttSessionController *m_stt = nullptr;
@@ -44,9 +46,11 @@ private:
     QFutureWatcher<QVariantMap> *m_alignmentWatcher = nullptr;
     std::shared_ptr<QAtomicInteger<bool>> m_alignmentCancel;
     QString m_audioPath;
+    QString m_fallbackAudioPath;
     QString m_language;
     bool m_waitingForInput = false;
     bool m_running = false;
+    bool m_retriedWithFallback = false;
     quint64 m_generation = 0;
 };
 

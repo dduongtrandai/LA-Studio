@@ -18,6 +18,6 @@ OmniVoice is a massively multilingual zero-shot text-to-speech, voice cloning, a
 
 OmniVoice in LA Studio is a high-fidelity speech synthesis workflow. It downloads GGUF models from conversion repository `Serveurperso/OmniVoice-GGUF`. It needs:
 - Backbone: `omnivoice-base-Q8_0.gguf`
-- Tokenizer: `omnivoice-tokenizer-F32.gguf`
+- Default tokenizer: `omnivoice-tokenizer-BF16.gguf`
 
 It supports over 600 languages, zero-shot voice cloning, and description-based voice design. It also supports non-verbal tags like `[laughter]`, `[sigh]`, etc.

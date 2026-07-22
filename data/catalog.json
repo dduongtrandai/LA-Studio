@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "version": "0.1.12",
+  "version": "0.1.14",
   "modelPicks": [
     {
       "id": "lastudio-picks",
@@ -2985,25 +2985,27 @@
           "role": "tokenizer",
           "name": "Tokenizer / Audio Codec",
           "purpose": "Audio tokenization",
-          "file": "omnivoice-tokenizer-F32.gguf",
+          "file": "omnivoice-tokenizer-BF16.gguf",
           "candidates": [
+            "omnivoice-tokenizer-BF16.gguf",
             "omnivoice-tokenizer-Q4_K_M.gguf",
             "omnivoice-tokenizer-Q8_0.gguf",
-            "omnivoice-tokenizer-BF16.gguf",
             "omnivoice-tokenizer-F32.gguf"
           ],
           "modelKey": "Serveurperso/omnivoice-tokenizer",
+          "preferDefault": true,
           "modelId": "Serveurperso/OmniVoice-GGUF",
-          "size": "734 MB",
+          "size": "356 MB",
           "variants": [
+            {
+              "name": "omnivoice-tokenizer-BF16.gguf",
+              "size": "356 MB"
+            },
             {
               "name": "omnivoice-tokenizer-Q4_K_M.gguf"
             },
             {
               "name": "omnivoice-tokenizer-Q8_0.gguf"
-            },
-            {
-              "name": "omnivoice-tokenizer-BF16.gguf"
             },
             {
               "name": "omnivoice-tokenizer-F32.gguf",
@@ -3017,13 +3019,14 @@
               "repo": "OmniVoice-GGUF",
               "files": [
                 {
+                  "name": "omnivoice-tokenizer-BF16.gguf",
+                  "size": "356 MB"
+                },
+                {
                   "name": "omnivoice-tokenizer-Q4_K_M.gguf"
                 },
                 {
                   "name": "omnivoice-tokenizer-Q8_0.gguf"
-                },
-                {
-                  "name": "omnivoice-tokenizer-BF16.gguf"
                 },
                 {
                   "name": "omnivoice-tokenizer-F32.gguf",
@@ -3089,7 +3092,8 @@
             "role": "tokenizer",
             "name": "Tokenizer / Audio Codec",
             "purpose": "Audio tokenization",
-            "defaultFile": "omnivoice-tokenizer-F32.gguf",
+            "defaultFile": "omnivoice-tokenizer-BF16.gguf",
+            "preferDefault": true,
             "sources": [
               {
                 "type": "huggingface",
@@ -3097,13 +3101,14 @@
                 "repo": "OmniVoice-GGUF",
                 "files": [
                   {
+                    "name": "omnivoice-tokenizer-BF16.gguf",
+                    "size": "356 MB"
+                  },
+                  {
                     "name": "omnivoice-tokenizer-Q4_K_M.gguf"
                   },
                   {
                     "name": "omnivoice-tokenizer-Q8_0.gguf"
-                  },
-                  {
-                    "name": "omnivoice-tokenizer-BF16.gguf"
                   },
                   {
                     "name": "omnivoice-tokenizer-F32.gguf",
@@ -3161,7 +3166,7 @@
         },
         "readme": {
           "filename": "README.md",
-          "content": "# OmniVoice\n\nOmniVoice is a massively multilingual zero-shot text-to-speech, voice cloning, and voice design model family developed by `k2-fsa` on Hugging Face.\n\n## Links\n\n- Upstream model card: https://huggingface.co/k2-fsa/OmniVoice\n- Upstream GitHub: https://github.com/k2-fsa/sherpa-onnx\n\n## Model Facts\n\n- **Task:** Text-to-Speech, Zero-Shot Voice Cloning & Voice Design\n- **Parameters:** ~1B\n- **License:** Apache-2.0\n- **Architecture:** OmniVoice (GGUF)\n\n## LA Studio Notes\n\nOmniVoice in LA Studio is a high-fidelity speech synthesis workflow. It downloads GGUF models from conversion repository `Serveurperso/OmniVoice-GGUF`. It needs:\n- Backbone: `omnivoice-base-Q8_0.gguf`\n- Tokenizer: `omnivoice-tokenizer-F32.gguf`\n\nIt supports over 600 languages, zero-shot voice cloning, and description-based voice design. It also supports non-verbal tags like `[laughter]`, `[sigh]`, etc.\n"
+          "content": "# OmniVoice\n\nOmniVoice is a massively multilingual zero-shot text-to-speech, voice cloning, and voice design model family developed by `k2-fsa` on Hugging Face.\n\n## Links\n\n- Upstream model card: https://huggingface.co/k2-fsa/OmniVoice\n- Upstream GitHub: https://github.com/k2-fsa/sherpa-onnx\n\n## Model Facts\n\n- **Task:** Text-to-Speech, Zero-Shot Voice Cloning & Voice Design\n- **Parameters:** ~1B\n- **License:** Apache-2.0\n- **Architecture:** OmniVoice (GGUF)\n\n## LA Studio Notes\n\nOmniVoice in LA Studio is a high-fidelity speech synthesis workflow. It downloads GGUF models from conversion repository `Serveurperso/OmniVoice-GGUF`. It needs:\n- Backbone: `omnivoice-base-Q8_0.gguf`\n- Default tokenizer: `omnivoice-tokenizer-BF16.gguf`\n\nIt supports over 600 languages, zero-shot voice cloning, and description-based voice design. It also supports non-verbal tags like `[laughter]`, `[sigh]`, etc.\n"
         },
         "thumbnail": {
           "filename": "thumbnail.webp",

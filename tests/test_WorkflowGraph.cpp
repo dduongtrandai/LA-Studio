@@ -130,7 +130,7 @@ void TestWorkflowGraph::buildsCanonicalDubbingWorkflowDefinition()
     QCOMPARE(graph.version, DubbingWorkflowDefinition::Version);
     QCOMPARE(graph.kind, QStringLiteral("system"));
     QCOMPARE(graph.nodes.size(), 13);
-    QCOMPARE(graph.edges.size(), 16);
+    QCOMPARE(graph.edges.size(), 17);
     QVERIFY(graph.interfaceDefinition.value(QStringLiteral("inputs")).toList().size() == 3);
     QCOMPARE(graph.policies.value(QStringLiteral("maxParallelNodes")).toInt(), 2);
     QCOMPARE(graph.nodes.at(0).id, QStringLiteral("media-input"));

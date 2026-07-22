@@ -31,7 +31,8 @@ void DubbingWorkflowAdapter::start(const QString &nodeType, const QVariantMap &i
         m_runner->startSourceSeparation(inputs.value(QStringLiteral("audio")).toString(), parameters);
     } else if (nodeType == QStringLiteral("audio.transcribe")) {
         m_runner->startTranscription(parameters.value(QStringLiteral("language"), QStringLiteral("auto")).toString(),
-                                     inputs.value(QStringLiteral("audio")).toString());
+                                     inputs.value(QStringLiteral("audio")).toString(),
+                                     inputs.value(QStringLiteral("fallbackAudio")).toString());
     } else if (nodeType == QStringLiteral("text.translate-transcript")) {
         m_runner->startTranslation(parameters.value(QStringLiteral("sourceLanguage"), QStringLiteral("auto")).toString(),
                                    parameters.value(QStringLiteral("targetLanguage")).toString(),

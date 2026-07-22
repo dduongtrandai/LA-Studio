@@ -17,6 +17,8 @@ Item {
     property int selectedSegment: -1
     property bool isVideoSource: dubbing.sourceMediaPath.length > 0 && /\.(mp4|mkv|mov|webm|avi)$/i.test(dubbing.sourceMediaPath)
     property string reviewStepId: "import"
+    readonly property string displayedStepId: (dubbing.processing || dubbing.lastError !== "")
+                                              ? dubbing.currentStepId : reviewStepId
     property string observedCompletedStep: ""
     property string playingSeparationStem: ""
     property string playingVoiceClipPath: ""
@@ -334,21 +336,94 @@ Item {
             defaultExportPath: root.defaultExportPath()
             historyOpen: root.isHistoryOpen
             settingsOpen: root.isNodeInspectorOpen
-            onStepSelected: root.reviewStepId = stepId
+            onStepSelected: {
+                if (!root.dubbing.processing) root.reviewStepId = stepId
+            }
             onHistoryToggled: root.isHistoryOpen = !root.isHistoryOpen
             onSettingsToggled: root.isNodeInspectorOpen = !root.isNodeInspectorOpen
             onGenerateRequested: {
-                if (root.dubbing.dubbingQuality === "adaptive" && !root.dubbing.adaptiveReady)
-                    qualityDialog.open()
-                else
-                    root.dubbing.startAutomaticWorkflow(root.defaultExportPath())
+                root.dubbing.startAutomaticWorkflow(root.defaultExportPath())
             }
+            onPauseRequested: root.dubbing.pauseAutomaticWorkflow()
+            onStopRequested: root.dubbing.cancelProcessing()
             onWorkflowRequested: root.openWorkflowCanvas()
             onSaveRequested: root.dubbing.saveProject()
             onExportRequested: exportOptionsDialog.open()
         }
 
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: visible ? 72 : 0
+            visible: dubbing.automaticEvents.length > 0
+            color: Theme.surface
+            border.color: Qt.rgba(1, 1, 1, 0.08)
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: Theme.paddingLarge
+                anchors.rightMargin: Theme.paddingLarge
+                spacing: Theme.paddingMedium
+                LineIcon {
+                    name: dubbing.settingsLocked ? "activity" : (dubbing.workflowMode === "paused" ? "pause" : "workflow")
+                    color: dubbing.settingsLocked ? Theme.warning : Theme.accentLight
+                    Layout.preferredWidth: 20
+                    Layout.preferredHeight: 20
+                }
+                ColumnLayout {
+                    Layout.preferredWidth: 310
+                    spacing: 2
+                    Text {
+                        text: dubbing.settingsLocked ? qsTr("AUTOMATIC DUBBING") : qsTr("DUBBING STATUS")
+                        color: Theme.textSecondary
+                        font.pixelSize: 10
+                        font.bold: true
+                        font.letterSpacing: 1.0
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: dubbing.automaticStatusText
+                        color: dubbing.settingsLocked ? Theme.warning : Theme.textPrimary
+                        font.pixelSize: Theme.fontSmall
+                        font.bold: true
+                        elide: Text.ElideRight
+                    }
+                }
+                Rectangle { Layout.fillHeight: true; Layout.preferredWidth: 1; color: Qt.rgba(1, 1, 1, 0.08) }
+                ListView {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    orientation: ListView.Horizontal
+                    spacing: Theme.paddingSmall
+                    clip: true
+                    model: dubbing.automaticEvents
+                    onCountChanged: positionViewAtEnd()
+                    delegate: Rectangle {
+                        required property var modelData
+                        width: Math.min(260, eventText.implicitWidth + Theme.paddingMedium * 2)
+                        height: 42
+                        anchors.verticalCenter: parent ? parent.verticalCenter : undefined
+                        radius: Theme.radiusSmall
+                        color: Qt.rgba(1, 1, 1, 0.035)
+                        border.color: modelData.state === "failed" ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.45)
+                                      : (modelData.state === "completed" ? Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.35)
+                                                                         : Qt.rgba(1, 1, 1, 0.08))
+                        Text {
+                            id: eventText
+                            anchors.fill: parent
+                            anchors.margins: Theme.paddingSmall
+                            text: (modelData.timestamp || "") + "  " + (modelData.message || "")
+                            color: modelData.state === "failed" ? Theme.danger
+                                   : (modelData.state === "completed" ? Theme.success : Theme.textSecondary)
+                            font.pixelSize: 10
+                            verticalAlignment: Text.AlignVCenter
+                            elide: Text.ElideRight
+                        }
+                    }
+                }
+            }
+        }
+
         RowLayout {
+            enabled: !dubbing.settingsLocked
             Layout.fillWidth: true; Layout.fillHeight: true
             Layout.margins: Theme.paddingMedium; spacing: Theme.paddingMedium
 
@@ -397,10 +472,10 @@ Item {
                 Layout.fillWidth: true; Layout.fillHeight: true; Layout.preferredWidth: 670
                 ColumnLayout {
                     anchors.fill: parent; anchors.margins: Theme.paddingMedium; spacing: Theme.paddingSmall
-                    visible: root.reviewStepId === "transcribe" || root.reviewStepId === "translate"
+                    visible: root.displayedStepId === "transcribe" || root.displayedStepId === "translate"
                     DubbingNodeSettingsPanel {
                         dubbing: root.dubbing
-                        nodeId: root.reviewStepId
+                        nodeId: root.displayedStepId
                         node: root.workflowNode(nodeId)
                         nodeTitle: root.stepTitle(nodeId)
                         canRun: root.canRunStep(nodeId)
@@ -419,7 +494,7 @@ Item {
                     }
                     RowLayout { Layout.fillWidth: true
                         ColumnLayout { Layout.fillWidth: true; spacing: 1
-                            Text { text: root.stepTitle(root.reviewStepId).toUpperCase(); color: Theme.textPrimary; font.pixelSize: Theme.fontLarge; font.bold: true }
+                            Text { text: root.stepTitle(root.displayedStepId).toUpperCase(); color: Theme.textPrimary; font.pixelSize: Theme.fontLarge; font.bold: true }
                             Text { text: qsTr("Review and edit every segment before continuing."); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
                         }
                     }
@@ -440,7 +515,7 @@ Item {
                         delegate: Rectangle {
                             id: segmentDelegate
                             property bool needsTranslationFix:
-                                root.reviewStepId === "translate"
+                                root.displayedStepId === "translate"
                                 && (modelData.targetText || "") !== ""
                                 && modelData.durationBudget !== undefined
                                 && dubbing.translationSegmentNeedsFix(index)
@@ -493,7 +568,7 @@ Item {
                                     Layout.alignment: Qt.AlignVCenter
                                     spacing: Theme.paddingSmall
                                     Item {
-                                        visible: root.reviewStepId === "translate"
+                                        visible: root.displayedStepId === "translate"
                                         Layout.preferredWidth: 38
                                         Layout.minimumWidth: 38
                                         Layout.preferredHeight: 38
@@ -535,10 +610,10 @@ Item {
                 }
                 ColumnLayout {
                     anchors.fill: parent; anchors.margins: Theme.paddingLarge; spacing: Theme.paddingMedium
-                    visible: root.reviewStepId !== "transcribe" && root.reviewStepId !== "translate"
+                    visible: root.displayedStepId !== "transcribe" && root.displayedStepId !== "translate"
                     DubbingNodeSettingsPanel {
                         dubbing: root.dubbing
-                        nodeId: root.reviewStepId
+                        nodeId: root.displayedStepId
                         node: root.workflowNode(nodeId)
                         nodeTitle: root.stepTitle(nodeId)
                         canRun: root.canRunStep(nodeId)
@@ -546,7 +621,7 @@ Item {
                         runReady: root.stepRunReady(nodeId)
                         nextNodeId: root.nextNodeId(nodeId)
                         nextReady: root.nextNodeReady(nodeId)
-                        visible: ["import", "ingest", "source-separate", "synthesize", "mix", "export"].indexOf(root.reviewStepId) >= 0
+                        visible: ["import", "ingest", "source-separate", "synthesize", "mix", "export"].indexOf(root.displayedStepId) >= 0
                         onConfigureRequested: nodeModelDialog.openFor(nodeId)
                         onLoadRequested: dubbing.loadWorkflowNodeModel(nodeId)
                         onUnloadRequested: dubbing.unloadWorkflowNodeModel(nodeId)
@@ -556,13 +631,13 @@ Item {
                     }
                     RowLayout { Layout.fillWidth: true
                         ColumnLayout { Layout.fillWidth: true; spacing: 1
-                            Text { text: root.stepTitle(root.reviewStepId).toUpperCase(); color: Theme.textPrimary; font.pixelSize: Theme.fontLarge; font.bold: true }
-                            Text { text: root.reviewStepId === "import" ? qsTr("Import only selects the source; no processing starts automatically.") : qsTr("Review this step output before continuing."); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
+                            Text { text: root.stepTitle(root.displayedStepId).toUpperCase(); color: Theme.textPrimary; font.pixelSize: Theme.fontLarge; font.bold: true }
+                            Text { text: root.displayedStepId === "import" ? qsTr("Import only selects the source; no processing starts automatically.") : qsTr("Review this step output before continuing."); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
                         }
                     }
-                    Item { Layout.fillHeight: true; visible: root.reviewStepId !== "synthesize" }
+                    Item { Layout.fillHeight: true; visible: root.displayedStepId !== "synthesize" }
                     VoiceSeparationOutput {
-                        visible: root.reviewStepId === "source-separate"
+                        visible: root.displayedStepId === "source-separate"
                         Layout.fillWidth: true
                         Layout.preferredHeight: visible ? implicitHeight : 0
                         compact: true
@@ -584,7 +659,7 @@ Item {
                         }
                     }
                     DubbingVoiceClipReview {
-                        visible: root.reviewStepId === "synthesize"
+                        visible: root.displayedStepId === "synthesize"
                         dubbing: root.dubbing
                         sourceMediaPanel: sourceMediaPanel
                         playingVoiceClipPath: root.playingVoiceClipPath
@@ -594,35 +669,35 @@ Item {
                         onSeparationPlaybackStopped: root.playingSeparationStem = ""
                     }
                     ColumnLayout {
-                        visible: root.reviewStepId !== "source-separate"
-                                 && root.reviewStepId !== "synthesize"
+                        visible: root.displayedStepId !== "source-separate"
+                                 && root.displayedStepId !== "synthesize"
                         Layout.fillWidth: true
                         Layout.alignment: Qt.AlignVCenter
                         spacing: Theme.paddingMedium
-                        LineIcon { Layout.alignment: Qt.AlignHCenter; name: root.reviewStepId === "synthesize" ? "volume" : "folder"; color: Theme.accentLight; Layout.preferredWidth: 40; Layout.preferredHeight: 40 }
-                        Text { Layout.alignment: Qt.AlignHCenter; text: root.stepComplete(root.reviewStepId) ? qsTr("Step output is ready") : qsTr("No output for this step yet"); color: root.stepComplete(root.reviewStepId) ? Theme.success : Theme.textPrimary; font.pixelSize: Theme.fontMedium; font.bold: true }
+                        LineIcon { Layout.alignment: Qt.AlignHCenter; name: root.displayedStepId === "synthesize" ? "volume" : "folder"; color: Theme.accentLight; Layout.preferredWidth: 40; Layout.preferredHeight: 40 }
+                        Text { Layout.alignment: Qt.AlignHCenter; text: root.stepComplete(root.displayedStepId) ? qsTr("Step output is ready") : qsTr("No output for this step yet"); color: root.stepComplete(root.displayedStepId) ? Theme.success : Theme.textPrimary; font.pixelSize: Theme.fontMedium; font.bold: true }
                         Text {
                             Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideMiddle
                             color: Theme.textSecondary; font.pixelSize: Theme.fontSmall
-                            text: root.reviewStepId === "import" ? dubbing.sourceMediaPath
-                                : root.reviewStepId === "ingest" ? (dubbing.normalizedAudioPath || qsTr("Run Normalize to create the working audio."))
-                                : root.reviewStepId === "synthesize" ? qsTr("%1 segment clips available").arg(dubbing.segments.length)
-                                : root.reviewStepId === "export" ? (dubbing.exportPath || dubbing.previewPath || qsTr("Run Mix and Export to create final media."))
+                            text: root.displayedStepId === "import" ? dubbing.sourceMediaPath
+                                : root.displayedStepId === "ingest" ? (dubbing.normalizedAudioPath || qsTr("Run Normalize to create the working audio."))
+                                : root.displayedStepId === "synthesize" ? qsTr("%1 segment clips available").arg(dubbing.segments.length)
+                                : root.displayedStepId === "export" ? (dubbing.exportPath || dubbing.previewPath || qsTr("Run Mix and Export to create final media."))
                                 : qsTr("Select a step in the topbar to inspect its output.")
                         }
                     }
                     Item {
                         Layout.fillHeight: true
-                        visible: root.reviewStepId !== "synthesize"
+                        visible: root.displayedStepId !== "synthesize"
                     }
                 }
             }
 
             DubbingNodeInspector {
                 dubbing: root.dubbing
-                nodeId: root.reviewStepId
-                node: root.workflowNode(root.reviewStepId)
-                nodeTitle: root.stepTitle(root.reviewStepId)
+                nodeId: root.displayedStepId
+                node: root.workflowNode(root.displayedStepId)
+                nodeTitle: root.stepTitle(root.displayedStepId)
                 visible: root.isNodeInspectorOpen
                          && node && node.configurable === true
                 onCloseRequested: root.isNodeInspectorOpen = false
@@ -632,6 +707,7 @@ Item {
 
         DubbingProjectStatusPanel {
             dubbing: root.dubbing
+            enabled: !root.dubbing.settingsLocked
             languageCatalog: root.languageCatalog
             currentStepTitle: root.stepTitle(root.dubbing.currentStepId)
             onAdaptiveSetupRequested: qualityDialog.open()

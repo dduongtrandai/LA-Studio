@@ -21,6 +21,8 @@ Rectangle {
     signal historyToggled()
     signal settingsToggled()
     signal generateRequested()
+    signal pauseRequested()
+    signal stopRequested()
     signal workflowRequested()
     signal saveRequested()
     signal exportRequested()
@@ -70,6 +72,7 @@ Rectangle {
                     iconName: modelData.iconName
                     complete: modelData.complete
                     active: modelData.active
+                    enabled: !root.dubbing.settingsLocked
                     onSelected: root.stepSelected(stepId)
                 }
             }
@@ -78,16 +81,31 @@ Rectangle {
         Item { Layout.fillWidth: true }
 
         PrimaryButton {
-            text: root.dubbing.processing ? qsTr("Running…") : qsTr("Generate Final Dub")
+            text: root.dubbing.processing ? qsTr("Running…") : qsTr("Generate Final Dubbing")
             iconName: root.dubbing.processing ? "activity" : "play"
-            enabled: !root.dubbing.processing && root.dubbing.workflowReady
+            enabled: !root.dubbing.settingsLocked && root.dubbing.sourceMediaPath.length > 0
             onClicked: root.generateRequested()
             AppToolTip { text: qsTr("Run every stage automatically and create the final dubbed output"); visible: parent.hovered }
+        }
+        PrimaryButton {
+            visible: root.dubbing.settingsLocked
+            text: qsTr("Pause")
+            iconName: "pause"
+            quiet: true
+            onClicked: root.pauseRequested()
+        }
+        PrimaryButton {
+            visible: root.dubbing.settingsLocked
+            text: qsTr("Stop")
+            iconName: "stop"
+            buttonColor: Theme.danger
+            onClicked: root.stopRequested()
         }
         PrimaryButton {
             text: qsTr("Workflow")
             iconName: "workflow"
             quiet: true
+            enabled: !root.dubbing.settingsLocked
             onClicked: root.workflowRequested()
             AppToolTip { text: qsTr("View and configure workflow"); visible: parent.hovered }
         }
@@ -106,12 +124,13 @@ Rectangle {
                 Text { text: root.statusText; color: root.dubbing.processing ? Theme.warning : Theme.success; font.pixelSize: Theme.fontSmall; font.bold: true }
             }
         }
-        PrimaryButton { text: qsTr("Save"); iconName: "save"; quiet: true; enabled: root.dubbing.hasProject; onClicked: root.saveRequested() }
-        PrimaryButton { text: qsTr("Export"); iconName: "download"; enabled: root.dubbing.hasProject && !root.dubbing.processing; onClicked: root.exportRequested() }
+        PrimaryButton { text: qsTr("Save"); iconName: "save"; quiet: true; enabled: root.dubbing.hasProject && !root.dubbing.settingsLocked; onClicked: root.saveRequested() }
+        PrimaryButton { text: qsTr("Export"); iconName: "download"; enabled: root.dubbing.hasProject && !root.dubbing.processing && !root.dubbing.settingsLocked; onClicked: root.exportRequested() }
         SidebarToggleButton {
             iconName: "sliders"
             toolTip: root.settingsOpen ? qsTr("Hide settings") : qsTr("Show settings")
             active: root.settingsOpen
+            enabled: !root.dubbing.settingsLocked
             onClicked: root.settingsToggled()
         }
     }

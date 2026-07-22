@@ -464,6 +464,15 @@ void TestModelsAndRuntimes::testTranslationRecommendationUsesCompatibleRuntime()
     QVERIFY(!recommendation.value(QStringLiteral("runtimeId")).toString().isEmpty());
     QVERIFY(!recommendation.value(QStringLiteral("reason")).toString().isEmpty());
 
+    const QVariantMap hyMt2Default = familyModel.configurationForFamily(
+        QStringLiteral("hy-mt2-1.8b"));
+    QVERIFY2(!hyMt2Default.isEmpty(),
+             "Automatic dubbing must be able to select Tencent Hy-MT2 explicitly");
+    QCOMPARE(hyMt2Default.value(QStringLiteral("familyId")).toString(),
+             QStringLiteral("hy-mt2-1.8b"));
+    QVERIFY(!hyMt2Default.value(QStringLiteral("runtimeId")).toString().isEmpty());
+    QVERIFY(familyModel.configurationForFamily(QStringLiteral("stale-family-id")).isEmpty());
+
     const QVariantMap family = familyModel.itemForFamily(
         recommendation.value(QStringLiteral("familyId")).toString());
     QVERIFY(!family.isEmpty());

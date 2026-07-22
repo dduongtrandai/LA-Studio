@@ -289,7 +289,9 @@ void DubbingJobRunner::startSourceSeparation(const QString &audioPath,
     }
 }
 
-void DubbingJobRunner::startTranscription(const QString &sourceLanguage, const QString &sourceMediaPath)
+void DubbingJobRunner::startTranscription(const QString &sourceLanguage,
+                                          const QString &sourceMediaPath,
+                                          const QString &fallbackAudioPath)
 {
     if (m_run.processing() || (m_transcriptionJob && m_transcriptionJob->running())) {
         setBusyError(QStringLiteral("Speech transcription is already running."));
@@ -302,7 +304,8 @@ void DubbingJobRunner::startTranscription(const QString &sourceLanguage, const Q
                      .arg(m_run.runId(), m_run.nodeRunId(), sourceLanguage, sourceMediaPath)
                      .arg(QFileInfo(sourceMediaPath).size()));
     setProcessing(true, QStringLiteral("transcription"), 0);
-    if (!m_transcriptionJob || !m_transcriptionJob->start(sourceLanguage, sourceMediaPath)) return;
+    if (!m_transcriptionJob
+        || !m_transcriptionJob->start(sourceLanguage, sourceMediaPath, fallbackAudioPath)) return;
 }
 
 void DubbingJobRunner::startTranslation(const QString &sourceLanguage, const QString &targetLanguage, const QVariantList &segments,

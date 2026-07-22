@@ -54,7 +54,8 @@ DubbingTranscriptionJob::~DubbingTranscriptionJob()
     }
 }
 
-bool DubbingTranscriptionJob::start(const QString &language, const QString &audioPath)
+bool DubbingTranscriptionJob::start(const QString &language, const QString &audioPath,
+                                    const QString &fallbackAudioPath)
 {
     if (m_running || (m_stt && m_stt->processing())) {
         fail(QStringLiteral("Speech transcription is already running."));
@@ -71,9 +72,18 @@ bool DubbingTranscriptionJob::start(const QString &language, const QString &audi
     ++m_generation;
     m_running = true;
     m_audioPath = audioPath;
+    m_fallbackAudioPath = fallbackAudioPath;
+    m_retriedWithFallback = false;
     m_language = language;
     m_stt->setLanguage(language);
     m_stt->setTranslate(false);
+    startAudioInput(audioPath);
+    return true;
+}
+
+void DubbingTranscriptionJob::startAudioInput(const QString &audioPath)
+{
+    m_audioPath = audioPath;
     m_stt->selectFileInput(audioPath);
     m_waitingForInput = true;
     if (!m_stt->inputLoading() && m_stt->inputError().isEmpty()) {
@@ -81,7 +91,6 @@ bool DubbingTranscriptionJob::start(const QString &language, const QString &audi
         emit progressChanged(5);
         m_stt->transcribeInput();
     }
-    return true;
 }
 
 void DubbingTranscriptionJob::cancel()
@@ -97,7 +106,6 @@ void DubbingTranscriptionJob::cancel()
 void DubbingTranscriptionJob::onTranscriptionFinished(const QString &text,
                                                       const QVariantList &segments)
 {
-    Q_UNUSED(text);
     if (!m_running) return;
     QVariantList normalizedInput;
     for (const QVariant &entry : segments) {
@@ -128,6 +136,26 @@ void DubbingTranscriptionJob::onTranscriptionFinished(const QString &text,
         }
         if (!words.isEmpty()) normalized.insert(QStringLiteral("words"), words);
         normalizedInput.append(normalized);
+    }
+    if (normalizedInput.isEmpty()) {
+        const bool canRetry = !m_retriedWithFallback
+            && !m_fallbackAudioPath.trimmed().isEmpty()
+            && QFileInfo(m_fallbackAudioPath).exists()
+            && QFileInfo(m_fallbackAudioPath).absoluteFilePath()
+                != QFileInfo(m_audioPath).absoluteFilePath();
+        if (canRetry) {
+            m_retriedWithFallback = true;
+            Logger::warning(QStringLiteral("DubbingPipeline"),
+                            QStringLiteral("[transcription] no speech found in separated vocals; retrying normalized audio=%1")
+                                .arg(m_fallbackAudioPath));
+            emit progressChanged(5);
+            startAudioInput(m_fallbackAudioPath);
+            return;
+        }
+        fail(text.trimmed().isEmpty()
+                 ? QStringLiteral("Whisper found no speech in either the vocals stem or normalized audio.")
+                 : QStringLiteral("Whisper returned text without usable timestamp segments."));
+        return;
     }
     beginAlignment(normalizedInput);
 }

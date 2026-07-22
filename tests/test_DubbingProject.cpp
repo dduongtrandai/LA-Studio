@@ -234,6 +234,40 @@ void TestDubbingProject::importingMediaDoesNotStartProcessing()
     QCOMPARE(controller.currentStepId(), QStringLiteral("ingest"));
 }
 
+void TestDubbingProject::automaticWorkflowLocksSettingsUntilPaused()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString mediaPath = dir.filePath(QStringLiteral("source.mp4"));
+    QFile media(mediaPath);
+    QVERIFY(media.open(QIODevice::WriteOnly));
+    QVERIFY(media.write("video-placeholder") > 0);
+    media.close();
+
+    DubbingController controller(nullptr, nullptr);
+    QVERIFY(controller.newProject(dir.filePath(QStringLiteral("project.ladub.json"))));
+    QVERIFY(controller.importMedia(mediaPath));
+    QVERIFY(controller.startAutomaticWorkflow(dir.filePath(QStringLiteral("dubbed.mp4"))));
+    QVERIFY(controller.automaticSetupActive());
+    QVERIFY(controller.processing());
+    QVERIFY(controller.settingsLocked());
+    QCOMPARE(controller.workflowMode(), QStringLiteral("automatic"));
+    QCOMPARE(controller.currentStepId(), QStringLiteral("import"));
+    for (const QVariant &value : controller.workflowNodes()) {
+        QVERIFY2(value.toMap().value(QStringLiteral("state")).toString()
+                     != QStringLiteral("running"),
+                 "Model preparation must not be presented as an executing workflow node");
+    }
+    QVERIFY(!controller.automaticEvents().isEmpty());
+
+    controller.pauseAutomaticWorkflow();
+    QVERIFY(!controller.automaticSetupActive());
+    QVERIFY(!controller.processing());
+    QVERIFY(!controller.settingsLocked());
+    QCOMPARE(controller.workflowMode(), QStringLiteral("paused"));
+    QVERIFY(controller.automaticStatusText().contains(QStringLiteral("Paused")));
+}
+
 void TestDubbingProject::sourceSeparationExposesModelSelection()
 {
     DubbingController controller(nullptr, nullptr);

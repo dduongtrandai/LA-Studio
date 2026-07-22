@@ -944,6 +944,43 @@ bool CapabilityFamilyModel::isFileInstalled(const QVariantMap &family, const QSt
 
 QVariantMap CapabilityFamilyModel::recommendedConfiguration() const
 {
+    return recommendedConfigurationExcluding({});
+}
+
+QVariantMap CapabilityFamilyModel::configurationForFamily(const QString &familyId) const
+{
+    for (const FamilyItem &item : m_items) {
+        if (item.id != familyId || !item.supported || item.preferredRuntimeId.isEmpty())
+            continue;
+        QVariantMap runtime;
+        for (const QVariant &runtimeValue : item.runtimeOptions) {
+            const QVariantMap candidate = runtimeValue.toMap();
+            if (candidate.value(QStringLiteral("id")).toString() == item.preferredRuntimeId) {
+                runtime = candidate;
+                break;
+            }
+        }
+        if (runtime.isEmpty() || !runtime.value(QStringLiteral("compatible")).toBool())
+            return {};
+        return {
+            {QStringLiteral("familyId"), item.id},
+            {QStringLiteral("modelName"), item.displayName},
+            {QStringLiteral("runtimeId"), item.preferredRuntimeId},
+            {QStringLiteral("runtimeVersion"), item.preferredRuntimeVersion},
+            {QStringLiteral("runtimeName"), runtime.value(QStringLiteral("label"),
+                                                            runtime.value(QStringLiteral("name"),
+                                                                          item.preferredRuntimeId))},
+            {QStringLiteral("selectedFiles"), item.selectedFiles},
+            {QStringLiteral("ready"), item.ready},
+            {QStringLiteral("installed"), item.installed}
+        };
+    }
+    return {};
+}
+
+QVariantMap CapabilityFamilyModel::recommendedConfigurationExcluding(
+    const QStringList &excludedFamilyIds) const
+{
     const double ramBytes = HardwareManager::instance()->ramTotal() * 1024.0 * 1024.0 * 1024.0;
     const double vramBytes = HardwareManager::instance()->vramTotal() * 1024.0 * 1024.0 * 1024.0;
 
@@ -953,6 +990,8 @@ QVariantMap CapabilityFamilyModel::recommendedConfiguration() const
     QString bestReason;
 
     for (const FamilyItem &item : m_items) {
+        if (excludedFamilyIds.contains(item.id))
+            continue;
         if (!item.supported || item.preferredRuntimeId.isEmpty())
             continue;
 
@@ -1058,6 +1097,12 @@ QString CapabilityFamilyModel::recommendedFileForRequirement(const QVariantMap &
     }
     if (files.isEmpty()) {
         return {};
+    }
+
+    if (requirement.value(QStringLiteral("preferDefault")).toBool()
+        && !defaultFile.isEmpty()
+        && isModelSuitable(defaultFile, family, requirement)) {
+        return defaultFile;
     }
 
     const QString defaultSize = requirement.value(QStringLiteral("size")).toString();
@@ -1273,8 +1318,10 @@ void CapabilityFamilyModel::updateItems()
                 bool knownCandidate = candidates.isEmpty()
                     ? selectedFile == reqFile
                     : candidates.contains(selectedFile);
-                if (!knownCandidate && !isFileInstalled(family, selectedFile, req)) {
-                    // Ignore stale cross-family or removed catalog variants.
+                if (!knownCandidate) {
+                    // Ignore stale cross-family or removed catalog variants even
+                    // when the old file is still present on disk. Native backends
+                    // may reject variants removed for compatibility reasons.
                     selectedFile.clear();
                     hasUserSel = false;
                 }

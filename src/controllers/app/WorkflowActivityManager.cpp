@@ -246,7 +246,11 @@ QVariantList WorkflowActivityManager::sessionItems(IModelSession *session) const
     for (const SessionConfiguration &config : session->loadedConfigurations()) {
         const QString capabilityId = routeForCapability(config.capabilityId);
         const QString title = config.familyConfig
-            .value(QStringLiteral("title"), fallbackTitleForCapability(capabilityId))
+            .value(QStringLiteral("title"),
+                   config.familyConfig.value(QStringLiteral("name"),
+                       config.selection.familyId.isEmpty()
+                           ? fallbackTitleForCapability(capabilityId)
+                           : config.selection.familyId))
             .toString();
         const QString runtimeId = config.selection.runtimeId;
         const QString runtimeVersion = config.selection.runtimeVersion;

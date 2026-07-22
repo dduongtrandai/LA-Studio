@@ -6,6 +6,7 @@
 #include <QUrl>
 #include <QVariantList>
 #include <QVariantMap>
+#include <QSet>
 #include <QtQml/qqml.h>
 #include <memory>
 
@@ -22,6 +23,7 @@ class RuntimeManager;
 class TranslationEngine;
 class DubbingJobRunner;
 class DubbingTranslationFixService;
+class CapabilityFamilyModel;
 
 class DubbingController : public QObject
 {
@@ -72,6 +74,10 @@ class DubbingController : public QObject
     Q_PROPERTY(QString adaptiveProvider READ adaptiveProvider NOTIFY translationFixChanged)
     Q_PROPERTY(bool adaptiveReady READ adaptiveReady NOTIFY workflowChanged)
     Q_PROPERTY(QString adaptiveStatusText READ adaptiveStatusText NOTIFY workflowChanged)
+    Q_PROPERTY(bool settingsLocked READ settingsLocked NOTIFY workflowChanged)
+    Q_PROPERTY(bool automaticSetupActive READ automaticSetupActive NOTIFY workflowChanged)
+    Q_PROPERTY(QString automaticStatusText READ automaticStatusText NOTIFY workflowChanged)
+    Q_PROPERTY(QVariantList automaticEvents READ automaticEvents NOTIFY workflowChanged)
 
 public:
     explicit DubbingController(SttSessionController *sttSession, TtsEngine *tts,
@@ -81,6 +87,7 @@ public:
     DubbingController(SttSessionController *sttSession, TtsEngine *tts,
                       ModelManager *models = nullptr, RuntimeManager *runtimes = nullptr,
                       QObject *parent = nullptr);
+    ~DubbingController() override;
 
     bool hasProject() const { return !m_project.projectPath.isEmpty(); }
     QString projectPath() const { return m_project.projectPath; }
@@ -129,6 +136,10 @@ public:
     QString adaptiveProvider() const;
     bool adaptiveReady() const;
     QString adaptiveStatusText() const;
+    bool settingsLocked() const;
+    bool automaticSetupActive() const { return m_automaticSetupActive; }
+    QString automaticStatusText() const { return m_automaticStatusText; }
+    QVariantList automaticEvents() const { return m_automaticEvents; }
 
     void setSourceLanguage(const QString &value);
     void setTargetLanguage(const QString &value);
@@ -159,6 +170,7 @@ public:
     Q_INVOKABLE void prepareWorkflow();
     Q_INVOKABLE bool runWorkflow(const QString &outputPath = QString());
     Q_INVOKABLE bool startAutomaticWorkflow(const QString &outputPath);
+    Q_INVOKABLE void pauseAutomaticWorkflow();
     Q_INVOKABLE void startStepByStep();
     Q_INVOKABLE bool runCurrentStep(const QString &outputPath = QString());
     Q_INVOKABLE bool rerunStep(const QString &stepId, const QString &outputPath = QString());
@@ -205,6 +217,24 @@ private:
     void setWorkflowMode(const QString &mode);
     void setCurrentStep(const QString &stepId);
     void advanceManualStep(const QString &completedStepId);
+    bool configureWorkflowNodeModel(const QString &nodeId,
+                                    const QString &familyId,
+                                    const QString &runtimeId,
+                                    const QString &runtimeVersion,
+                                    const QVariantMap &selectedFiles,
+                                    bool loadSession);
+    CapabilityFamilyModel *automaticModel(const QString &capabilityId);
+    bool ensureAutomaticModel(const QString &nodeId, const QString &capabilityId,
+                              bool loadSession);
+    bool ensureAutomaticAdaptiveModel();
+    void advanceAutomaticSetup();
+    void scheduleAutomaticSetupAdvance();
+    void prepareAutomaticVoiceRuntime();
+    void finishAutomaticSetupFailure(const QString &message);
+    void appendAutomaticEvent(const QString &message, const QString &state,
+                              const QString &nodeId = QString());
+    void setAutomaticStatus(const QString &message);
+    static QString visibleStepForNode(const QString &nodeId);
     void loadHistory();
     void recordHistoryEntry();
     QString historyPath() const;
@@ -228,6 +258,20 @@ private:
     TtsEngine *m_tts = nullptr;
     TranslationEngine *m_translation = nullptr;
     DubbingTranslationFixService *m_translationFix = nullptr;
+    ModelManager *m_models = nullptr;
+    RuntimeManager *m_runtimes = nullptr;
+    std::unique_ptr<CapabilityFamilyModel> m_automaticSttModel;
+    std::unique_ptr<CapabilityFamilyModel> m_automaticVoiceIsolationModel;
+    std::unique_ptr<CapabilityFamilyModel> m_automaticTranslationModel;
+    std::unique_ptr<CapabilityFamilyModel> m_automaticTtsModel;
+    std::unique_ptr<CapabilityFamilyModel> m_automaticLlmModel;
+    bool m_automaticSetupActive = false;
+    bool m_automaticAdvanceScheduled = false;
+    QString m_automaticOutputPath;
+    QString m_automaticStatusText;
+    QVariantList m_automaticEvents;
+    QSet<QString> m_automaticDownloadsQueued;
+    QSet<QString> m_automaticConfiguredNodes;
 };
 
 } // namespace LAStudio

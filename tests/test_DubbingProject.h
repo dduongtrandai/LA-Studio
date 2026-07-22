@@ -14,6 +14,7 @@ private slots:
     void mergesSegmentPatchesByStableId();
     void rejectsUnknownAndDuplicateSegmentPatches();
     void importingMediaDoesNotStartProcessing();
+    void automaticWorkflowLocksSettingsUntilPaused();
     void sourceSeparationExposesModelSelection();
     void rejectsRerunningUnsupportedStep();
     void transcriptionRequiresReadyModel();

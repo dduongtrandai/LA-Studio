@@ -115,10 +115,7 @@ Rectangle {
                         iconName: "spark"
                         selected: root.dubbing.dubbingQuality === "adaptive"
                         warning: selected && !root.dubbing.adaptiveReady
-                        onClicked: {
-                            root.dubbing.dubbingQuality = "adaptive"
-                            if (!root.dubbing.adaptiveReady) root.adaptiveSetupRequested()
-                        }
+                        onClicked: root.dubbing.dubbingQuality = "adaptive"
                     }
                 }
             }

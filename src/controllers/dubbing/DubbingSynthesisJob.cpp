@@ -65,6 +65,20 @@ DubbingSynthesisJob::DubbingSynthesisJob(TtsEngine *tts, QObject *parent)
             this, &DubbingSynthesisJob::onSynthesisFinished);
     connect(m_tts, &TtsEngine::errorOccurred,
             this, &DubbingSynthesisJob::onTtsError);
+    connect(m_tts, &TtsEngine::modelLoadedChanged, this, [this]() {
+        if (!m_waitingForModel || !m_tts || !m_tts->isModelLoaded()) return;
+        const QVariantList segments = m_pendingSegments;
+        const QString projectPath = m_pendingProjectPath;
+        const QVariantMap settings = m_pendingSettings;
+        const QString runId = m_pendingRunId;
+        m_waitingForModel = false;
+        m_running = false;
+        m_pendingSegments.clear();
+        m_pendingProjectPath.clear();
+        m_pendingSettings.clear();
+        m_pendingRunId.clear();
+        start(segments, projectPath, settings, runId);
+    });
 }
 
 bool DubbingSynthesisJob::start(const QVariantList &segments, const QString &projectPath,
@@ -74,7 +88,21 @@ bool DubbingSynthesisJob::start(const QVariantList &segments, const QString &pro
         fail(QStringLiteral("Speech synthesis is already running."));
         return false;
     }
-    if (!m_tts || !m_tts->isModelLoaded()) {
+    if (!m_tts) {
+        fail(QStringLiteral("Load a TTS model before generating dubbing audio."));
+        return false;
+    }
+    if (!m_tts->isModelLoaded() && m_tts->state() == TtsEngine::Loading) {
+        m_running = true;
+        m_waitingForModel = true;
+        m_pendingSegments = segments;
+        m_pendingProjectPath = projectPath;
+        m_pendingSettings = settings;
+        m_pendingRunId = runId;
+        emit progressChanged(0);
+        return true;
+    }
+    if (!m_tts->isModelLoaded()) {
         fail(QStringLiteral("Load a TTS model before generating dubbing audio."));
         return false;
     }
@@ -135,6 +163,11 @@ void DubbingSynthesisJob::cancel()
     if (!m_running) return;
     if (m_tts && m_tts->isProcessing()) m_tts->cancelProcessing();
     m_running = false;
+    m_waitingForModel = false;
+    m_pendingSegments.clear();
+    m_pendingProjectPath.clear();
+    m_pendingSettings.clear();
+    m_pendingRunId.clear();
     m_generationIndex = -1;
 }
 
@@ -255,12 +288,13 @@ void DubbingSynthesisJob::fitGeneratedSegments()
 
 void DubbingSynthesisJob::onTtsError(const QString &message)
 {
-    if (m_running && m_generationIndex >= 0) fail(message);
+    if (m_running && (m_waitingForModel || m_generationIndex >= 0)) fail(message);
 }
 
 void DubbingSynthesisJob::fail(const QString &message)
 {
     m_running = false;
+    m_waitingForModel = false;
     m_generationIndex = -1;
     emit failed(message);
 }

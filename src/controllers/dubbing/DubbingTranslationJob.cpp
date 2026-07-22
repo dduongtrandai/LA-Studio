@@ -117,6 +117,14 @@ bool DubbingTranslationJob::start(const QString &sourceLanguage, const QString &
         fail(error.isEmpty() ? QStringLiteral("Could not resolve a translation model and runtime.") : error);
         return false;
     }
+    StudioConfiguration activitySelection;
+    activitySelection.capabilityId = QStringLiteral("translation");
+    activitySelection.familyId = configuration.value(QStringLiteral("familyId")).toString();
+    activitySelection.runtimeId = configuration.value(QStringLiteral("runtimeId")).toString();
+    activitySelection.runtimeVersion = configuration.value(QStringLiteral("runtimeVersion")).toString();
+    activitySelection.selectedFiles = configuration.value(QStringLiteral("selectedFiles")).toMap();
+    const ResolvedConfiguration activityResolved = activitySelection.familyId.isEmpty()
+        ? ResolvedConfiguration() : StudioConfigurationResolver::resolve(activitySelection);
     m_generation++;
     m_running = true;
     m_runId = runId;
@@ -164,10 +172,21 @@ bool DubbingTranslationJob::start(const QString &sourceLanguage, const QString &
     SessionConfiguration session;
     session.capabilityId = QStringLiteral("translation");
     session.selection.capabilityId = session.capabilityId;
-    session.selection.familyId = request.backend;
-    session.selection.runtimeId = request.useGpu ? QStringLiteral("translation-cuda") : QStringLiteral("translation-cpu");
-    session.familyConfig = QVariantMap{{QStringLiteral("id"), request.backend},
-                                       {QStringLiteral("backend"), request.backend}};
+    session.selection.familyId = activityResolved.isValid
+        ? activitySelection.familyId : request.backend;
+    session.selection.runtimeId = activityResolved.isValid
+        ? activitySelection.runtimeId
+        : (request.useGpu ? QStringLiteral("translation-cuda")
+                          : QStringLiteral("translation-cpu"));
+    session.selection.runtimeVersion = activityResolved.isValid
+        ? activitySelection.runtimeVersion : QString();
+    session.selection.selectedFiles = activityResolved.isValid
+        ? activityResolved.selectedFiles : QVariantMap();
+    session.familyConfig = activityResolved.isValid
+        ? activityResolved.family
+        : QVariantMap{{QStringLiteral("id"), request.backend},
+                      {QStringLiteral("title"), request.backend},
+                      {QStringLiteral("backend"), request.backend}};
     session.runtimePath = request.runtimePath;
     session.resolvedModelPaths = {request.modelPath};
     session.resolvedPathsByRole.insert(QStringLiteral("model"), request.modelPath);
