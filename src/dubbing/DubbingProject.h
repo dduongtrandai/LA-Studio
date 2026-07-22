@@ -30,8 +30,8 @@ public:
     QString dubbingQuality = QStringLiteral("fast");
     QVariantMap durationControl = QVariantMap{{QStringLiteral("enabled"), true},
                                                {QStringLiteral("unit"), QStringLiteral("phoneme-v1")},
-                                               {QStringLiteral("lowerToleranceRatio"), 0.10},
-                                               {QStringLiteral("upperToleranceRatio"), 0.10},
+                                               {QStringLiteral("lowerToleranceRatio"), 0.20},
+                                               {QStringLiteral("upperToleranceRatio"), 0.20},
                                                {QStringLiteral("autoRewrite"), true}};
     QVariantList speakers;
     QVariantList segments;

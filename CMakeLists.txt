@@ -417,6 +417,7 @@ qt_add_qml_module(LAStudio
         qml/components/WaveformView.qml
         qml/components/RuntimeVersionManagerDialog.qml
         qml/components/base/AppComboBox.qml
+        qml/components/base/AppSpinBox.qml
         qml/components/base/AppContextMenu.qml
         qml/components/base/ConfirmationDialog.qml
         qml/components/base/ModelDependenciesDialog.qml

@@ -12,8 +12,8 @@ struct DubbingDurationSettings
     bool enabled = true;
     QString unit = QStringLiteral("phoneme-v1");
     double safetyFactor = 1.0;
-    double lowerToleranceRatio = 0.10;
-    double upperToleranceRatio = 0.10;
+    double lowerToleranceRatio = 0.20;
+    double upperToleranceRatio = 0.20;
     int pauseThresholdMs = 250;
     int maxPreTtsIterations = 4;
     int candidatesPerIteration = 3;

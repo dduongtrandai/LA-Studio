@@ -16,6 +16,7 @@ private slots:
     void importingMediaDoesNotStartProcessing();
     void automaticWorkflowLocksSettingsUntilPaused();
     void sourceSeparationExposesModelSelection();
+    void targetLanguageUpdatesVoiceNodeLanguage();
     void rejectsRerunningUnsupportedStep();
     void transcriptionRequiresReadyModel();
     void alignmentRefinementFallsBackWithoutDependencies();

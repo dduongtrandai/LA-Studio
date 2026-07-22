@@ -184,9 +184,13 @@ ComboBox {
     implicitHeight: 40
 
     background: Rectangle {
-        color: Theme.surface
+        color: root.enabled
+               ? (root.hovered ? Qt.lighter(Theme.surfaceAlt, 1.08) : Theme.surfaceAlt)
+               : Qt.rgba(1, 1, 1, 0.02)
         radius: Theme.radiusSmall
-        border.color: root.activeFocus ? Theme.accent : Theme.surfaceAlt
+        border.color: root.activeFocus
+                      ? Theme.accent
+                      : (root.hovered ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.08))
         border.width: 1
     }
 
@@ -457,9 +461,9 @@ ComboBox {
         }
         
         background: Rectangle {
-            color: Theme.background
+            color: Theme.surface
             radius: Theme.radiusSmall
-            border.color: Theme.surfaceAlt
+            border.color: Qt.rgba(1, 1, 1, 0.10)
             border.width: 1
         }
     }
@@ -468,7 +472,7 @@ ComboBox {
         x: root.width - width - Theme.paddingMedium
         anchors.verticalCenter: parent.verticalCenter
         name: "arrow-down"
-        color: Theme.textSecondary
+        color: root.activeFocus || root.hovered ? Theme.accentLight : Theme.textSecondary
         width: 14
         height: 14
     }

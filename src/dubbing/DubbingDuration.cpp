@@ -31,7 +31,7 @@ DubbingDurationSettings DubbingDurationSettings::fromVariantMap(const QVariantMa
         result.unit = QStringLiteral("phoneme-v1");
     result.safetyFactor = qBound(
         0.50, map.value(QStringLiteral("safetyFactor"), result.safetyFactor).toDouble(), 1.0);
-    const double legacyTolerance = map.value(QStringLiteral("toleranceRatio"), 0.10).toDouble();
+    const double legacyTolerance = map.value(QStringLiteral("toleranceRatio"), 0.20).toDouble();
     result.lowerToleranceRatio = qBound(
         0.0, map.value(QStringLiteral("lowerToleranceRatio"), legacyTolerance).toDouble(), 0.90);
     result.upperToleranceRatio = qBound(

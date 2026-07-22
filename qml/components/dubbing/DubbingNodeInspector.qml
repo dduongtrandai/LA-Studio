@@ -151,7 +151,9 @@ Rectangle {
                         language: root.nodeId === "translate"
                                   ? root.dubbing.targetLanguage
                                   : String(root.dynamicSettings["lang"] !== undefined
-                                           ? root.dynamicSettings["lang"] : "auto")
+                                           ? root.dynamicSettings["lang"]
+                                           : (root.nodeId === "synthesize"
+                                              ? root.dubbing.targetLanguage : "auto"))
                         onLanguageChanged: {
                             if (root.nodeId === "translate")
                                 root.dubbing.targetLanguage = language
@@ -185,7 +187,9 @@ Rectangle {
 
                     ToggleRow {
                         text: qsTr("Auto-select a clean voice reference")
-                        checked: root.dynamicSettings.autoSelectVoiceReference === true
+                        checked: root.dynamicSettings.autoSelectVoiceReference !== undefined
+                                 ? root.dynamicSettings.autoSelectVoiceReference === true
+                                 : root.isOmniVoice
                         enabled: !root.dubbing.processing
                         onToggled: root.updateParameter("autoSelectVoiceReference", checked)
                     }
@@ -206,7 +210,9 @@ Rectangle {
 
                     ToggleRow {
                         text: qsTr("Force exact SRT segment duration")
-                        checked: root.dynamicSettings.forceSegmentDuration === true
+                        checked: root.dynamicSettings.forceSegmentDuration !== undefined
+                                 ? root.dynamicSettings.forceSegmentDuration === true
+                                 : root.isOmniVoice
                         enabled: !root.dubbing.processing
                         onToggled: root.updateParameter("forceSegmentDuration", checked)
                     }
@@ -237,10 +243,10 @@ Rectangle {
                             Layout.fillWidth: true
                             spacing: 3
                             Text { text: qsTr("Lower tolerance"); color: Theme.textSecondary; font.pixelSize: 10 }
-                            SpinBox {
+                            AppSpinBox {
                                 Layout.fillWidth: true
                                 from: 0; to: 90; stepSize: 1
-                                value: Math.round(Number(root.dubbing.durationControl.lowerToleranceRatio !== undefined ? root.dubbing.durationControl.lowerToleranceRatio : 0.10) * 100)
+                                value: Math.round(Number(root.dubbing.durationControl.lowerToleranceRatio !== undefined ? root.dubbing.durationControl.lowerToleranceRatio : 0.20) * 100)
                                 textFromValue: function(value) { return value + "%" }
                                 valueFromText: function(text) { return parseInt(text) }
                                 editable: true
@@ -252,10 +258,10 @@ Rectangle {
                             Layout.fillWidth: true
                             spacing: 3
                             Text { text: qsTr("Upper tolerance"); color: Theme.textSecondary; font.pixelSize: 10 }
-                            SpinBox {
+                            AppSpinBox {
                                 Layout.fillWidth: true
                                 from: 0; to: 200; stepSize: 1
-                                value: Math.round(Number(root.dubbing.durationControl.upperToleranceRatio !== undefined ? root.dubbing.durationControl.upperToleranceRatio : 0.10) * 100)
+                                value: Math.round(Number(root.dubbing.durationControl.upperToleranceRatio !== undefined ? root.dubbing.durationControl.upperToleranceRatio : 0.20) * 100)
                                 textFromValue: function(value) { return value + "%" }
                                 valueFromText: function(text) { return parseInt(text) }
                                 editable: true
@@ -274,7 +280,8 @@ Rectangle {
                         Layout.fillWidth: true
                         visible: root.dubbing.durationControl.autoRewrite !== false
                         Text { Layout.fillWidth: true; text: qsTr("Maximum attempts per segment"); color: Theme.textSecondary; font.pixelSize: 10; wrapMode: Text.WordWrap }
-                        SpinBox {
+                        AppSpinBox {
+                            Layout.preferredWidth: 140
                             from: 1; to: 8
                             value: Number(root.dubbing.durationControl.maxPreTtsIterations !== undefined ? root.dubbing.durationControl.maxPreTtsIterations : 4)
                             enabled: !root.dubbing.processing

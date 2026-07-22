@@ -829,6 +829,18 @@ bool DubbingController::configureWorkflowNodeModel(const QString &nodeId,
     if (!supportsVoiceCloning)
         parameters.remove(QStringLiteral("autoSelectVoiceReference"));
 
+    const bool isOmniVoice = familyId.contains(QStringLiteral("omnivoice"), Qt::CaseInsensitive);
+    if (nodeId == QStringLiteral("synthesize") && isOmniVoice && supportsVoiceCloning) {
+        if (!parameters.contains(QStringLiteral("autoSelectVoiceReference")))
+            parameters.insert(QStringLiteral("autoSelectVoiceReference"), true);
+        if (!parameters.contains(QStringLiteral("forceSegmentDuration")))
+            parameters.insert(QStringLiteral("forceSegmentDuration"), true);
+    }
+    if (nodeId == QStringLiteral("synthesize")
+        && !parameters.contains(QStringLiteral("lang"))) {
+        parameters.insert(QStringLiteral("lang"), m_project.targetLanguage);
+    }
+
     QVariantMap selected{{QStringLiteral("familyId"), familyId},
                          {QStringLiteral("runtimeId"), config.runtimeId},
                          {QStringLiteral("runtimeVersion"), config.runtimeVersion},
@@ -1619,6 +1631,16 @@ void DubbingController::setTargetLanguage(const QString &value)
     const QString normalized = value.trimmed().toLower();
     if (normalized.isEmpty() || normalized == m_project.targetLanguage) return;
     m_project.targetLanguage = normalized;
+
+    QVariantMap synthesis = m_workflowNodeConfigurations
+                                .value(QStringLiteral("synthesize")).toMap();
+    if (!synthesis.isEmpty()) {
+        QVariantMap parameters = synthesis.value(QStringLiteral("parameters")).toMap();
+        parameters.insert(QStringLiteral("lang"), normalized);
+        synthesis.insert(QStringLiteral("parameters"), parameters);
+        m_workflowNodeConfigurations.insert(QStringLiteral("synthesize"), synthesis);
+    }
+
     emit projectChanged();
     emit workflowChanged();
     persistAfterEdit();

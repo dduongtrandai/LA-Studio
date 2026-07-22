@@ -286,6 +286,23 @@ void TestDubbingProject::sourceSeparationExposesModelSelection()
              QStringLiteral("voice-isolation"));
 }
 
+void TestDubbingProject::targetLanguageUpdatesVoiceNodeLanguage()
+{
+    DubbingController controller(nullptr, nullptr);
+    QVERIFY(controller.setWorkflowNodeParameters(
+        QStringLiteral("synthesize"),
+        QVariantMap{{QStringLiteral("lang"), QStringLiteral("en")}}));
+
+    controller.setTargetLanguage(QStringLiteral("ja"));
+
+    QCOMPARE(controller.targetLanguage(), QStringLiteral("ja"));
+    const QVariantMap synthesis = controller.workflowNodeConfigurations()
+                                      .value(QStringLiteral("synthesize")).toMap();
+    QCOMPARE(synthesis.value(QStringLiteral("parameters")).toMap()
+                 .value(QStringLiteral("lang")).toString(),
+             QStringLiteral("ja"));
+}
+
 void TestDubbingProject::rejectsRerunningUnsupportedStep()
 {
     DubbingController controller(nullptr, nullptr);
