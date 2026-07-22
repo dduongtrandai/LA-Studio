@@ -11,6 +11,8 @@ StudioShell {
     signal backToGallery()
     onRequestBack: root.backToGallery()
     onRequestConfigurationPicker: root.backToGallery()
+    onRequestReload: if (studioController) studioController.reload()
+    onRequestEject: if (studioController) studioController.unload()
 
     component NumberField: TextField {
         color: Theme.textPrimary
