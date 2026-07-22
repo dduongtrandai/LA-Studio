@@ -9,6 +9,7 @@ class TestDubbingProject : public QObject
     Q_OBJECT
 private slots:
     void roundTripsVersionedJson();
+    void migratesLegacyProjectsToLlmRewritePipeline();
     void rejectsUnknownSchema();
     void mergesSegmentPatchesByStableId();
     void rejectsUnknownAndDuplicateSegmentPatches();
@@ -29,6 +30,7 @@ private slots:
     void exportsSubtitlesAndReviewPackage();
     void segmentNormalizerSplitsLongAsrTranscript();
     void segmentNormalizerUsesAlignedWordBoundaries();
+    void segmentNormalizerRebuildsAcrossAsrBoundaries();
     void countsVietnameseSyllablesAndPlansBudget();
     void selectsImprovingDurationCandidate();
     void prefersWithinBudgetDurationCandidate();
@@ -38,7 +40,7 @@ private slots:
     void roundTripsDurationSettings();
     void normalizesLmStudioTranslationFixConfiguration();
     void parsesLmStudioTranslationFixResponses();
-    void fixesOnlyTranslationsAbovePhonemeBudget();
+    void fixesOnlyTranslationsOverPhonemeLimit();
     void ranksPartialTranslationFixesByBudgetDistance();
 };
 

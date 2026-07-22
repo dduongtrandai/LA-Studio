@@ -5,6 +5,7 @@
 #include <runtimes/WhisperInterface.h>
 #include <algorithm>
 #include <QElapsedTimer>
+#include <QRegularExpression>
 
 namespace LAStudio {
 
@@ -127,14 +128,18 @@ bool WhisperSttBackend::transcribe(const QVector<float> &samples,
     params.n_max_text_ctx = std::max(0, readInt("n_max_text_ctx", params.n_max_text_ctx));
     params.offset_ms = std::max(0, readInt("offset_ms", params.offset_ms));
     params.duration_ms = std::max(0, readInt("duration_ms", params.duration_ms));
-    params.no_context = readBool("no_context", params.no_context);
+    // Keep decoder history across Whisper's internal windows so punctuation
+    // and sentence structure remain coherent for subtitle translation.
+    params.no_context = readBool("no_context", false);
     params.no_timestamps = readBool("no_timestamps", params.no_timestamps);
     params.single_segment = readBool("single_segment", params.single_segment);
     params.print_special = readBool("print_special", params.print_special);
     params.print_progress = readBool("print_progress", false);
     params.print_realtime = readBool("print_realtime", params.print_realtime);
     params.print_timestamps = readBool("print_timestamps", false);
-    params.token_timestamps = readBool("token_timestamps", params.token_timestamps);
+    // The subtitle pipeline rebuilds sentence boundaries from a continuous
+    // word timeline, so token timing is part of the normal STT result.
+    params.token_timestamps = readBool("token_timestamps", true);
     params.thold_pt = readFloat("thold_pt", params.thold_pt);
     params.thold_ptsum = readFloat("thold_ptsum", params.thold_ptsum);
     params.max_len = std::max(0, readInt("max_len", params.max_len));
@@ -199,6 +204,53 @@ bool WhisperSttBackend::transcribe(const QVector<float> &samples,
         seg[QStringLiteral("text")] = segText;
         seg[QStringLiteral("start")] = static_cast<double>(t0) / 100.0;
         seg[QStringLiteral("end")] = static_cast<double>(t1) / 100.0;
+
+        QVariantList words;
+        if (params.token_timestamps && wi.full_n_tokens && wi.full_get_token_text
+            && wi.full_get_token_data) {
+            QVariantMap currentWord;
+            auto flushWord = [&]() {
+                if (!currentWord.value(QStringLiteral("text")).toString().isEmpty())
+                    words.append(currentWord);
+                currentWord.clear();
+            };
+
+            const int nTokens = wi.full_n_tokens(m_ctx, i);
+            for (int j = 0; j < nTokens; ++j) {
+                const char *rawPiece = wi.full_get_token_text(m_ctx, i, j);
+                if (!rawPiece) continue;
+                const QString piece = QString::fromUtf8(rawPiece);
+                const QString trimmed = piece.trimmed();
+                if (trimmed.isEmpty() || (trimmed.startsWith(QStringLiteral("[_"))
+                                          && trimmed.endsWith(QStringLiteral("_]"))))
+                    continue;
+
+                const whisper_token_data token = wi.full_get_token_data(m_ctx, i, j);
+                if (token.t0 < 0 || token.t1 <= token.t0) continue;
+                const bool startsWord = !piece.isEmpty() && piece.front().isSpace();
+                const bool punctuationOnly =
+                    trimmed.indexOf(QRegularExpression(QStringLiteral("[\\p{L}\\p{N}]"))) < 0;
+
+                if (startsWord && !currentWord.isEmpty()) flushWord();
+                if (currentWord.isEmpty()) {
+                    currentWord.insert(QStringLiteral("text"), trimmed);
+                    currentWord.insert(QStringLiteral("start"), double(token.t0) / 100.0);
+                    currentWord.insert(QStringLiteral("end"), double(token.t1) / 100.0);
+                    currentWord.insert(QStringLiteral("confidence"), double(token.p));
+                } else {
+                    QString word = currentWord.value(QStringLiteral("text")).toString();
+                    word += punctuationOnly || !startsWord
+                        ? trimmed : QStringLiteral(" ") + trimmed;
+                    currentWord.insert(QStringLiteral("text"), word);
+                    currentWord.insert(QStringLiteral("end"), double(token.t1) / 100.0);
+                    currentWord.insert(QStringLiteral("confidence"),
+                                       qMin(currentWord.value(QStringLiteral("confidence")).toDouble(),
+                                            double(token.p)));
+                }
+            }
+            flushWord();
+        }
+        if (!words.isEmpty()) seg.insert(QStringLiteral("words"), words);
         outSegments.append(seg);
     }
 

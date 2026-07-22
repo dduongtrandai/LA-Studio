@@ -25,6 +25,7 @@ class DubbingTranscriptionJob;
 class DubbingSynthesisJob;
 class DubbingExportJob;
 class DubbingTranslationJob;
+class DubbingTranslationFixService;
 
 class DubbingJobRunner : public QObject
 {
@@ -61,7 +62,7 @@ public:
     bool renderPreview(const QVariantList &segments, const QString &projectPath, const QString &path = QString());
     bool startExport(const QString &sourceMediaPath, const QString &outputPath);
     bool startExport(const QString &sourceMediaPath, const QString &audioPath,
-                     const QString &outputPath);
+                     const QString &outputPath, const QVariantList &segments = {});
 
     // Helpers to let controller update/clear state in runner
     void setPreviewPath(const QString &path);
@@ -88,6 +89,7 @@ private slots:
 private:
     void setProcessing(bool value, const QString &stage, int progress);
     void setBusyError(const QString &message);
+    void finishTranslation(const QVariantList &segments);
 
     QPointer<SttSessionController> m_sttSession;
     QPointer<TtsEngine> m_tts;
@@ -109,6 +111,10 @@ private:
     DubbingSynthesisJob *m_synthesisJob = nullptr;
     DubbingExportJob *m_exportJob = nullptr;
     DubbingTranslationJob *m_translationJob = nullptr;
+    DubbingTranslationFixService *m_autoTranslationFix = nullptr;
+    QVariantMap m_translationConfiguration;
+    QString m_translationSourceLanguage;
+    QString m_translationTargetLanguage;
     QString m_pendingSourceAudioPath;
     QFutureWatcher<QVariantList> *m_timingWatcher = nullptr;
     std::shared_ptr<QAtomicInteger<bool>> m_timingCancel;

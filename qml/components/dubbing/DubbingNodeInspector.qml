@@ -22,6 +22,9 @@ Rectangle {
     readonly property bool hasLanguageInput: studioConfig && studioConfig.inputs
                                                      ? studioConfig.inputs.indexOf("language") !== -1
                                                      : nodeId === "transcribe"
+    readonly property bool isOmniVoice: nodeId === "synthesize"
+                                             && node
+                                             && String(node.selectedFamilyId || "").toLowerCase().indexOf("omnivoice") !== -1
 
     signal closeRequested()
 
@@ -47,6 +50,12 @@ Rectangle {
         var patch = ({})
         patch[parameterId] = value
         root.dubbing.setWorkflowNodeParameters(root.nodeId, patch)
+    }
+
+    function updateDurationControl(parameterId, value) {
+        var next = Object.assign({}, root.dubbing.durationControl)
+        next[parameterId] = value
+        root.dubbing.durationControl = next
     }
 
     ColumnLayout {
@@ -191,31 +200,99 @@ Rectangle {
                 }
 
                 SettingsSection {
+                    title: qsTr("Segment duration")
+                    iconName: "clock"
+                    visible: root.isOmniVoice
+
+                    ToggleRow {
+                        text: qsTr("Force exact SRT segment duration")
+                        checked: root.dynamicSettings.forceSegmentDuration === true
+                        enabled: !root.dubbing.processing
+                        onToggled: root.updateParameter("forceSegmentDuration", checked)
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: qsTr("Sets OmniVoice output to each segment's exact SRT time slot.")
+                        color: Theme.textSecondary
+                        font.pixelSize: 10
+                        wrapMode: Text.WordWrap
+                    }
+                }
+
+                SettingsSection {
                     title: qsTr("Duration-aware dubbing")
                     iconName: "clock"
                     visible: root.nodeId === "translate"
 
                     ToggleRow {
-                        text: qsTr("Constrain predicted phoneme count")
+                        text: qsTr("Measure translated phoneme count")
                         checked: root.dubbing.durationControl.enabled !== false
                         enabled: !root.dubbing.processing
-                        onToggled: {
-                            var next = root.dubbing.durationControl
-                            next.enabled = checked
-                            root.dubbing.durationControl = next
+                        onToggled: root.updateDurationControl("enabled", checked)
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.paddingSmall
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 3
+                            Text { text: qsTr("Lower tolerance"); color: Theme.textSecondary; font.pixelSize: 10 }
+                            SpinBox {
+                                Layout.fillWidth: true
+                                from: 0; to: 90; stepSize: 1
+                                value: Math.round(Number(root.dubbing.durationControl.lowerToleranceRatio !== undefined ? root.dubbing.durationControl.lowerToleranceRatio : 0.10) * 100)
+                                textFromValue: function(value) { return value + "%" }
+                                valueFromText: function(text) { return parseInt(text) }
+                                editable: true
+                                enabled: !root.dubbing.processing && root.dubbing.durationControl.enabled !== false
+                                onValueModified: root.updateDurationControl("lowerToleranceRatio", value / 100.0)
+                            }
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 3
+                            Text { text: qsTr("Upper tolerance"); color: Theme.textSecondary; font.pixelSize: 10 }
+                            SpinBox {
+                                Layout.fillWidth: true
+                                from: 0; to: 200; stepSize: 1
+                                value: Math.round(Number(root.dubbing.durationControl.upperToleranceRatio !== undefined ? root.dubbing.durationControl.upperToleranceRatio : 0.10) * 100)
+                                textFromValue: function(value) { return value + "%" }
+                                valueFromText: function(text) { return parseInt(text) }
+                                editable: true
+                                enabled: !root.dubbing.processing && root.dubbing.durationControl.enabled !== false
+                                onValueModified: root.updateDurationControl("upperToleranceRatio", value / 100.0)
+                            }
+                        }
+                    }
+                    ToggleRow {
+                        text: qsTr("Automatically shorten overlong translations with LLM")
+                        checked: root.dubbing.durationControl.autoRewrite !== false
+                        enabled: !root.dubbing.processing && root.dubbing.durationControl.enabled !== false
+                        onToggled: root.updateDurationControl("autoRewrite", checked)
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: root.dubbing.durationControl.autoRewrite !== false
+                        Text { Layout.fillWidth: true; text: qsTr("Maximum attempts per segment"); color: Theme.textSecondary; font.pixelSize: 10; wrapMode: Text.WordWrap }
+                        SpinBox {
+                            from: 1; to: 8
+                            value: Number(root.dubbing.durationControl.maxPreTtsIterations !== undefined ? root.dubbing.durationControl.maxPreTtsIterations : 4)
+                            enabled: !root.dubbing.processing
+                            onValueModified: root.updateDurationControl("maxPreTtsIterations", value)
                         }
                     }
                     Text {
                         Layout.fillWidth: true
-                        text: qsTr("Predicts a phoneme target from source duration. Translation runs once; out-of-budget segments are kept for later LLM review.")
+                        text: qsTr("The translation model is not given a length constraint. Only translations above the upper phoneme limit are sent to the rewrite LLM.")
                         color: Theme.textSecondary
                         font.pixelSize: 10
                         wrapMode: Text.WordWrap
                     }
                     Text {
                         Layout.fillWidth: true
-                        text: qsTr("Target language: %1 · single-pass translation · no rewrite")
-                            .arg(root.dubbing.targetLanguage)
+                        text: root.dubbing.durationControl.autoRewrite !== false
+                              ? qsTr("Target language: %1 - shorten overlong segments with LLM").arg(root.dubbing.targetLanguage)
+                              : qsTr("Target language: %1 - manual review").arg(root.dubbing.targetLanguage)
                         color: Theme.textSecondary
                         font.pixelSize: 10
                         wrapMode: Text.WordWrap

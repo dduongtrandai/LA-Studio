@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QFileInfo>
 #include <QString>
 #include <QUrl>
 #include <QVariantList>
@@ -31,6 +32,7 @@ class DubbingController : public QObject
     Q_PROPERTY(QString projectPath READ projectPath NOTIFY projectChanged)
     Q_PROPERTY(QString sourceMediaPath READ sourceMediaPath NOTIFY projectChanged)
     Q_PROPERTY(QUrl sourceMediaUrl READ sourceMediaUrl NOTIFY projectChanged)
+    Q_PROPERTY(QUrl playbackMediaUrl READ playbackMediaUrl NOTIFY previewChanged)
     Q_PROPERTY(QString normalizedAudioPath READ normalizedAudioPath NOTIFY projectChanged)
     Q_PROPERTY(QString vocalsPath READ vocalsPath NOTIFY projectChanged)
     Q_PROPERTY(QString backgroundPath READ backgroundPath NOTIFY projectChanged)
@@ -86,6 +88,7 @@ public:
         if (m_project.sourceMediaPath.isEmpty()) return QUrl();
         return QUrl::fromLocalFile(m_project.sourceMediaPath);
     }
+    QUrl playbackMediaUrl() const;
     QString sourceLanguage() const { return m_project.sourceLanguage; }
     QString targetLanguage() const { return m_project.targetLanguage; }
     QVariantMap durationControl() const { return m_project.durationControl; }

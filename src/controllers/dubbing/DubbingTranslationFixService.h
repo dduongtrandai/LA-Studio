@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QPointer>
+#include <QSet>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -74,6 +75,7 @@ private:
     QString m_promptTranslation;
     QString m_lastCandidate;
     QString m_bestCandidate;
+    QSet<QString> m_seenCandidates;
     int m_lastCandidatePhonemes = 0;
     int m_bestCandidatePhonemes = 0;
     int m_promptPhonemes = 0;

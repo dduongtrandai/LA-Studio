@@ -61,7 +61,7 @@ void TestDubbingProject::parsesLmStudioTranslationFixResponses()
         QStringLiteral("Một câu khác."));
 }
 
-void TestDubbingProject::fixesOnlyTranslationsAbovePhonemeBudget()
+void TestDubbingProject::fixesOnlyTranslationsOverPhonemeLimit()
 {
     const QString text = QStringLiteral("Đây là một câu dịch để kiểm tra.");
     const int phonemes =
@@ -123,6 +123,30 @@ void TestDubbingProject::roundTripsVersionedJson()
     QCOMPARE(loaded.targetLanguage, original.targetLanguage);
     QCOMPARE(loaded.segments.size(), 1);
     QCOMPARE(loaded.segments.first().toMap().value(QStringLiteral("startMs")).toLongLong(), qint64(1000));
+}
+
+void TestDubbingProject::migratesLegacyProjectsToLlmRewritePipeline()
+{
+    DubbingProject migrated;
+    QString error;
+    const QJsonObject legacy{
+        {QStringLiteral("schemaVersion"), 3},
+        {QStringLiteral("durationControl"),
+         QJsonObject{{QStringLiteral("enabled"), true},
+                     {QStringLiteral("autoRewrite"), false}}}
+    };
+    QVERIFY2(DubbingProject::fromJson(legacy, migrated, &error), qPrintable(error));
+    QVERIFY(migrated.durationControl.value(QStringLiteral("autoRewrite")).toBool());
+
+    DubbingProject current;
+    const QJsonObject explicitOptOut{
+        {QStringLiteral("schemaVersion"), DubbingProject::CurrentSchemaVersion},
+        {QStringLiteral("durationControl"),
+         QJsonObject{{QStringLiteral("enabled"), true},
+                     {QStringLiteral("autoRewrite"), false}}}
+    };
+    QVERIFY2(DubbingProject::fromJson(explicitOptOut, current, &error), qPrintable(error));
+    QVERIFY(!current.durationControl.value(QStringLiteral("autoRewrite")).toBool());
 }
 
 void TestDubbingProject::rejectsUnknownSchema()
@@ -593,11 +617,11 @@ void TestDubbingProject::segmentNormalizerUsesAlignedWordBoundaries()
 {
     const QVariantList words{
         QVariantMap{{QStringLiteral("text"), QStringLiteral("First")}, {QStringLiteral("startMs"), 0}, {QStringLiteral("endMs"), 900}},
-        QVariantMap{{QStringLiteral("text"), QStringLiteral("sentence.")}, {QStringLiteral("startMs"), 950}, {QStringLiteral("endMs"), 2300}},
+        QVariantMap{{QStringLiteral("text"), QStringLiteral("sentence")}, {QStringLiteral("startMs"), 950}, {QStringLiteral("endMs"), 2300}},
         QVariantMap{{QStringLiteral("text"), QStringLiteral("Second")}, {QStringLiteral("startMs"), 4000}, {QStringLiteral("endMs"), 5200}},
         QVariantMap{{QStringLiteral("text"), QStringLiteral("long")}, {QStringLiteral("startMs"), 5250}, {QStringLiteral("endMs"), 6500}},
         QVariantMap{{QStringLiteral("text"), QStringLiteral("sentence")}, {QStringLiteral("startMs"), 6550}, {QStringLiteral("endMs"), 8000}},
-        QVariantMap{{QStringLiteral("text"), QStringLiteral("ends.")}, {QStringLiteral("startMs"), 8050}, {QStringLiteral("endMs"), 9300}}
+        QVariantMap{{QStringLiteral("text"), QStringLiteral("ends")}, {QStringLiteral("startMs"), 8050}, {QStringLiteral("endMs"), 9300}}
     };
     const QVariantList input{QVariantMap{{QStringLiteral("id"), QStringLiteral("aligned-source")},
                                          {QStringLiteral("startMs"), 0},
@@ -614,6 +638,44 @@ void TestDubbingProject::segmentNormalizerUsesAlignedWordBoundaries()
     QCOMPARE(normalized.at(1).toMap().value(QStringLiteral("words")).toList().size(), 4);
 }
 
+void TestDubbingProject::segmentNormalizerRebuildsAcrossAsrBoundaries()
+{
+    const QVariantList firstWords{
+        QVariantMap{{QStringLiteral("text"), QStringLiteral("This")}, {QStringLiteral("startMs"), 0}, {QStringLiteral("endMs"), 600}},
+        QVariantMap{{QStringLiteral("text"), QStringLiteral("war")}, {QStringLiteral("startMs"), 650}, {QStringLiteral("endMs"), 1200}},
+        QVariantMap{{QStringLiteral("text"), QStringLiteral("lasted")}, {QStringLiteral("startMs"), 1250}, {QStringLiteral("endMs"), 1900}},
+        QVariantMap{{QStringLiteral("text"), QStringLiteral("seven")}, {QStringLiteral("startMs"), 1950}, {QStringLiteral("endMs"), 2600}},
+        QVariantMap{{QStringLiteral("text"), QStringLiteral("hundred")}, {QStringLiteral("startMs"), 2650}, {QStringLiteral("endMs"), 3400}},
+        QVariantMap{{QStringLiteral("text"), QStringLiteral("eighty")}, {QStringLiteral("startMs"), 3450}, {QStringLiteral("endMs"), 4200}},
+        QVariantMap{{QStringLiteral("text"), QStringLiteral("years.")}, {QStringLiteral("startMs"), 4250}, {QStringLiteral("endMs"), 5000}},
+        QVariantMap{{QStringLiteral("text"), QStringLiteral("At")}, {QStringLiteral("startMs"), 5050}, {QStringLiteral("endMs"), 5400}}
+    };
+    const QVariantList secondWords{
+        QVariantMap{{QStringLiteral("text"), QStringLiteral("number")}, {QStringLiteral("startMs"), 5450}, {QStringLiteral("endMs"), 5900}},
+        QVariantMap{{QStringLiteral("text"), QStringLiteral("five,")}, {QStringLiteral("startMs"), 5950}, {QStringLiteral("endMs"), 6400}},
+        QVariantMap{{QStringLiteral("text"), QStringLiteral("it")}, {QStringLiteral("startMs"), 6450}, {QStringLiteral("endMs"), 6800}},
+        QVariantMap{{QStringLiteral("text"), QStringLiteral("is")}, {QStringLiteral("startMs"), 6850}, {QStringLiteral("endMs"), 7200}},
+        QVariantMap{{QStringLiteral("text"), QStringLiteral("Vietnam.")}, {QStringLiteral("startMs"), 7250}, {QStringLiteral("endMs"), 8000}}
+    };
+    const QVariantList input{
+        QVariantMap{{QStringLiteral("id"), QStringLiteral("asr-1")},
+                    {QStringLiteral("startMs"), 0}, {QStringLiteral("endMs"), 5400},
+                    {QStringLiteral("sourceText"), QStringLiteral("This war lasted seven hundred eighty years. At")},
+                    {QStringLiteral("words"), firstWords}},
+        QVariantMap{{QStringLiteral("id"), QStringLiteral("asr-2")},
+                    {QStringLiteral("startMs"), 5450}, {QStringLiteral("endMs"), 8000},
+                    {QStringLiteral("sourceText"), QStringLiteral("number five, it is Vietnam.")},
+                    {QStringLiteral("words"), secondWords}}
+    };
+
+    const QVariantList normalized = DubbingSegmentNormalizer::normalize(input);
+    QCOMPARE(normalized.size(), 2);
+    QCOMPARE(normalized.at(0).toMap().value(QStringLiteral("sourceText")).toString(),
+             QStringLiteral("This war lasted seven hundred eighty years."));
+    QVERIFY(normalized.at(1).toMap().value(QStringLiteral("sourceText")).toString()
+                .startsWith(QStringLiteral("At number five")));
+}
+
 void TestDubbingProject::countsVietnameseSyllablesAndPlansBudget()
 {
     QCOMPARE(DubbingDurationPlanner::countVietnameseSyllables(QStringLiteral("Xin chào, thế giới!")), 4);
@@ -623,6 +685,15 @@ void TestDubbingProject::countsVietnameseSyllablesAndPlansBudget()
     QVERIFY(budget.targetUnits > 0);
     QVERIFY(budget.minUnits <= budget.targetUnits);
     QVERIFY(budget.targetUnits <= budget.maxUnits);
+
+    DubbingDurationSettings asymmetric;
+    asymmetric.lowerToleranceRatio = 0.25;
+    asymmetric.upperToleranceRatio = 0.50;
+    const DubbingSpeechBudget asymmetricBudget =
+        DubbingDurationPlanner::plan(segment, 10.0, asymmetric);
+    QCOMPARE(asymmetricBudget.targetUnits, 20);
+    QCOMPARE(asymmetricBudget.minUnits, 15);
+    QCOMPARE(asymmetricBudget.maxUnits, 30);
 }
 
 void TestDubbingProject::selectsImprovingDurationCandidate()

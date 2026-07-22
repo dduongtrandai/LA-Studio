@@ -189,7 +189,9 @@ bool registerDubbingWorkflowNodes(NodeRegistry &registry, DubbingJobRunner *runn
                   {input(QStringLiteral("timeline"), WorkflowDataType::AudioTrack), input(QStringLiteral("background"), WorkflowDataType::Audio, false)},
                   {output(QStringLiteral("audio"), WorkflowDataType::Audio)}),
         definition(QStringLiteral("media.export"), QStringLiteral("Export Media"),
-                  {input(QStringLiteral("sourceMedia"), WorkflowDataType::Media), input(QStringLiteral("dubbedAudio"), WorkflowDataType::Audio)},
+                  {input(QStringLiteral("sourceMedia"), WorkflowDataType::Media),
+                   input(QStringLiteral("dubbedAudio"), WorkflowDataType::Audio),
+                   input(QStringLiteral("subtitles"), WorkflowDataType::TimedTranscript, false)},
                   {output(QStringLiteral("media"), WorkflowDataType::Media)})
     };
     if (runner) {

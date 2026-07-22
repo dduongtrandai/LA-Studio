@@ -7,10 +7,47 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QSaveFile>
 #include <QUuid>
 #include <QtConcurrent>
 
 namespace LAStudio {
+
+namespace {
+QString srtTime(qint64 value)
+{
+    value = qMax<qint64>(0, value);
+    const qint64 hours = value / 3600000;
+    const qint64 minutes = (value / 60000) % 60;
+    const qint64 seconds = (value / 1000) % 60;
+    const qint64 millis = value % 1000;
+    return QStringLiteral("%1:%2:%3,%4")
+        .arg(hours, 2, 10, QLatin1Char('0')).arg(minutes, 2, 10, QLatin1Char('0'))
+        .arg(seconds, 2, 10, QLatin1Char('0')).arg(millis, 3, 10, QLatin1Char('0'));
+}
+
+bool writeTargetSubtitles(const QVariantList &segments, const QString &path)
+{
+    QStringList lines;
+    int cue = 1;
+    for (const QVariant &value : segments) {
+        const QVariantMap segment = value.toMap();
+        const QString text = segment.value(QStringLiteral("targetText")).toString().trimmed();
+        const qint64 start = segment.value(QStringLiteral("startMs")).toLongLong();
+        const qint64 end = segment.value(QStringLiteral("endMs")).toLongLong();
+        if (text.isEmpty() || end <= start) continue;
+        lines.append(QString::number(cue++));
+        lines.append(QStringLiteral("%1 --> %2").arg(srtTime(start), srtTime(end)));
+        lines.append(text);
+        lines.append(QString());
+    }
+    if (lines.isEmpty()) return false;
+    QSaveFile file(path);
+    return file.open(QIODevice::WriteOnly)
+        && file.write(lines.join(QLatin1Char('\n')).toUtf8()) >= 0
+        && file.commit();
+}
+}
 
 DubbingExportJob::DubbingExportJob(QObject *parent)
     : QObject(parent)
@@ -65,7 +102,7 @@ bool DubbingExportJob::renderPreview(const QVariantList &segments, const QString
 }
 
 bool DubbingExportJob::startExport(const QString &sourceMediaPath, const QString &audioPath,
-                                   const QString &outputPath)
+                                   const QString &outputPath, const QVariantList &segments)
 {
     if (m_running) { fail(QStringLiteral("Finish the active export operation first.")); return false; }
     if (outputPath.isEmpty()) { fail(QStringLiteral("Choose an output path.")); return false; }
@@ -105,7 +142,11 @@ bool DubbingExportJob::startExport(const QString &sourceMediaPath, const QString
     if (!m_mediaTools) { clearExportPaths(); fail(QStringLiteral("Media tool service is unavailable.")); return false; }
     m_running = true;
     emit progressChanged(QStringLiteral("export"), 0);
-    m_mediaTools->muxVideoWithAudio(sourceMediaPath, m_exportAudioPath, m_exportStagingPath);
+    m_exportSubtitlePath = m_exportStagingPath + QStringLiteral(".srt");
+    if (!writeTargetSubtitles(segments, m_exportSubtitlePath))
+        m_exportSubtitlePath.clear();
+    m_mediaTools->muxVideoWithAudio(sourceMediaPath, m_exportAudioPath,
+                                    m_exportSubtitlePath, m_exportStagingPath);
     return true;
 }
 
@@ -116,6 +157,7 @@ void DubbingExportJob::cancel()
     if (m_mediaTools) m_mediaTools->cancel();
     QFile::remove(m_renderStagingPath);
     QFile::remove(m_exportStagingPath);
+    QFile::remove(m_exportSubtitlePath);
     m_running = false;
     clearExportPaths();
 }
@@ -142,6 +184,7 @@ void DubbingExportJob::onMediaFinished(bool success, const QString &outputPath, 
     if (!m_running) return;
     if (!success || outputPath != m_exportStagingPath || !QFileInfo::exists(m_exportStagingPath)) {
         QFile::remove(m_exportStagingPath);
+        QFile::remove(m_exportSubtitlePath);
         clearExportPaths();
         m_running = false;
         fail(error.isEmpty() ? QStringLiteral("Media export failed.") : error);
@@ -150,12 +193,14 @@ void DubbingExportJob::onMediaFinished(bool success, const QString &outputPath, 
     QString commitError;
     if (!AtomicMediaCommit::commit(m_exportStagingPath, m_exportDestination, &commitError)) {
         QFile::remove(m_exportStagingPath);
+        QFile::remove(m_exportSubtitlePath);
         clearExportPaths();
         m_running = false;
         fail(commitError);
         return;
     }
     QFile::remove(m_exportStagingPath);
+    QFile::remove(m_exportSubtitlePath);
     const QString destination = m_exportDestination;
     clearExportPaths();
     m_running = false;
@@ -168,6 +213,7 @@ void DubbingExportJob::clearExportPaths()
     m_exportDestination.clear();
     m_exportStagingPath.clear();
     m_exportAudioPath.clear();
+    m_exportSubtitlePath.clear();
 }
 
 void DubbingExportJob::fail(const QString &message)

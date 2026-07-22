@@ -1,7 +1,17 @@
 #include "SttEngine.h"
+#include <runtimes/CrispNemotronSttInterface.h>
+#include <runtimes/CrispQwen3SttInterface.h>
 #include <QFileInfo>
 
 namespace LAStudio {
+
+namespace {
+void unloadCrispSttRuntimes()
+{
+    CrispNemotronSttInterface::instance().unload();
+    CrispQwen3SttInterface::instance().unload();
+}
+}
 
 SttEngine::SttEngine(QObject *parent)
     : QObject(parent)
@@ -12,6 +22,7 @@ SttEngine::~SttEngine()
 {
     qDeleteAll(m_instances.values());
     m_instances.clear();
+    unloadCrispSttRuntimes();
 }
 
 SttEngineInstance *SttEngine::activeInstance() const
@@ -120,6 +131,13 @@ void SttEngine::unloadInstance(const QString &signature)
     const bool wasActive = signature == m_activeSignature;
     inst->unloadModelSync();
     inst->deleteLater();
+
+    if (m_instances.size() == 0) {
+        // CrispASR keeps its QLibrary and preloaded GGML dependencies alive
+        // after the model session closes. Release them at the engine boundary
+        // so an incompatible llama.cpp GGML build can be loaded next.
+        unloadCrispSttRuntimes();
+    }
 
     if (wasActive) {
         m_activeSignature = m_instances.size() == 0 ? QString() : m_instances.signatures().last();

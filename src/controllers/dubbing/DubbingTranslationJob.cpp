@@ -13,20 +13,7 @@
 #include "tts/TtsEngine.h"
 
 #include <QFileInfo>
-#include <QRegularExpression>
-
 namespace LAStudio {
-namespace {
-QString protectedTokens(const QString &text)
-{
-    QStringList tokens;
-    const QRegularExpression re(QStringLiteral("(?:https?://\\S+|\\b\\d[\\d.,/%-]*|\\b[A-Z]{2,}\\b)"));
-    auto match = re.globalMatch(text);
-    while (match.hasNext()) tokens.append(match.next().captured(0));
-    tokens.removeDuplicates();
-    return tokens.join(QStringLiteral(", "));
-}
-}
 
 DubbingTranslationJob::DubbingTranslationJob(TranslationEngine *translation,
                                                ModelManager *models,
@@ -143,9 +130,10 @@ bool DubbingTranslationJob::start(const QString &sourceLanguage, const QString &
             parameters.value(QStringLiteral("durationControl")).toMap());
     if (parameters.contains(QStringLiteral("durationAware")))
         m_durationSettings.enabled = parameters.value(QStringLiteral("durationAware")).toBool();
-    m_durationAware = m_durationSettings.enabled
-        && targetLanguage.compare(QStringLiteral("vi"), Qt::CaseInsensitive) == 0
-        && request.backend.contains(QStringLiteral("llama"), Qt::CaseInsensitive);
+    // Translation quality and timing adaptation are separate stages. Every translation
+    // backend receives only the source text; duration budgets are consumed later by the
+    // dedicated LLM rewrite service.
+    m_durationAware = m_durationSettings.enabled;
     Logger::info(QStringLiteral("DubbingTranslation"),
                  QStringLiteral("Request ready run=%1 backend=%2 gpu=%3 maxTokens=%4 durationEnabled=%5 durationAware=%6 modelSize=%7 runtimeSize=%8")
                      .arg(m_runId, request.backend)
@@ -169,11 +157,6 @@ bool DubbingTranslationJob::start(const QString &sourceLanguage, const QString &
             const DubbingSpeechBudget budget = DubbingDurationPlanner::plan(
                 segment, m_durationRate, m_durationSettings);
             segment.insert(QStringLiteral("durationBudget"), budget.toVariantMap());
-            segment.insert(QStringLiteral("protectedTokens"),
-                           protectedTokens(segment.value(QStringLiteral("sourceText")).toString()));
-            segment.insert(QStringLiteral("durationPrompt"),
-                           QStringLiteral("Use between %1 and %2 target-language phonemes (predicted %3).")
-                               .arg(budget.minUnits).arg(budget.maxUnits).arg(budget.targetUnits));
         }
         m_inputSegments.append(segment);
     }
@@ -219,8 +202,7 @@ bool DubbingTranslationJob::start(const QString &sourceLanguage, const QString &
     inference.segments = m_inputSegments;
     inference.sourceLanguage = sourceLanguage;
     inference.targetLanguage = targetLanguage;
-    inference.task = m_durationAware ? QStringLiteral("duration-translate")
-                                     : QStringLiteral("translate");
+    inference.task = QStringLiteral("translate");
     inference.maxTokens = request.maxTokens;
     m_pendingRequest = inference;
     m_phase = QStringLiteral("reference");
@@ -309,7 +291,7 @@ void DubbingTranslationJob::onTranslationFinished(const QVariantList &patches, q
                 ++nonEmpty;
         }
         Logger::info(QStringLiteral("DubbingTranslation"),
-                     QStringLiteral("Single-pass translations merged run=%1 total=%2 nonEmpty=%3 durationAware=%4 rewriteDisabled=true")
+                     QStringLiteral("Context translations merged run=%1 total=%2 nonEmpty=%3 durationTracking=%4")
                          .arg(m_runId).arg(merged.size()).arg(nonEmpty)
                          .arg(m_durationAware ? QStringLiteral("true") : QStringLiteral("false")));
         m_inputSegments = merged;
@@ -338,7 +320,7 @@ void DubbingTranslationJob::finishDurationTranslation()
                                : QStringLiteral("needs-review"));
             segment.insert(QStringLiteral("durationMetric"), QStringLiteral("phoneme-distance"));
             segment.insert(QStringLiteral("candidateSelectionMetric"),
-                           QStringLiteral("single-pass-translation-v1"));
+                           QStringLiteral("context-translation-v1"));
             const QVariantList pauses = budget.value(QStringLiteral("pauses")).toList();
             segment.insert(QStringLiteral("targetChunks"),
                            DubbingDurationPlanner::pauseChunks(
@@ -358,14 +340,14 @@ void DubbingTranslationJob::finishDurationTranslation()
     if (!violations.isEmpty()) {
         Logger::warning(
             QStringLiteral("DubbingTranslation"),
-            QStringLiteral("Single-pass translation completed with %1 segment(s) outside the phoneme budget; translations were kept for later LLM review. Segments: %2")
+            QStringLiteral("Context translation completed with %1 segment(s) outside the phoneme budget; translations were kept for the LLM rewrite stage. Segments: %2")
                 .arg(violations.size())
                 .arg(violations.join(QStringLiteral(", "))));
     }
     m_phase.clear();
     m_running = false;
     Logger::info(QStringLiteral("DubbingTranslation"),
-                 QStringLiteral("Job completed run=%1 segments=%2 rewriteDisabled=true reviewRequired=%3")
+                 QStringLiteral("Translation job completed run=%1 segments=%2 rewriteCandidates=%3")
                      .arg(m_runId).arg(m_inputSegments.size()).arg(violations.size()));
     emit progressChanged(100);
     emit completed(m_inputSegments);

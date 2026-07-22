@@ -18,6 +18,7 @@ public:
     bool available() const;
     void muxVideoWithAudio(const QString &videoPath,
                            const QString &audioPath,
+                           const QString &subtitlePath,
                            const QString &outputPath);
     void cancel();
 

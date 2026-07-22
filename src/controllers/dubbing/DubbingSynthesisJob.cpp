@@ -83,6 +83,9 @@ bool DubbingSynthesisJob::start(const QVariantList &segments, const QString &pro
     m_settings = settings;
     m_cacheSettings = settings;
     m_useVoiceCloning = settings.value(QStringLiteral("autoSelectVoiceReference")).toBool();
+    m_forceSegmentDuration = settings.value(QStringLiteral("forceSegmentDuration")).toBool()
+        && settings.value(QStringLiteral("familyId")).toString()
+               .contains(QStringLiteral("omnivoice"), Qt::CaseInsensitive);
     m_voiceReference = {};
     if (m_useVoiceCloning) {
         m_voiceReference = DubbingVoiceReferenceSelector::select(
@@ -99,6 +102,8 @@ bool DubbingSynthesisJob::start(const QVariantList &segments, const QString &pro
     }
     m_settings.remove(QStringLiteral("autoSelectVoiceReference"));
     m_settings.remove(QStringLiteral("autoReferenceSourcePath"));
+    m_settings.remove(QStringLiteral("forceSegmentDuration"));
+    m_settings.remove(QStringLiteral("familyId"));
     m_runId = runId;
     m_generationIndex = -1;
     bool hasTargetText = false;
@@ -138,7 +143,8 @@ void DubbingSynthesisJob::startCurrentChunk()
     if (!m_running || !m_tts || m_generationIndex < 0 || m_generationIndex >= m_segments.size()) return;
     if (m_chunkIndex < 0) {
         const QVariantMap segment = m_segments.at(m_generationIndex).toMap();
-        m_chunks = segment.value(QStringLiteral("targetChunks")).toList();
+        m_chunks = m_forceSegmentDuration ? QVariantList()
+                                          : segment.value(QStringLiteral("targetChunks")).toList();
         if (m_chunks.isEmpty()) m_chunks.append(QVariantMap{{QStringLiteral("text"), segment.value(QStringLiteral("targetText"))},
                                                              {QStringLiteral("pauseAfterMs"), 0},
                                                              {QStringLiteral("leadingPauseMs"), 0}});
@@ -148,10 +154,18 @@ void DubbingSynthesisJob::startCurrentChunk()
     }
     const QString text = m_chunks.at(m_chunkIndex).toMap().value(QStringLiteral("text")).toString().trimmed();
     if (text.isEmpty()) { fail(QStringLiteral("Pause alignment produced an empty TTS chunk.")); return; }
+    QVariantMap requestSettings = m_settings;
+    if (m_forceSegmentDuration) {
+        const QVariantMap segment = m_segments.at(m_generationIndex).toMap();
+        const qint64 slotMs = qMax<qint64>(1,
+            segment.value(QStringLiteral("endMs")).toLongLong()
+                - segment.value(QStringLiteral("startMs")).toLongLong());
+        requestSettings.insert(QStringLiteral("duration_sec"), slotMs / 1000.0);
+    }
     if (m_useVoiceCloning)
-        m_tts->cloneVoice(text, m_voiceReference.audioPath, m_settings);
+        m_tts->cloneVoice(text, m_voiceReference.audioPath, requestSettings);
     else
-        m_tts->synthesize(text, 0, 1.0f, m_settings);
+        m_tts->synthesize(text, 0, 1.0f, requestSettings);
 }
 
 void DubbingSynthesisJob::onSynthesisFinished(const QByteArray &pcm16, int sampleRate)

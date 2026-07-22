@@ -9185,7 +9185,7 @@
         "no_context": {
           "name": "Disable Previous Text Context",
           "type": "bool",
-          "default": true,
+          "default": false,
           "advanced": true,
           "description": "Do not feed previously decoded text as prompt to the next audio segment."
         },
@@ -9234,7 +9234,7 @@
         "token_timestamps": {
           "name": "Token Timestamps",
           "type": "bool",
-          "default": false,
+          "default": true,
           "advanced": true,
           "description": "Compute token-level timestamps during decoding."
         },

@@ -346,7 +346,8 @@ Rectangle {
         // Left list panel
         Rectangle {
             Layout.fillHeight: true
-            Layout.preferredWidth: root.modalMode ? 280 : 360
+            Layout.minimumWidth: root.modalMode ? 300 : 320
+            Layout.preferredWidth: root.modalMode ? 300 : 360
             color: Theme.surface
             radius: Theme.radiusSmall
             border.color: Theme.surfaceAlt
@@ -680,8 +681,9 @@ Rectangle {
 
                     delegate: Rectangle {
                         id: familyDelegate
+                        property var rowStatsBadges: model.statsBadges || []
                         width: familyList.width
-                        height: root.modalMode ? 84 : 96
+                        height: (root.modalMode ? 84 : 96) + (rowStatsBadges.length > 0 ? 16 : 0)
                         property string familyId: model.familyId || ""
                         radius: 7
                         color: root.selectedFamilyId === familyDelegate.familyId ? Qt.rgba(1, 1, 1, 0.035) : (itemHover.hovered ? Qt.rgba(1, 1, 1, 0.025) : "transparent")
@@ -695,8 +697,6 @@ Rectangle {
                                 root.familySelected(familyDelegate.familyId)
                             }
                         }
-
-                        property var rowStatsBadges: model.statsBadges || []
 
                         RowLayout {
                             anchors.fill: parent
@@ -735,84 +735,79 @@ Rectangle {
                                 Layout.fillWidth: true
                                 spacing: 3
 
-                                RowLayout {
-                                    id: listNameRow
+                                Row {
+                                    id: nameContainer
                                     Layout.fillWidth: true
-                                    spacing: Theme.paddingSmall
+                                    spacing: 6
 
-                                    Row {
-                                        id: nameContainer
-                                        Layout.fillWidth: true
-                                        spacing: 6
-
-                                        Text {
-                                            width: Math.min(implicitWidth, nameContainer.width - (model.isLastudioPick ? 22 : 0))
-                                            text: model.displayName
-                                            color: Theme.textPrimary
-                                            font.pixelSize: Theme.fontSmall
-                                            font.bold: true
-                                            elide: Text.ElideRight
-                                        }
-
-                                        Rectangle {
-                                            width: 16
-                                            height: 16
-                                            radius: 8
-                                            color: "#3f7cff"
-                                            border.color: "#a7c0ff"
-                                            border.width: 1
-                                            visible: model.isLastudioPick
-
-                                            LineIcon {
-                                                anchors.centerIn: parent
-                                                name: "check"
-                                                color: "#ffffff"
-                                                width: 10
-                                                height: 10
-                                                strokeWidth: 2.2
-                                            }
-
-                                            HoverHandler { id: listPickHover }
-
-                                            AppToolTip {
-                                                visible: listPickHover.hovered
-                                                text: model.pickReason || qsTr("LA Studio Pick")
-                                            }
-                                        }
+                                    Text {
+                                        width: Math.min(implicitWidth, nameContainer.width - (model.isLastudioPick ? 22 : 0))
+                                        text: model.displayName
+                                        color: Theme.textPrimary
+                                        font.pixelSize: Theme.fontSmall
+                                        font.bold: true
+                                        elide: Text.ElideRight
                                     }
 
                                     Rectangle {
-                                        id: listStatusBadge
-                                        implicitWidth: statusRow.width + 10
-                                        implicitHeight: 20
-                                        radius: 6
-                                        color: model.ready ? Qt.rgba(0.40, 0.73, 0.42, 0.10) : (model.statusReason === "Incompatible" ? Qt.rgba(0.93, 0.33, 0.36, 0.12) : Qt.rgba(1.0, 0.65, 0.15, 0.10))
-                                        border.color: model.ready ? Qt.rgba(0.40, 0.73, 0.42, 0.55) : (model.statusReason === "Incompatible" ? Qt.rgba(0.93, 0.33, 0.36, 0.60) : Qt.rgba(1.0, 0.65, 0.15, 0.55))
+                                        width: 16
+                                        height: 16
+                                        radius: 8
+                                        color: "#3f7cff"
+                                        border.color: "#a7c0ff"
                                         border.width: 1
+                                        visible: model.isLastudioPick
 
-                                        Row {
-                                            id: statusRow
+                                        LineIcon {
                                             anchors.centerIn: parent
-                                            spacing: 4
+                                            name: "check"
+                                            color: "#ffffff"
+                                            width: 10
+                                            height: 10
+                                            strokeWidth: 2.2
+                                        }
 
-                                            LineIcon {
-                                                name: model.ready ? "check" : (model.statusReason === "Incompatible" ? "close" : "download")
-                                                color: model.ready ? Theme.success : (model.statusReason === "Incompatible" ? Theme.danger : Theme.warning)
-                                                width: 10
-                                                height: 10
-                                            }
+                                        HoverHandler { id: listPickHover }
 
-                                            Text {
-                                                text: {
-                                                    if (model.statusReason === "Ready") return qsTr("Ready")
-                                                    if (model.statusReason === "Setup Required") return qsTr("Setup Required")
-                                                    if (model.statusReason === "Incompatible") return qsTr("Incompatible")
-                                                    return model.statusReason || ""
-                                                }
-                                                color: model.ready ? Theme.success : (model.statusReason === "Incompatible" ? Theme.danger : Theme.warning)
-                                                font.pixelSize: 9
-                                                font.bold: true
+                                        AppToolTip {
+                                            visible: listPickHover.hovered
+                                            text: model.pickReason || qsTr("LA Studio Pick")
+                                        }
+                                    }
+                                }
+
+                                Rectangle {
+                                    id: listStatusBadge
+                                    Layout.preferredWidth: statusRow.width + 10
+                                    Layout.preferredHeight: 20
+                                    Layout.alignment: Qt.AlignLeft
+                                    radius: 6
+                                    color: model.ready ? Qt.rgba(0.40, 0.73, 0.42, 0.10) : (model.statusReason === "Incompatible" ? Qt.rgba(0.93, 0.33, 0.36, 0.12) : Qt.rgba(1.0, 0.65, 0.15, 0.10))
+                                    border.color: model.ready ? Qt.rgba(0.40, 0.73, 0.42, 0.55) : (model.statusReason === "Incompatible" ? Qt.rgba(0.93, 0.33, 0.36, 0.60) : Qt.rgba(1.0, 0.65, 0.15, 0.55))
+                                    border.width: 1
+
+                                    Row {
+                                        id: statusRow
+                                        anchors.centerIn: parent
+                                        spacing: 4
+
+                                        LineIcon {
+                                            name: model.ready ? "check" : (model.statusReason === "Incompatible" ? "close" : "download")
+                                            color: model.ready ? Theme.success : (model.statusReason === "Incompatible" ? Theme.danger : Theme.warning)
+                                            width: 10
+                                            height: 10
+                                        }
+
+                                        Text {
+                                            text: {
+                                                if (model.statusReason === "Ready") return qsTr("Ready")
+                                                if (model.statusReason === "Setup Required") return qsTr("Setup Required")
+                                                if (model.statusReason === "Incompatible") return qsTr("Incompatible")
+                                                return model.statusReason || ""
                                             }
+                                            color: model.ready ? Theme.success : (model.statusReason === "Incompatible" ? Theme.danger : Theme.warning)
+                                            font.pixelSize: 9
+                                            font.bold: true
                                         }
                                     }
                                 }

@@ -29,6 +29,7 @@ bool MediaToolService::available() const
 
 void MediaToolService::muxVideoWithAudio(const QString &videoPath,
                                          const QString &audioPath,
+                                         const QString &subtitlePath,
                                          const QString &outputPath)
 {
     if (m_process.state() != QProcess::NotRunning) {
@@ -51,17 +52,35 @@ void MediaToolService::muxVideoWithAudio(const QString &videoPath,
     m_process.setProgram(executable);
     m_process.setWorkingDirectory(QFileInfo(executable).absolutePath());
     m_process.setProcessChannelMode(QProcess::SeparateChannels);
-    m_process.setArguments({
+    QStringList arguments{
         QStringLiteral("-hide_banner"), QStringLiteral("-y"),
         QStringLiteral("-i"), videoPath,
         QStringLiteral("-i"), audioPath,
+    };
+    const bool hasSubtitles = !subtitlePath.isEmpty() && QFileInfo(subtitlePath).isFile();
+    if (hasSubtitles)
+        arguments.append({QStringLiteral("-i"), subtitlePath});
+    arguments.append({
         QStringLiteral("-map"), QStringLiteral("0:v:0?"),
         QStringLiteral("-map"), QStringLiteral("1:a:0"),
         QStringLiteral("-c:v"), QStringLiteral("copy"),
         QStringLiteral("-c:a"), QStringLiteral("aac"),
-        QStringLiteral("-b:a"), QStringLiteral("192k"),
-        QStringLiteral("-shortest"), outputPath
+        QStringLiteral("-b:a"), QStringLiteral("192k")
     });
+    if (hasSubtitles) {
+        const QString suffix = QFileInfo(outputPath).suffix().toLower();
+        const QString codec = suffix == QStringLiteral("webm")
+            ? QStringLiteral("webvtt")
+            : (suffix == QStringLiteral("mp4") || suffix == QStringLiteral("mov")
+               || suffix == QStringLiteral("m4v"))
+                ? QStringLiteral("mov_text") : QStringLiteral("srt");
+        arguments.append({QStringLiteral("-map"), QStringLiteral("2:0"),
+                          QStringLiteral("-c:s"), codec,
+                          QStringLiteral("-metadata:s:s:0"), QStringLiteral("title=Dubbed subtitles"),
+                          QStringLiteral("-disposition:s:0"), QStringLiteral("default")});
+    }
+    arguments.append(outputPath);
+    m_process.setArguments(arguments);
     connect(&m_process, &QProcess::started, this, [this]() { emit progress(5); });
     m_process.start();
     if (!m_process.waitForStarted(5000)) {

@@ -11,6 +11,7 @@ Rectangle {
     required property var dubbing
     property int selectedSegment: -1
     readonly property bool isVideoSource: root.dubbing.sourceMediaPath.length > 0 && /\.(mp4|mkv|mov|webm|avi)$/i.test(root.dubbing.sourceMediaPath)
+    readonly property bool showingDubbedMedia: root.dubbing.exportPath.length > 0
 
     signal browseRequested()
     signal segmentSelected(int index)
@@ -42,13 +43,17 @@ Rectangle {
 
     MediaPlayer {
         id: mediaPlayer
-        source: root.dubbing.sourceMediaUrl
+        source: root.dubbing.playbackMediaUrl
         audioOutput: AudioOutput {}
         videoOutput: videoOutput
     }
 
     Connections {
         target: mediaPlayer
+        function onSubtitleTracksChanged() {
+            if (mediaPlayer.subtitleTracks.length > 0)
+                mediaPlayer.activeSubtitleTrack = 0
+        }
         function onPositionChanged() {
             if (mediaPlayer.playbackState !== MediaPlayer.PlayingState) return
             for (var i = 0; i < root.dubbing.segments.length; ++i) {
@@ -70,8 +75,8 @@ Rectangle {
         spacing: Theme.paddingSmall
         RowLayout {
             Layout.fillWidth: true
-            Text { text: qsTr("SOURCE MEDIA"); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall; font.bold: true; font.letterSpacing: 1.1; Layout.fillWidth: true }
-            Text { text: root.dubbing.sourceMediaPath.length > 0 ? qsTr("Loaded") : qsTr("No media"); color: root.dubbing.sourceMediaPath.length > 0 ? Theme.success : Theme.textSecondary; font.pixelSize: Theme.fontSmall }
+            Text { text: root.showingDubbedMedia ? qsTr("DUBBED PREVIEW") : qsTr("SOURCE MEDIA"); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall; font.bold: true; font.letterSpacing: 1.1; Layout.fillWidth: true }
+            Text { text: root.showingDubbedMedia ? qsTr("Voice + background + subtitles") : (root.dubbing.sourceMediaPath.length > 0 ? qsTr("Loaded") : qsTr("No media")); color: root.dubbing.sourceMediaPath.length > 0 ? Theme.success : Theme.textSecondary; font.pixelSize: Theme.fontSmall }
         }
         Rectangle { Layout.fillWidth: true; height: 1; color: Qt.rgba(1, 1, 1, 0.07) }
 

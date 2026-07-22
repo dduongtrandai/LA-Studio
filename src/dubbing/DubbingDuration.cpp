@@ -12,7 +12,8 @@ QVariantMap DubbingDurationSettings::toVariantMap() const
     return {{QStringLiteral("enabled"), enabled},
             {QStringLiteral("unit"), unit},
             {QStringLiteral("safetyFactor"), safetyFactor},
-            {QStringLiteral("toleranceRatio"), toleranceRatio},
+            {QStringLiteral("lowerToleranceRatio"), lowerToleranceRatio},
+            {QStringLiteral("upperToleranceRatio"), upperToleranceRatio},
             {QStringLiteral("pauseThresholdMs"), pauseThresholdMs},
             {QStringLiteral("maxPreTtsIterations"), maxPreTtsIterations},
             {QStringLiteral("candidatesPerIteration"), candidatesPerIteration},
@@ -30,8 +31,11 @@ DubbingDurationSettings DubbingDurationSettings::fromVariantMap(const QVariantMa
         result.unit = QStringLiteral("phoneme-v1");
     result.safetyFactor = qBound(
         0.50, map.value(QStringLiteral("safetyFactor"), result.safetyFactor).toDouble(), 1.0);
-    result.toleranceRatio = qBound(
-        0.01, map.value(QStringLiteral("toleranceRatio"), result.toleranceRatio).toDouble(), 0.50);
+    const double legacyTolerance = map.value(QStringLiteral("toleranceRatio"), 0.10).toDouble();
+    result.lowerToleranceRatio = qBound(
+        0.0, map.value(QStringLiteral("lowerToleranceRatio"), legacyTolerance).toDouble(), 0.90);
+    result.upperToleranceRatio = qBound(
+        0.0, map.value(QStringLiteral("upperToleranceRatio"), legacyTolerance).toDouble(), 2.0);
     result.pauseThresholdMs = qBound(
         80, map.value(QStringLiteral("pauseThresholdMs"), result.pauseThresholdMs).toInt(), 2000);
     result.maxPreTtsIterations = qBound(
@@ -312,9 +316,10 @@ DubbingSpeechBudget DubbingDurationPlanner::plan(const QVariantMap &segment,
     result.targetUnits = qMax(
         1, qRound(result.phonemesPerSecond * result.speechWindowMs / 1000.0
                   * settings.safetyFactor));
-    const int delta = qMax(1, qRound(result.targetUnits * settings.toleranceRatio));
-    result.minUnits = qMax(1, result.targetUnits - delta);
-    result.maxUnits = result.targetUnits + delta;
+    const int lowerDelta = qRound(result.targetUnits * settings.lowerToleranceRatio);
+    const int upperDelta = qRound(result.targetUnits * settings.upperToleranceRatio);
+    result.minUnits = qMax(1, result.targetUnits - lowerDelta);
+    result.maxUnits = result.targetUnits + upperDelta;
     result.confidence = segment.value(QStringLiteral("words")).toList().isEmpty() ? 0.35 : 0.85;
     return result;
 }

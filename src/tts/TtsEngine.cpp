@@ -1,9 +1,23 @@
 #include "TtsEngine.h"
 #include "core/Logger.h"
+#include <runtimes/CrispKokoroInterface.h>
+#include <runtimes/CrispQwen3TtsInterface.h>
+#include <runtimes/CrispVibeVoiceInterface.h>
+#include <runtimes/CrispVoxCpm2Interface.h>
 
 #include <QFileInfo>
 
 namespace LAStudio {
+
+namespace {
+void unloadCrispTtsRuntimes()
+{
+    CrispKokoroInterface::instance().unload();
+    CrispQwen3TtsInterface::instance().unload();
+    CrispVibeVoiceInterface::instance().unload();
+    CrispVoxCpm2Interface::instance().unload();
+}
+}
 
 TtsEngine::TtsEngine(QObject *parent)
     : QObject(parent)
@@ -14,6 +28,7 @@ TtsEngine::~TtsEngine()
 {
     qDeleteAll(m_instances.values());
     m_instances.clear();
+    unloadCrispTtsRuntimes();
 }
 
 TtsEngineInstance *TtsEngine::activeInstance() const
@@ -324,6 +339,12 @@ void TtsEngine::unloadInstance(const QString &signature)
     const bool wasActive = signature == m_activeSignature;
     inst->unloadVoiceSync();
     inst->deleteLater();
+
+    if (m_instances.size() == 0) {
+        // The backend session is gone, but the CrispASR interface singleton
+        // still owns the DLL and its preloaded GGML dependencies.
+        unloadCrispTtsRuntimes();
+    }
 
     if (wasActive) {
         m_activeSignature = m_instances.size() == 0 ? QString() : m_instances.signatures().last();

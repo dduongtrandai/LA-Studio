@@ -79,6 +79,25 @@ void TestModelsAndRuntimes::cleanupTestCase()
     QThreadPool::globalInstance()->waitForDone();
 }
 
+void TestModelsAndRuntimes::testLlamaContextTranslationParser()
+{
+    QStringList translations;
+    QVERIFY(LlamaTranslationInterface::parseContextTranslation(
+        QStringLiteral("[[LA_SEG_000001]]\nỞ vị trí thứ năm là Chiến tranh Việt Nam.\n\n"
+                       "[[LA_SEG_000002]]\nỞ vị trí thứ tư là Chiến tranh Afghanistan."),
+        2, &translations));
+    QCOMPARE(translations, QStringList({
+        QStringLiteral("Ở vị trí thứ năm là Chiến tranh Việt Nam."),
+        QStringLiteral("Ở vị trí thứ tư là Chiến tranh Afghanistan.")}));
+
+    QVERIFY(!LlamaTranslationInterface::parseContextTranslation(
+        QStringLiteral("[[LA_SEG_000001]]\nMột\n[[LA_SEG_000003]]\nBa"),
+        2, &translations));
+    QVERIFY(translations.isEmpty());
+    QVERIFY(!LlamaTranslationInterface::parseContextTranslation(
+        QStringLiteral("[[LA_SEG_000001]]\nMột"), 2, &translations));
+}
+
 void TestModelsAndRuntimes::testOptionalLlamaTranslationRuntimeLoad()
 {
     const QString runtimePath =
@@ -119,6 +138,33 @@ void TestModelsAndRuntimes::testOptionalLlamaTranslationRuntimeLoad()
                  qPrintable(QStringLiteral("Hy-MT2 copied the source instead of translating it: %1")
                                 .arg(results.at(i))));
     }
+
+    const QString difficultSource = QStringLiteral(
+        "The war at number one was so long that it almost lasted a thousand years at number five.");
+    const QVariantList durationSegments{
+        QVariantMap{
+            {QStringLiteral("sourceText"), difficultSource},
+            {QStringLiteral("durationBudget"),
+             QVariantMap{{QStringLiteral("minUnits"), 52},
+                         {QStringLiteral("maxUnits"), 64},
+                         {QStringLiteral("targetUnits"), 58}}},
+            {QStringLiteral("protectedTokens"), QString()}}
+    };
+    const QStringList durationResults = translator.translateBatch(
+        {difficultSource}, QStringLiteral("en"), QStringLiteral("vi"), 128, {}, &error,
+        QStringLiteral("duration-translate"), durationSegments);
+    QVERIFY2(error.isEmpty(), qPrintable(error));
+    QCOMPARE(durationResults.size(), 1);
+    const QString durationResult = durationResults.constFirst();
+    QVERIFY2(!durationResult.contains(QStringLiteral("bộ đếm"), Qt::CaseInsensitive),
+             qPrintable(QStringLiteral("Duration instruction leaked into translation: %1")
+                            .arg(durationResult)));
+    QVERIFY2(!durationResult.contains(QStringLiteral("từ khóa được bảo vệ"), Qt::CaseInsensitive),
+             qPrintable(QStringLiteral("Protected-token instruction leaked into translation: %1")
+                            .arg(durationResult)));
+    QVERIFY2(durationResult.size() <= difficultSource.size() * 3 + 80,
+             qPrintable(QStringLiteral("Duration translation is implausibly long: %1")
+                            .arg(durationResult)));
 }
 
 void TestModelsAndRuntimes::testLlamaCatalogIncludesAllWindowsX64Runtimes()

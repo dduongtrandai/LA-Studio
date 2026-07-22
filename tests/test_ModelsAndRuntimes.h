@@ -17,6 +17,7 @@ private slots:
     void testProcessRuntimeManifest();
     void testProcessRuntimeRejectsMissingEntrypoint();
     void testOptionalLlamaTranslationRuntimeLoad();
+    void testLlamaContextTranslationParser();
     void testLlamaCatalogIncludesAllWindowsX64Runtimes();
     void testStudioSelectionRepositoryRemembersFilesPerFamily();
     void testVieNeuV3CatalogIncludesMossExternalData();

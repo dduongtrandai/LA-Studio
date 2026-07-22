@@ -1,15 +1,18 @@
 #include "runtimes/LlamaTranslationInterface.h"
 
+#include "core/Logger.h"
 #include "core/PathUtils.h"
 
 #include <QDir>
 #include <QFileInfo>
 #include <QLibrary>
 #include <QLocale>
+#include <QRegularExpression>
 #include <QThread>
 #include <QVariantMap>
 
 #include <algorithm>
+#include <utility>
 #include <vector>
 
 #include <ggml-backend.h>
@@ -63,6 +66,11 @@ QString fullLanguageName(const QString &language)
         return QLocale::languageToString(locale.language());
     }
     return language.trimmed();
+}
+
+QString segmentMarker(int index)
+{
+    return QStringLiteral("[[LA_SEG_%1]]").arg(index, 6, 10, QLatin1Char('0'));
 }
 
 } // namespace
@@ -225,6 +233,35 @@ void LlamaTranslationInterface::unload()
 void LlamaTranslationInterface::cancel() { m_cancelled.store(true, std::memory_order_relaxed); }
 bool LlamaTranslationInterface::isLoaded() const { return m_api && m_api->model; }
 
+bool LlamaTranslationInterface::parseContextTranslation(
+    const QString &output, int expectedCount, QStringList *translations)
+{
+    if (!translations || expectedCount <= 0) return false;
+    translations->clear();
+    const QRegularExpression markerExpression(
+        QStringLiteral("\\[\\[LA_SEG_(\\d{6})\\]\\]"));
+    QVector<QRegularExpressionMatch> matches;
+    auto iterator = markerExpression.globalMatch(output);
+    while (iterator.hasNext()) matches.append(iterator.next());
+    if (matches.size() != expectedCount) return false;
+
+    for (int i = 0; i < matches.size(); ++i) {
+        if (matches.at(i).captured(1).toInt() != i + 1) return false;
+    }
+    for (int i = 0; i < matches.size(); ++i) {
+        const qsizetype start = matches.at(i).capturedEnd();
+        const qsizetype end = i + 1 < matches.size()
+            ? matches.at(i + 1).capturedStart() : output.size();
+        const QString translated = output.mid(start, end - start).trimmed();
+        if (translated.isEmpty()) {
+            translations->clear();
+            return false;
+        }
+        translations->append(translated);
+    }
+    return true;
+}
+
 QStringList LlamaTranslationInterface::translateBatch(
     const QStringList &texts, const QString &sourceLanguage, const QString &targetLanguage,
     int maxTokens, const std::shared_ptr<std::atomic_bool> &cancelToken, QString *error,
@@ -235,83 +272,51 @@ QStringList LlamaTranslationInterface::translateBatch(
         return {};
     }
 
+    const QString sourceName = fullLanguageName(sourceLanguage);
     const QString targetName = fullLanguageName(targetLanguage);
-    Q_UNUSED(sourceLanguage);
+    Q_UNUSED(task);
+    Q_UNUSED(segments);
 
     QStringList results;
     const llama_vocab *vocab = m_api->modelGetVocab(m_api->model);
-    for (const QString &text : texts) {
-        if (m_cancelled.load(std::memory_order_relaxed) ||
-            (cancelToken && cancelToken->load(std::memory_order_relaxed))) {
-            setError(QStringLiteral("Translation was cancelled."), error);
-            return {};
-        }
-
-        QString userInstruction;
-        const QVariantMap segmentContext = (segments.size() == texts.size())
-            ? segments.at(results.size()).toMap() : QVariantMap();
-        if (task == QStringLiteral("duration-translate")) {
-            userInstruction = QStringLiteral(
-                "Translate the following text into %1. Preserve the complete meaning, names, "
-                "numbers, order/rank, comparison, causality, negation, and every protected token. "
-                "The result must fit the stated target-language phoneme budget. Follow the "
-                "constraint closely, but do not count or print phonemes yourself: an external "
-                "counter will verify the result. Use concise, natural wording. Output only the "
-                "translated result with no explanation.\nConstraint: %2\nProtected tokens: %3\n\n%4")
-                .arg(targetName,
-                     segmentContext.value(QStringLiteral("durationPrompt")).toString(),
-                     segmentContext.value(QStringLiteral("protectedTokens")).toString(),
-                     text);
-        } else {
-            userInstruction = QStringLiteral(
-                "Translate the following text into %1. Note that you should only output the "
-                "translated result without any additional explanation:\n\n%2")
-                .arg(targetName, text);
-        }
-        const QByteArray instruction = userInstruction.toUtf8();
+    auto generate = [&](const QString &instructionText, int outputLimit,
+                        QByteArray &translatedUtf8) {
+        const QByteArray instruction = instructionText.toUtf8();
         QByteArray prompt = instruction;
+        bool addSpecialTokens = true;
         const char *chatTemplate = m_api->modelChatTemplate(m_api->model, nullptr);
         if (chatTemplate) {
             const llama_chat_message message{"user", instruction.constData()};
             const int32_t needed = m_api->chatApplyTemplate(chatTemplate, &message, 1, true, nullptr, 0);
             if (needed > 0) {
                 prompt.resize(needed + 1);
-                const int32_t written = m_api->chatApplyTemplate(chatTemplate, &message, 1, true,
-                                                                  prompt.data(), prompt.size());
-                if (written > 0) prompt.resize(written);
-                else prompt = instruction;
+                const int32_t written = m_api->chatApplyTemplate(
+                    chatTemplate, &message, 1, true, prompt.data(), prompt.size());
+                if (written > 0) {
+                    prompt.resize(written);
+                    // Hy-MT2's chat template already starts with its BOS token.
+                    addSpecialTokens = false;
+                } else {
+                    prompt = instruction;
+                }
             }
         }
 
-        int32_t tokenCount = -m_api->tokenize(vocab, prompt.constData(), prompt.size(), nullptr, 0, true, true);
-        if (tokenCount <= 0) {
-            setError(QStringLiteral("llama.cpp failed to tokenize the translation prompt."), error);
-            return {};
-        }
+        int32_t tokenCount = -m_api->tokenize(vocab, prompt.constData(), prompt.size(),
+                                               nullptr, 0, addSpecialTokens, true);
+        if (tokenCount <= 0) return false;
         std::vector<llama_token> tokens(static_cast<size_t>(tokenCount));
-        tokenCount = m_api->tokenize(vocab, prompt.constData(), prompt.size(), tokens.data(), tokenCount, true, true);
-        if (tokenCount <= 0) {
-            setError(QStringLiteral("llama.cpp failed to tokenize the translation prompt."), error);
-            return {};
-        }
+        tokenCount = m_api->tokenize(vocab, prompt.constData(), prompt.size(), tokens.data(),
+                                     tokenCount, addSpecialTokens, true);
+        if (tokenCount <= 0) return false;
 
-        int requestedLimit = qMax(32, text.size() * 2 + 24);
-        if (task == QStringLiteral("duration-translate")) {
-            const int targetPhonemes = segmentContext.value(QStringLiteral("durationBudget"))
-                                            .toMap().value(QStringLiteral("targetUnits")).toInt();
-            requestedLimit = qMax(24, targetPhonemes * 2 + 16);
-        }
-        const int outputLimit = qMin(qMax(1, maxTokens), requestedLimit);
         llama_context_params contextParams = m_api->contextDefaultParams();
         contextParams.n_ctx = static_cast<uint32_t>(qMax(512, tokenCount + outputLimit + 8));
         contextParams.n_batch = static_cast<uint32_t>(qMax(512, tokenCount));
         contextParams.n_threads = qMax(1, QThread::idealThreadCount());
         contextParams.n_threads_batch = contextParams.n_threads;
         llama_context *context = m_api->contextInit(m_api->model, contextParams);
-        if (!context) {
-            setError(QStringLiteral("llama.cpp failed to create a translation context."), error);
-            return {};
-        }
+        if (!context) return false;
 
         llama_sampler *sampler = m_api->samplerChainInit(m_api->samplerDefaultParams());
         m_api->samplerChainAdd(sampler, m_api->samplerPenalties(-1, 1.05f, 0.0f, 0.0f));
@@ -321,7 +326,6 @@ QStringList LlamaTranslationInterface::translateBatch(
         m_api->samplerChainAdd(sampler, m_api->samplerDist(LLAMA_DEFAULT_SEED));
 
         llama_batch batch = m_api->batchGetOne(tokens.data(), tokenCount);
-        QByteArray translatedUtf8;
         bool failed = false;
         for (int generated = 0; generated < outputLimit; ++generated) {
             if (m_cancelled.load(std::memory_order_relaxed) ||
@@ -332,11 +336,51 @@ QStringList LlamaTranslationInterface::translateBatch(
             translatedUtf8 += tokenPiece(vocab, token, m_api->tokenToPiece);
             batch = m_api->batchGetOne(&token, 1);
         }
-
         m_api->samplerFree(sampler);
         m_api->contextFree(context);
-        if (failed) {
-            setError(QStringLiteral("llama.cpp failed while decoding the translation."), error);
+        return !failed;
+    };
+
+    constexpr int maxSegmentsPerChunk = 20;
+    constexpr int maxSourceCharactersPerChunk = 6000;
+    int cursor = 0;
+    while (cursor < texts.size()) {
+        if (m_cancelled.load(std::memory_order_relaxed) ||
+            (cancelToken && cancelToken->load(std::memory_order_relaxed))) {
+            setError(QStringLiteral("Translation was cancelled."), error);
+            return {};
+        }
+
+        QStringList chunk;
+        int sourceCharacters = 0;
+        while (cursor + chunk.size() < texts.size()
+               && chunk.size() < maxSegmentsPerChunk) {
+            const QString candidate = texts.at(cursor + chunk.size());
+            if (!chunk.isEmpty()
+                && sourceCharacters + candidate.size() > maxSourceCharactersPerChunk)
+                break;
+            chunk.append(candidate);
+            sourceCharacters += candidate.size();
+        }
+
+        QString markedSource;
+        for (int i = 0; i < chunk.size(); ++i) {
+            if (!markedSource.isEmpty()) markedSource += QStringLiteral("\n\n");
+            markedSource += segmentMarker(i + 1) + QStringLiteral("\n") + chunk.at(i);
+        }
+        const QString batchInstruction = QStringLiteral(
+            "Translate the following ordered subtitle segments from %1 into %2. "
+            "Use the surrounding segments as context so terminology, references, ranking, and "
+            "style remain consistent. Preserve every marker exactly and output exactly one "
+            "translation after each marker, in the same order. Do not merge, split, omit, or "
+            "explain any segment.\n\n%3")
+            .arg(sourceName, targetName, markedSource);
+        const int outputLimit = qMin(qMax(1, maxTokens),
+                                     qMax(96, sourceCharacters * 2 + chunk.size() * 20));
+
+        QByteArray translatedUtf8;
+        if (!generate(batchInstruction, outputLimit, translatedUtf8)) {
+            setError(QStringLiteral("llama.cpp failed while generating the translation."), error);
             return {};
         }
         if (m_cancelled.load(std::memory_order_relaxed) ||
@@ -344,7 +388,34 @@ QStringList LlamaTranslationInterface::translateBatch(
             setError(QStringLiteral("Translation was cancelled."), error);
             return {};
         }
-        results.append(QString::fromUtf8(translatedUtf8).trimmed());
+        QStringList chunkTranslations;
+        const QString structuredOutput = QString::fromUtf8(translatedUtf8).trimmed();
+        if (!parseContextTranslation(structuredOutput, chunk.size(), &chunkTranslations)) {
+            Logger::warning(QStringLiteral("LlamaTranslation"),
+                            QStringLiteral("Context translation returned invalid markers; retrying %1 segment(s) individually.")
+                                .arg(chunk.size()));
+            for (const QString &text : std::as_const(chunk)) {
+                const QString fallbackInstruction = QStringLiteral(
+                    "Translate the following text into %1. Note that you should only output the "
+                    "translated result without any additional explanation:\n\n%2")
+                    .arg(targetName, text);
+                translatedUtf8.clear();
+                const int fallbackLimit = qMin(qMax(1, maxTokens),
+                                               qMax(32, text.size() * 2 + 24));
+                if (!generate(fallbackInstruction, fallbackLimit, translatedUtf8)) {
+                    setError(QStringLiteral("llama.cpp failed while retrying the translation."), error);
+                    return {};
+                }
+                const QString translated = QString::fromUtf8(translatedUtf8).trimmed();
+                if (translated.isEmpty()) {
+                    setError(QStringLiteral("Translation returned an empty segment."), error);
+                    return {};
+                }
+                chunkTranslations.append(translated);
+            }
+        }
+        results.append(chunkTranslations);
+        cursor += chunk.size();
     }
     return results;
 }

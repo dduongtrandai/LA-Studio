@@ -22,7 +22,7 @@ public:
     bool renderPreview(const QVariantList &segments, const QString &projectPath,
                        const QString &backgroundPath, const QString &path = QString());
     bool startExport(const QString &sourceMediaPath, const QString &audioPath,
-                     const QString &outputPath);
+                     const QString &outputPath, const QVariantList &segments = {});
     void cancel();
 
 signals:
@@ -44,6 +44,7 @@ private:
     QString m_exportDestination;
     QString m_exportStagingPath;
     QString m_exportAudioPath;
+    QString m_exportSubtitlePath;
     QFutureWatcher<QVariantMap> *m_renderWatcher = nullptr;
     std::shared_ptr<QAtomicInteger<bool>> m_renderCancel;
     MediaToolService *m_mediaTools = nullptr;

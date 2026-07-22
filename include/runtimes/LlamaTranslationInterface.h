@@ -25,6 +25,9 @@ public:
     void cancel();
     bool isLoaded() const;
 
+    static bool parseContextTranslation(const QString &output, int expectedCount,
+                                        QStringList *translations);
+
     QStringList translateBatch(const QStringList &texts,
                                const QString &sourceLanguage,
                                const QString &targetLanguage,

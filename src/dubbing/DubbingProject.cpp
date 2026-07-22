@@ -75,7 +75,14 @@ bool DubbingProject::fromJson(const QJsonObject &json, DubbingProject &project, 
     project.durationControl = json.value(QStringLiteral("durationControl")).toObject().toVariantMap();
     if (project.durationControl.isEmpty()) {
         project.durationControl = QVariantMap{{QStringLiteral("enabled"), version >= 3},
-                                              {QStringLiteral("unit"), QStringLiteral("phoneme-v1")}};
+                                              {QStringLiteral("unit"), QStringLiteral("phoneme-v1")},
+                                              {QStringLiteral("lowerToleranceRatio"), 0.10},
+                                              {QStringLiteral("upperToleranceRatio"), 0.10},
+                                              {QStringLiteral("autoRewrite"), true}};
+    } else if (version < 4) {
+        // Schema 4 separates faithful translation from length adaptation. The old
+        // opt-in controlled a different single-pass/outside-tolerance workflow.
+        project.durationControl.insert(QStringLiteral("autoRewrite"), true);
     }
     project.speakers = json.value(QStringLiteral("speakers")).toArray().toVariantList();
     project.segments = json.value(QStringLiteral("segments")).toArray().toVariantList();

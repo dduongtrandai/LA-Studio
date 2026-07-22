@@ -244,6 +244,9 @@ public:
         full_get_segment_text = (whisper_full_get_segment_text_fn)m_lib.resolve("whisper_full_get_segment_text");
         full_get_segment_t0 = (whisper_full_get_segment_t0_fn)m_lib.resolve("whisper_full_get_segment_t0");
         full_get_segment_t1 = (whisper_full_get_segment_t1_fn)m_lib.resolve("whisper_full_get_segment_t1");
+        full_n_tokens = (whisper_full_n_tokens_fn)m_lib.resolve("whisper_full_n_tokens");
+        full_get_token_text = (whisper_full_get_token_text_fn)m_lib.resolve("whisper_full_get_token_text");
+        full_get_token_data = (whisper_full_get_token_data_fn)m_lib.resolve("whisper_full_get_token_data");
         print_system_info = (whisper_print_system_info_fn)m_lib.resolve("whisper_print_system_info");
 
         ok = init_from_file && free_context && context_default_params &&
@@ -269,6 +272,9 @@ public:
     typedef const char* (*whisper_full_get_segment_text_fn)(struct whisper_context*, int);
     typedef int64_t (*whisper_full_get_segment_t0_fn)(struct whisper_context*, int);
     typedef int64_t (*whisper_full_get_segment_t1_fn)(struct whisper_context*, int);
+    typedef int (*whisper_full_n_tokens_fn)(struct whisper_context*, int);
+    typedef const char* (*whisper_full_get_token_text_fn)(struct whisper_context*, int, int);
+    typedef struct whisper_token_data (*whisper_full_get_token_data_fn)(struct whisper_context*, int, int);
     typedef const char* (*whisper_print_system_info_fn)(void);
 
     whisper_init_from_file_with_params_fn init_from_file = nullptr;
@@ -280,6 +286,9 @@ public:
     whisper_full_get_segment_text_fn full_get_segment_text = nullptr;
     whisper_full_get_segment_t0_fn full_get_segment_t0 = nullptr;
     whisper_full_get_segment_t1_fn full_get_segment_t1 = nullptr;
+    whisper_full_n_tokens_fn full_n_tokens = nullptr;
+    whisper_full_get_token_text_fn full_get_token_text = nullptr;
+    whisper_full_get_token_data_fn full_get_token_data = nullptr;
     whisper_print_system_info_fn print_system_info = nullptr;
 
 private:

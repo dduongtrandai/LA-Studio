@@ -4,6 +4,7 @@
 #include "controllers/dubbing/DubbingSynthesisJob.h"
 #include "controllers/dubbing/DubbingExportJob.h"
 #include "controllers/dubbing/DubbingTranslationJob.h"
+#include "controllers/dubbing/DubbingTranslationFixService.h"
 #include "translation/TranslationEngine.h"
 #include "dubbing/DubbingTimingService.h"
 
@@ -119,6 +120,27 @@ DubbingJobRunner::DubbingJobRunner(SttSessionController *sttSession, TtsEngine *
     });
 
     m_translationJob = new DubbingTranslationJob(m_translation, m_models, m_runtimes, m_tts, this);
+    m_autoTranslationFix = new DubbingTranslationFixService(this);
+    connect(m_autoTranslationFix, &DubbingTranslationFixService::stateChanged, this, [this]() {
+        if (!m_run.processing() || m_run.stageId() != DubbingStage::Translation
+            || !m_autoTranslationFix->busy()) return;
+        m_run.setProgress(70 + qRound(m_autoTranslationFix->progress() * 0.29));
+        emit stateChanged();
+    });
+    connect(m_autoTranslationFix, &DubbingTranslationFixService::completed, this,
+            [this](const QVariantList &segments, int, int) { finishTranslation(segments); });
+    connect(m_autoTranslationFix, &DubbingTranslationFixService::failed,
+            this, [this](const QString &message) {
+        if (m_run.processing() && m_run.stageId() == DubbingStage::Translation) {
+            Logger::warning(
+                QStringLiteral("DubbingPipeline"),
+                QStringLiteral("[translation] LLM shortening unavailable; keeping faithful translations for review: %1")
+                    .arg(message));
+            finishTranslation(m_activeSegments);
+            return;
+        }
+        setError(message);
+    });
     connect(m_translationJob, &DubbingTranslationJob::progressChanged, this, [this](int progress) {
         if (!m_run.processing() || m_run.stageId() != DubbingStage::Translation) return;
         m_run.setProgress(progress);
@@ -144,10 +166,37 @@ DubbingJobRunner::DubbingJobRunner(SttSessionController *sttSession, TtsEngine *
                          .arg(m_run.runId()).arg(segments.size()).arg(translated)
                          .arg(m_run.elapsedMs()));
         m_activeSegments = segments;
-        setProcessing(false, QStringLiteral("translated"), 100);
-        emit segmentsUpdated(segments);
-        emit stageCompleted(QStringLiteral("translate"), {{QStringLiteral("transcript"), segments}});
+        QVariantMap parameters = m_translationConfiguration.value(QStringLiteral("parameters")).toMap();
+        if (parameters.isEmpty()) parameters = m_translationConfiguration;
+        const QVariantMap durationControl = parameters.value(QStringLiteral("durationControl")).toMap();
+        const bool autoRewrite = durationControl.value(QStringLiteral("autoRewrite"), true).toBool();
+        const int candidates = DubbingTranslationFixService::eligibleSegmentCount(
+            segments, m_translationTargetLanguage);
+        if (autoRewrite && candidates > 0 && m_autoTranslationFix) {
+            Logger::info(QStringLiteral("DubbingPipeline"),
+                         QStringLiteral("[translation] automatically shortening %1 overlong segment(s) with the configured LLM")
+                             .arg(candidates));
+            m_run.setProgress(70);
+            emit stateChanged();
+            QVariantMap fixConfiguration = m_autoTranslationFix->configuration();
+            fixConfiguration.insert(QStringLiteral("maxAttempts"),
+                                    durationControl.value(QStringLiteral("maxPreTtsIterations"), 4));
+            if (m_autoTranslationFix->start(m_translationSourceLanguage,
+                                            m_translationTargetLanguage,
+                                            segments, fixConfiguration))
+                return;
+        }
+        finishTranslation(segments);
     });
+}
+
+void DubbingJobRunner::finishTranslation(const QVariantList &segments)
+{
+    if (!m_run.processing() || m_run.stageId() != DubbingStage::Translation) return;
+    m_activeSegments = segments;
+    setProcessing(false, QStringLiteral("translated"), 100);
+    emit segmentsUpdated(segments);
+    emit stageCompleted(QStringLiteral("translate"), {{QStringLiteral("transcript"), segments}});
 }
 
 DubbingJobRunner::~DubbingJobRunner()
@@ -259,6 +308,9 @@ void DubbingJobRunner::startTranslation(const QString &sourceLanguage, const QSt
     }
     m_run.ensureRun();
     m_run.beginNode();
+    m_translationSourceLanguage = sourceLanguage;
+    m_translationTargetLanguage = targetLanguage;
+    m_translationConfiguration = modelConfiguration;
     Logger::info(QStringLiteral("DubbingPipeline"),
                  QStringLiteral("[translation] start run=%1 node=%2 source=%3 target=%4 segments=%5 family=%6 runtime=%7")
                      .arg(m_run.runId(), m_run.nodeRunId(), sourceLanguage, targetLanguage)
@@ -349,6 +401,8 @@ void DubbingJobRunner::cancel()
     if (m_sourceSeparation) m_sourceSeparation->cancel();
     if (m_run.stageId() == DubbingStage::Translation && m_translationJob)
         m_translationJob->cancel();
+    if (m_autoTranslationFix && m_autoTranslationFix->busy())
+        m_autoTranslationFix->cancel();
     Logger::warning(QStringLiteral("DubbingPipeline"),
                     QStringLiteral("[%1] cancelled at %2%%").arg(m_run.stageName()).arg(m_run.progress()));
     setProcessing(false, QStringLiteral("cancelled"), m_run.progress());
@@ -372,12 +426,13 @@ bool DubbingJobRunner::renderPreview(const QVariantList &segments, const QString
 
 bool DubbingJobRunner::startExport(const QString &sourceMediaPath, const QString &outputPath)
 {
-    return startExport(sourceMediaPath, m_previewPath, outputPath);
+    return startExport(sourceMediaPath, m_previewPath, outputPath, m_activeSegments);
 }
 
 bool DubbingJobRunner::startExport(const QString &sourceMediaPath,
                                    const QString &audioPath,
-                                   const QString &outputPath)
+                                   const QString &outputPath,
+                                   const QVariantList &segments)
 {
     if (m_run.processing()) {
         setBusyError(QStringLiteral("Finish the active dubbing operation before exporting."));
@@ -391,7 +446,8 @@ bool DubbingJobRunner::startExport(const QString &sourceMediaPath,
     m_exportPath.clear();
     emit stateChanged();
     setProcessing(true, QStringLiteral("export"), 0);
-    return m_exportJob && m_exportJob->startExport(sourceMediaPath, audioPath, outputPath);
+    return m_exportJob && m_exportJob->startExport(sourceMediaPath, audioPath, outputPath,
+                                                    segments.isEmpty() ? m_activeSegments : segments);
 }
 
 void DubbingJobRunner::setPreviewPath(const QString &path)

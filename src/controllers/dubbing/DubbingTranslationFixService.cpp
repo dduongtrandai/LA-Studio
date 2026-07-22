@@ -55,6 +55,7 @@ bool isOverBudget(const QVariantMap &segment, const QString &language)
         return false;
     const int maximum = budget.value(QStringLiteral("maxUnits")).toInt();
     const int phonemes = actualPhonemeCount(segment, language);
+    if (phonemes < 0) return false;
     return phonemes > maximum;
 }
 
@@ -222,8 +223,8 @@ bool DubbingTranslationFixService::start(
     }
     if (m_eligibleIndices.isEmpty()) {
         setError(segmentIndex >= 0
-                     ? QStringLiteral("This translation does not exceed its phoneme budget.")
-                     : QStringLiteral("No translated segments exceed their phoneme budgets."));
+                     ? QStringLiteral("This translation does not exceed its phoneme limit.")
+                     : QStringLiteral("No translated segment exceeds its phoneme limit."));
         return false;
     }
 
@@ -364,6 +365,7 @@ void DubbingTranslationFixService::beginSegment()
     m_promptTranslation = m_originalTranslation;
     m_lastCandidate.clear();
     m_bestCandidate.clear();
+    m_seenCandidates.clear();
     m_lastCandidatePhonemes = actualPhonemeCount(segment, m_targetLanguage);
     m_bestCandidatePhonemes = m_lastCandidatePhonemes;
     m_promptPhonemes = m_lastCandidatePhonemes;
@@ -395,7 +397,7 @@ void DubbingTranslationFixService::requestAttempt()
                        "meaning and the meaning of the current translation: facts, names, numbers, "
                        "rank/order, time, comparison, causality, and negation. Rewrite naturally in "
                        "the requested target language while meeting the supplied eSpeak NG phoneme "
-                       "budget. Never invent or omit information. Return only the rewritten "
+                       "maximum. Never invent or omit information. Return only the rewritten "
                        "translation, without analysis, labels, quotes, or a phoneme count."));
     payload.insert(QStringLiteral("input"), buildPrompt(segment));
 
@@ -460,6 +462,30 @@ void DubbingTranslationFixService::handleAttemptResponse(QNetworkReply *reply)
         setError(QStringLiteral("LM Studio returned an empty translation."));
         return;
     }
+
+    const QString candidateKey = candidate.simplified().toCaseFolded();
+    if (m_seenCandidates.contains(candidateKey)) {
+        ++m_attempt;
+        Logger::warning(QStringLiteral("DubbingTranslationFix"),
+                        QStringLiteral("Repeated rewrite rejected at attempt %1/%2")
+                            .arg(m_attempt).arg(m_maxAttempts));
+        if (m_attempt < m_maxAttempts) {
+            requestAttempt();
+            return;
+        }
+        if (!m_bestCandidate.isEmpty()) {
+            const QVariantMap current =
+                m_segments.at(m_eligibleIndices.at(m_segmentPosition)).toMap();
+            QVariantMap improved = current;
+            applyCandidate(improved, m_bestCandidate, m_bestCandidatePhonemes, false);
+            m_segments[m_eligibleIndices.at(m_segmentPosition)] = improved;
+            finishSegment(false, true);
+        } else {
+            finishSegment(false);
+        }
+        return;
+    }
+    m_seenCandidates.insert(candidateKey);
 
     const QVariantMap segment =
         m_segments.at(m_eligibleIndices.at(m_segmentPosition)).toMap();
@@ -550,7 +576,7 @@ void DubbingTranslationFixService::finishSegment(bool fixed, bool improved)
 void DubbingTranslationFixService::finishRun()
 {
     setProgress(100);
-    setStatus(QStringLiteral("Fixed %1 segment(s); shortened %2; %3 still need review.")
+    setStatus(QStringLiteral("Fixed %1 segment(s); improved %2; %3 still need review.")
                   .arg(m_fixedCount).arg(m_improvedCount).arg(m_unresolvedCount));
     Logger::info(
         QStringLiteral("DubbingTranslationFix"),
@@ -566,6 +592,10 @@ QString DubbingTranslationFixService::buildPrompt(
 {
     const QVariantMap budget =
         segment.value(QStringLiteral("durationBudget")).toMap();
+    const int maximum = budget.value(QStringLiteral("maxUnits")).toInt();
+    const QString direction = m_promptPhonemes > maximum
+        ? QStringLiteral("Shorten the wording without dropping any source meaning.")
+        : QStringLiteral("Keep the wording inside the required range.");
     QString feedback;
     if (m_attempt > 0) {
         feedback = QStringLiteral(
@@ -584,8 +614,7 @@ QString DubbingTranslationFixService::buildPrompt(
                "External eSpeak NG measurement: %6 phonemes.\n"
                "Required range: %7-%8 phonemes; ideal target: %9 phonemes.\n"
                "Protected tokens that must remain exactly unchanged: %10\n"
-               "Keep the translation as semantically faithful as possible. "
-               "Shorten redundant wording without dropping any source meaning.%11")
+               "Keep the translation as semantically faithful as possible. %11%12")
         .arg(m_sourceLanguage, m_targetLanguage,
              segment.value(QStringLiteral("sourceText")).toString(),
              m_originalTranslation, m_promptTranslation)
@@ -594,7 +623,7 @@ QString DubbingTranslationFixService::buildPrompt(
         .arg(budget.value(QStringLiteral("maxUnits")).toInt())
         .arg(budget.value(QStringLiteral("targetUnits")).toInt())
         .arg(tokens.isEmpty() ? QStringLiteral("(none)") : tokens,
-             feedback);
+             direction, feedback);
 }
 
 QStringList DubbingTranslationFixService::protectedTokens(

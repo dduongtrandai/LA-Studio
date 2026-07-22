@@ -102,7 +102,7 @@ void DubbingTranscriptionJob::onTranscriptionFinished(const QString &text,
     QVariantList normalizedInput;
     for (const QVariant &entry : segments) {
         const QVariantMap source = entry.toMap();
-        normalizedInput.append(QVariantMap{
+        QVariantMap normalized{
             {QStringLiteral("id"), QUuid::createUuid().toString(QUuid::WithoutBraces)},
             {QStringLiteral("startMs"), qRound64(source.value(QStringLiteral("start")).toDouble() * 1000.0)},
             {QStringLiteral("endMs"), qRound64(source.value(QStringLiteral("end")).toDouble() * 1000.0)},
@@ -111,7 +111,23 @@ void DubbingTranscriptionJob::onTranscriptionFinished(const QString &text,
             {QStringLiteral("speakerId"), QStringLiteral("speaker-1")},
             {QStringLiteral("timingSource"), QStringLiteral("asr")},
             {QStringLiteral("alignmentStatus"), QStringLiteral("pending")},
-            {QStringLiteral("state"), QStringLiteral("transcribed")}});
+            {QStringLiteral("state"), QStringLiteral("transcribed")}};
+        QVariantList words;
+        for (const QVariant &wordEntry : source.value(QStringLiteral("words")).toList()) {
+            const QVariantMap word = wordEntry.toMap();
+            const QString wordText = word.value(QStringLiteral("text"),
+                                                word.value(QStringLiteral("word"))).toString().trimmed();
+            const qint64 startMs = qRound64(word.value(QStringLiteral("start")).toDouble() * 1000.0);
+            const qint64 endMs = qRound64(word.value(QStringLiteral("end")).toDouble() * 1000.0);
+            if (wordText.isEmpty() || endMs <= startMs) continue;
+            words.append(QVariantMap{{QStringLiteral("text"), wordText},
+                                     {QStringLiteral("startMs"), startMs},
+                                     {QStringLiteral("endMs"), endMs},
+                                     {QStringLiteral("confidence"),
+                                      word.value(QStringLiteral("confidence"))}});
+        }
+        if (!words.isEmpty()) normalized.insert(QStringLiteral("words"), words);
+        normalizedInput.append(normalized);
     }
     beginAlignment(normalizedInput);
 }

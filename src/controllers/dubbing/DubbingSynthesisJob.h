@@ -46,6 +46,7 @@ private:
     QVariantMap m_cacheSettings;
     DubbingVoiceReference m_voiceReference;
     bool m_useVoiceCloning = false;
+    bool m_forceSegmentDuration = false;
     QString m_runId;
     QString m_nodeRunId;
     int m_generationIndex = -1;

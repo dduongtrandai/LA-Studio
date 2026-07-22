@@ -97,7 +97,8 @@ WorkflowGraph DubbingWorkflowDefinition::create()
         link(QStringLiteral("l10"), QStringLiteral("review-conflicts"), QStringLiteral("artifact"), QStringLiteral("mix"), QStringLiteral("timeline")),
         link(QStringLiteral("l11"), QStringLiteral("source-separate"), QStringLiteral("background"), QStringLiteral("mix"), QStringLiteral("background")),
         link(QStringLiteral("l12"), QStringLiteral("media-input"), QStringLiteral("value"), QStringLiteral("export"), QStringLiteral("sourceMedia")),
-        link(QStringLiteral("l13"), QStringLiteral("mix"), QStringLiteral("audio"), QStringLiteral("export"), QStringLiteral("dubbedAudio"))
+        link(QStringLiteral("l13"), QStringLiteral("mix"), QStringLiteral("audio"), QStringLiteral("export"), QStringLiteral("dubbedAudio")),
+        link(QStringLiteral("l14"), QStringLiteral("review-translation"), QStringLiteral("artifact"), QStringLiteral("export"), QStringLiteral("subtitles"))
     };
     return graph;
 }

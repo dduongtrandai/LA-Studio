@@ -28,6 +28,7 @@
 #include <QJsonArray>
 #include <QSaveFile>
 #include <QStandardPaths>
+#include <QStringList>
 
 namespace LAStudio {
 
@@ -38,30 +39,34 @@ void unloadConflictingDubbingRuntime(ModelSessionRegistry *registry,
 {
     if (!registry) return;
 
-    QString conflictingCapability;
-    if (capabilityId == QStringLiteral("tts")) {
-        conflictingCapability = QStringLiteral("translation");
+    QStringList conflictingCapabilities;
+    if (capabilityId == QStringLiteral("tts") ||
+        capabilityId == QStringLiteral("stt")) {
+        conflictingCapabilities.append(QStringLiteral("translation"));
     } else if (capabilityId == QStringLiteral("translation")) {
-        conflictingCapability = QStringLiteral("tts");
+        conflictingCapabilities.append(QStringLiteral("stt"));
+        conflictingCapabilities.append(QStringLiteral("tts"));
     } else {
         return;
     }
 
-    IModelSession *conflictingSession =
-        registry->sessionForCapability(conflictingCapability);
-    if (!conflictingSession) return;
+    for (const QString &conflictingCapability : conflictingCapabilities) {
+        IModelSession *conflictingSession =
+            registry->sessionForCapability(conflictingCapability);
+        if (!conflictingSession) continue;
 
-    const QList<SessionConfiguration> loaded =
-        conflictingSession->loadedConfigurations();
-    if (loaded.isEmpty()) return;
+        const QList<SessionConfiguration> loaded =
+            conflictingSession->loadedConfigurations();
+        if (loaded.isEmpty()) continue;
 
-    Logger::info(
-        QStringLiteral("DubbingController"),
-        QStringLiteral("Dubbing runtime handoff: unloading %1 before loading %2 "
-                       "to avoid incompatible shared DLLs in one process.")
-            .arg(conflictingCapability, capabilityId));
-    for (const SessionConfiguration &configuration : loaded) {
-        conflictingSession->requestUnloadConfiguration(configuration.signature);
+        Logger::info(
+            QStringLiteral("DubbingController"),
+            QStringLiteral("Dubbing runtime handoff: unloading %1 before loading %2 "
+                           "to avoid incompatible shared DLLs in one process.")
+                .arg(conflictingCapability, capabilityId));
+        for (const SessionConfiguration &configuration : loaded) {
+            conflictingSession->requestUnloadConfiguration(configuration.signature);
+        }
     }
 }
 
@@ -276,7 +281,7 @@ DubbingController::DubbingController(SttSessionController *sttSession, TtsEngine
             m_pendingExportPath.clear();
             if (!m_runner->startExport(m_project.sourceMediaPath,
                                        outputs.value(QStringLiteral("audio")).toString(),
-                                       destination)) {
+                                       destination, m_project.segments)) {
                 emit workflowChanged();
                 return;
             }
@@ -346,6 +351,18 @@ int DubbingController::translationFixCandidateCount() const
 QString DubbingController::previewPath() const
 {
     return m_runner->previewPath();
+}
+
+QUrl DubbingController::playbackMediaUrl() const
+{
+    const QString exported = m_runner ? m_runner->exportPath() : QString();
+    const QString suffix = QFileInfo(exported).suffix().toLower();
+    if (!exported.isEmpty() && QFileInfo::exists(exported)
+        && (suffix == QStringLiteral("mp4") || suffix == QStringLiteral("mkv")
+            || suffix == QStringLiteral("mov") || suffix == QStringLiteral("webm")
+            || suffix == QStringLiteral("avi")))
+        return QUrl::fromLocalFile(exported);
+    return sourceMediaUrl();
 }
 
 QString DubbingController::exportPath() const
@@ -817,6 +834,8 @@ bool DubbingController::runWorkflow(const QString &outputPath)
             node.properties = node.parameters;
         } else if (node.id == QStringLiteral("synthesize")) {
             QVariantMap synthesisSettings = modelConfig.value(QStringLiteral("parameters")).toMap();
+            synthesisSettings.insert(QStringLiteral("familyId"),
+                                     modelConfig.value(QStringLiteral("familyId")));
             synthesisSettings.insert(QStringLiteral("autoReferenceSourcePath"),
                                      !m_project.analysisAudioPath.isEmpty()
                                          ? m_project.analysisAudioPath : m_project.masterAudioPath);
@@ -1310,9 +1329,12 @@ void DubbingController::translateSource()
 
 void DubbingController::generateAudio()
 {
-    QVariantMap synthesisSettings = m_workflowNodeConfigurations
-        .value(QStringLiteral("synthesize")).toMap()
+    const QVariantMap synthesisConfiguration = m_workflowNodeConfigurations
+        .value(QStringLiteral("synthesize")).toMap();
+    QVariantMap synthesisSettings = synthesisConfiguration
         .value(QStringLiteral("parameters")).toMap();
+    synthesisSettings.insert(QStringLiteral("familyId"),
+                             synthesisConfiguration.value(QStringLiteral("familyId")));
     synthesisSettings.insert(QStringLiteral("autoReferenceSourcePath"),
                              !m_project.analysisAudioPath.isEmpty()
                                  ? m_project.analysisAudioPath : m_project.masterAudioPath);
@@ -1389,7 +1411,8 @@ bool DubbingController::exportMedia(const QString &path)
         }
         return true;
     }
-    return m_runner->startExport(m_project.sourceMediaPath, outputPath);
+    return m_runner->startExport(m_project.sourceMediaPath, previewPath(), outputPath,
+                                 m_project.segments);
 }
 
 bool DubbingController::exportSubtitles(const QString &path, bool useTargetText)
