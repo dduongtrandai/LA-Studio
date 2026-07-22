@@ -182,6 +182,7 @@ void RegistryManager::refreshFromCatalog()
     if (!importCatalog(m_catalog->modelCategories(),
                        m_catalog->ttsFamilies(),
                        m_catalog->sttFamilies(),
+                       m_catalog->llmFamilies(),
                        m_catalog->version())) {
         emit errorOccurred(QStringLiteral("Failed to import catalog into registry"));
         return;
@@ -241,6 +242,7 @@ bool RegistryManager::ensureSchema()
 bool RegistryManager::importCatalog(const QVariantList &modelCategories,
                                     const QVariantList &ttsFamilies,
                                     const QVariantList &sttFamilies,
+                                    const QVariantList &llmFamilies,
                                     const QString &catalogVersion)
 {
     QSqlDatabase db = QSqlDatabase::database(m_connectionName);
@@ -320,7 +322,7 @@ bool RegistryManager::importCatalog(const QVariantList &modelCategories,
         }
     }
 
-    const QVariantList allFamilies = ttsFamilies + sttFamilies;
+    const QVariantList allFamilies = ttsFamilies + sttFamilies + llmFamilies;
     for (const QVariant &familyValue : allFamilies) {
         const QVariantMap family = familyValue.toMap();
         const QString familyId = family.value(QStringLiteral("id")).toString();
@@ -514,6 +516,7 @@ bool RegistryManager::reloadCachedViews()
     QVariantList categories;
     QVariantList ttsFamilies;
     QVariantList sttFamilies;
+    QVariantList llmFamilies;
 
     QSqlQuery categoryQuery(db);
     if (!categoryQuery.exec(QStringLiteral(
@@ -563,9 +566,25 @@ bool RegistryManager::reloadCachedViews()
         if (value.isValid()) sttFamilies.append(value);
     }
 
+    QSqlQuery llmQuery(db);
+    if (!llmQuery.exec(QStringLiteral(
+            "SELECT f.metadata_json FROM model_families f "
+            "JOIN family_capabilities c ON c.family_id = f.id "
+            "WHERE f.source_id = 'bundled' AND c.capability_id IN ('llm-chat') "
+            "ORDER BY f.rowid ASC"))) {
+        Logger::error(QStringLiteral("RegistryManager"),
+                      QStringLiteral("Failed to load LLM family view: %1").arg(llmQuery.lastError().text()));
+        return false;
+    }
+    while (llmQuery.next()) {
+        const QVariant value = variantFromJson(llmQuery.value(0).toString());
+        if (value.isValid()) llmFamilies.append(value);
+    }
+
     m_modelCategories = categories;
     m_ttsFamilies = ttsFamilies;
     m_sttFamilies = sttFamilies;
+    m_llmFamilies = llmFamilies;
     return true;
 }
 

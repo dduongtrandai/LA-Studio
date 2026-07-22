@@ -420,4 +420,109 @@ QStringList LlamaTranslationInterface::translateBatch(
     return results;
 }
 
+bool LlamaTranslationInterface::generateChat(const QList<QVariantMap> &messages,
+                                              int contextTokens,
+                                              int maxTokens,
+                                              float temperature,
+                                              float topP,
+                                              int topK,
+                                              float repeatPenalty,
+                                              const std::shared_ptr<std::atomic_bool> &cancelToken,
+                                              const ChatTokenCallback &onToken,
+                                              QString *fullText,
+                                              QString *error)
+{
+    if (!isLoaded() || messages.isEmpty()) {
+        setError(QStringLiteral("The llama.cpp DLL runtime is not loaded."), error);
+        return false;
+    }
+    const llama_vocab *vocab = m_api->modelGetVocab(m_api->model);
+    QString prompt;
+    const char *chatTemplate = m_api->modelChatTemplate(m_api->model, nullptr);
+    if (chatTemplate) {
+        QVector<QByteArray> roleStorage;
+        QVector<QByteArray> contentStorage;
+        QVector<llama_chat_message> chatMessages;
+        roleStorage.reserve(messages.size());
+        contentStorage.reserve(messages.size());
+        chatMessages.reserve(messages.size());
+        for (const QVariantMap &message : messages) {
+            roleStorage.append(message.value(QStringLiteral("role")).toString().toUtf8());
+            contentStorage.append(message.value(QStringLiteral("content")).toString().toUtf8());
+        }
+        for (int i = 0; i < roleStorage.size(); ++i) {
+            chatMessages.append(llama_chat_message{roleStorage.at(i).constData(), contentStorage.at(i).constData()});
+        }
+        const int32_t needed = m_api->chatApplyTemplate(chatTemplate, chatMessages.constData(),
+                                                        chatMessages.size(), true, nullptr, 0);
+        if (needed > 0) {
+            QByteArray rendered(needed + 1, Qt::Uninitialized);
+            const int32_t written = m_api->chatApplyTemplate(chatTemplate, chatMessages.constData(),
+                                                             chatMessages.size(), true,
+                                                             rendered.data(), rendered.size());
+            if (written > 0) prompt = QString::fromUtf8(rendered.constData(), written);
+        }
+    }
+    if (prompt.isEmpty()) {
+        for (const QVariantMap &message : messages) {
+            prompt += QStringLiteral("%1: %2\n")
+                .arg(message.value(QStringLiteral("role")).toString(),
+                     message.value(QStringLiteral("content")).toString());
+        }
+        prompt += QStringLiteral("assistant: ");
+    }
+    const QByteArray promptUtf8 = prompt.toUtf8();
+    const int32_t neededTokens = -m_api->tokenize(vocab, promptUtf8.constData(), promptUtf8.size(),
+                                                  nullptr, 0, false, true);
+    if (neededTokens <= 0) {
+        setError(QStringLiteral("llama.cpp failed to tokenize the chat prompt."), error);
+        return false;
+    }
+    std::vector<llama_token> promptTokens(static_cast<size_t>(neededTokens));
+    int32_t tokenCount = m_api->tokenize(vocab, promptUtf8.constData(), promptUtf8.size(),
+                                         promptTokens.data(), neededTokens, false, true);
+    if (tokenCount <= 0) {
+        setError(QStringLiteral("llama.cpp failed to tokenize the chat prompt."), error);
+        return false;
+    }
+    llama_context_params contextParams = m_api->contextDefaultParams();
+    contextParams.n_ctx = static_cast<uint32_t>(qMax(contextTokens, tokenCount + maxTokens + 16));
+    contextParams.n_batch = static_cast<uint32_t>(qMax(512, tokenCount));
+    contextParams.n_threads = qMax(1, QThread::idealThreadCount());
+    contextParams.n_threads_batch = contextParams.n_threads;
+    llama_context *context = m_api->contextInit(m_api->model, contextParams);
+    if (!context) {
+        setError(QStringLiteral("llama.cpp failed to create a chat context."), error);
+        return false;
+    }
+    llama_sampler *sampler = m_api->samplerChainInit(m_api->samplerDefaultParams());
+    m_api->samplerChainAdd(sampler, m_api->samplerPenalties(-1, repeatPenalty, 0.0f, 0.0f));
+    m_api->samplerChainAdd(sampler, m_api->samplerTopK(qMax(1, topK)));
+    m_api->samplerChainAdd(sampler, m_api->samplerTopP(qBound(0.01f, topP, 1.0f), 1));
+    m_api->samplerChainAdd(sampler, m_api->samplerTemp(qMax(0.01f, temperature)));
+    m_api->samplerChainAdd(sampler, m_api->samplerDist(LLAMA_DEFAULT_SEED));
+    llama_batch batch = m_api->batchGetOne(promptTokens.data(), tokenCount);
+    QByteArray generated;
+    bool failed = false;
+    for (int i = 0; i < qMax(1, maxTokens); ++i) {
+        if (m_cancelled.load(std::memory_order_relaxed) ||
+            (cancelToken && cancelToken->load(std::memory_order_relaxed))) break;
+        if (m_api->decode(context, batch) != 0) { failed = true; break; }
+        llama_token token = m_api->samplerSample(sampler, context, -1);
+        if (m_api->vocabIsEog(vocab, token)) break;
+        const QByteArray piece = tokenPiece(vocab, token, m_api->tokenToPiece);
+        generated += piece;
+        if (onToken && !piece.isEmpty()) onToken(QString::fromUtf8(piece));
+        batch = m_api->batchGetOne(&token, 1);
+    }
+    m_api->samplerFree(sampler);
+    m_api->contextFree(context);
+    if (failed) {
+        setError(QStringLiteral("llama.cpp failed while generating the chat response."), error);
+        return false;
+    }
+    if (fullText) *fullText = QString::fromUtf8(generated);
+    return true;
+}
+
 } // namespace LAStudio

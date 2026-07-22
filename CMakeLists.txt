@@ -145,6 +145,9 @@ set(LASTUDIO_SOURCES
     src/alignment/CrispAlignmentInterface.cpp
     src/translation/CrispTranslationInterface.cpp
     src/translation/LlamaTranslationInterface.cpp
+    src/llm/LlmChatEngine.cpp
+    src/controllers/llm/LlmChatModelSession.cpp
+    src/controllers/llm/LlmChatController.cpp
     src/controllers/models/ModelsPathMigrator.cpp
     src/controllers/models/ModelsPathMigrationService.cpp
     src/controllers/shared/FileAccessService.cpp
@@ -288,6 +291,9 @@ set(LASTUDIO_HEADERS
     include/runtimes/CrispAlignmentInterface.h
     include/runtimes/CrispTranslationInterface.h
     include/runtimes/LlamaTranslationInterface.h
+    src/llm/LlmChatEngine.h
+    src/controllers/llm/LlmChatModelSession.h
+    src/controllers/llm/LlmChatController.h
     src/controllers/models/ModelsPathMigrator.h
     src/controllers/models/ModelsPathMigrationService.h
     src/controllers/shared/FileAccessService.h
@@ -395,6 +401,7 @@ qt_add_qml_module(LAStudio
         qml/pages/TranslationPage.qml
         qml/pages/SttPage.qml
         qml/pages/TtsPage.qml
+        qml/pages/LlmPage.qml
         qml/pages/VoiceCloningPage.qml
         qml/pages/VoiceDesignPage.qml
         qml/pages/VoiceIsolatorPage.qml
@@ -484,6 +491,7 @@ qt_add_qml_module(LAStudio
         qml/components/tts/TtsHistoryPanel.qml
         qml/components/tts/TtsSettingsPanel.qml
         qml/components/tts/TtsStudioView.qml
+        qml/components/llm/LlmChatStudioView.qml
         qml/components/tts/SrtVoiceView.qml
         qml/components/voiceisolator/VoiceIsolatorHistoryPanel.qml
         qml/components/voiceisolator/VoiceIsolatorStudioView.qml

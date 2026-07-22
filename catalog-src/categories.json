@@ -1152,5 +1152,37 @@
         ]
       }
     ]
+  },
+  {
+    "id": "llm-chat",
+    "name": "LLM Chat",
+    "title": "LLM Chat",
+    "description": "Local language models for private text conversations.",
+    "capabilities": ["llm-chat"],
+    "items": [
+      {
+        "id": "qwen3.5-2b",
+        "name": "Qwen3.5 2B",
+        "realId": "lmstudio-community/Qwen3.5-2B-GGUF",
+        "modelId": "lmstudio-community/Qwen3.5-2B-GGUF",
+        "source": "https://huggingface.co/lmstudio-community/Qwen3.5-2B-GGUF",
+        "localDir": "qwen3.5-2b",
+        "task": "llm-chat",
+        "desc": "Compact local Qwen3.5 chat model running through llama.cpp.",
+        "tags": ["llm", "chat", "gguf", "offline"],
+        "params": "2B",
+        "isPackage": true,
+        "components": [
+          {
+            "name": "Qwen3.5 2B GGUF",
+            "variants": [
+              {"name": "Q4_K_M (Recommended)", "file": "Qwen3.5-2B-Q4_K_M.gguf", "size": "1.27 GB", "tags": ["q4_k_m"]},
+              {"name": "Q6_K", "file": "Qwen3.5-2B-Q6_K.gguf", "size": "1.56 GB", "tags": ["q6_k"]},
+              {"name": "Q8_0", "file": "Qwen3.5-2B-Q8_0.gguf", "size": "2.01 GB", "tags": ["q8_0"]}
+            ]
+          }
+        ]
+      }
+    ]
   }
 ]

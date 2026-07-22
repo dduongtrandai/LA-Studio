@@ -17,6 +17,10 @@ RowLayout {
     property bool studioReady: false
     property bool showSettingsPanel: true
     property bool isSettingsOpen: true
+    // Some studios expose configuration controls before a model is loaded.
+    // Keep the default gating behavior for model-dependent panels, while
+    // allowing setup-time controls (for example LLM sampling) to stay editable.
+    property bool settingsRequiresReady: true
     property string studioTitle: ""
     property string studioIconName: ""
     property bool showSwitcher: true
@@ -560,8 +564,8 @@ RowLayout {
             anchors.fill: parent
             anchors.margins: root.isSettingsOpen ? Theme.paddingLarge : 0
             visible: root.isSettingsOpen
-            enabled: root.studioReady
-            opacity: root.studioReady ? 1.0 : 0.58
+            enabled: !root.settingsRequiresReady || root.studioReady
+            opacity: (!root.settingsRequiresReady || root.studioReady) ? 1.0 : 0.58
             Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutQuad } }
         }
 

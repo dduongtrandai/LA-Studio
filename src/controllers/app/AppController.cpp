@@ -5,6 +5,7 @@
 #include "core/StudioSelectionRepository.h"
 #include "controllers/app/WorkflowActivityManager.h"
 #include "controllers/translation/TranslationModelSession.h"
+#include "controllers/llm/LlmChatModelSession.h"
 #include "core/HFHubClient.h"
 #include "core/DownloadManager.h"
 #include "core/ModelManager.h"
@@ -47,12 +48,15 @@ AppController::AppController(QObject *parent)
     m_stt       = new SttEngine(this);
     m_tts       = new TtsEngine(this);
     m_translationEngine = new TranslationEngine({}, this);
+    m_llmEngine = new LlmChatEngine(this);
     m_runtimes  = new RuntimeManager(m_catalog, m_settings, this);
     m_alignment = new AlignmentExecutionService(m_runtimes, m_models, this);
     m_voiceIsolator = new VoiceIsolatorController(this);
-    m_sessionRegistry = new ModelSessionRegistry(m_stt, m_tts, m_translationEngine, m_alignment, m_voiceIsolator, this);
+    m_sessionRegistry = new ModelSessionRegistry(m_stt, m_tts, m_translationEngine, m_llmEngine, m_alignment, m_voiceIsolator, this);
     m_translation = new TranslationController(m_translationEngine,
         qobject_cast<TranslationModelSession*>(m_sessionRegistry->sessionForCapability(QStringLiteral("translation"))), this);
+    m_llmChat = new LlmChatController(m_llmEngine,
+        qobject_cast<LlmChatModelSession*>(m_sessionRegistry->sessionForCapability(QStringLiteral("llm-chat"))), this);
     m_recorder  = new AudioRecorder(this);
     m_player    = new AudioPlayer(this);
     m_waveformProvider = new WaveformProvider();

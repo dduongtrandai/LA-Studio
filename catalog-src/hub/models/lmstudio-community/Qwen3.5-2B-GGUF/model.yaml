@@ -1,0 +1,82 @@
+model: lmstudio-community/Qwen3.5-2B-GGUF
+base:
+  - key: lmstudio-community/Qwen3.5-2B-GGUF
+    role: model
+    name: Qwen3.5 2B GGUF
+    purpose: Local text chat model
+    defaultFile: Qwen3.5-2B-Q4_K_M.gguf
+    sources:
+      - type: huggingface
+        user: lmstudio-community
+        repo: Qwen3.5-2B-GGUF
+        files:
+          - name: Qwen3.5-2B-Q4_K_M.gguf
+            size: 1.27 GB
+          - name: Qwen3.5-2B-Q6_K.gguf
+            size: 1.56 GB
+          - name: Qwen3.5-2B-Q8_0.gguf
+            size: 2.01 GB
+metadataOverrides:
+  domain: llm
+  architectures:
+    - qwen35
+  compatibilityTypes:
+    - gguf
+  paramsStrings:
+    - 2B
+  capabilities:
+    - llm-chat
+laStudio:
+  id: qwen3.5-2b
+  type: llm
+  localDir: qwen3.5-2b
+  shortName: Qwen3.5 2B
+  title: Qwen3.5 2B
+  subtitle: Local chat with llama.cpp
+  description: Qwen3.5 2B quantized GGUF model for offline text chat.
+  capabilities:
+    - llm-chat
+  tags:
+    - GGUF
+    - LLM
+    - Chat
+    - Offline
+    - CPU
+    - GPU
+  runtimes:
+    - id: llama-win-x86_64-cpu
+      engineFamily: llama
+      backend: llama
+      label: CPU
+      name: llama.cpp official CPU runtime (x64)
+      version: b10036
+      source: https://github.com/ggml-org/llama.cpp/releases/download/
+      asset: llama-b10036-bin-win-cpu-x64.zip
+      kind: dynamic-library
+      library: llama.dll
+      type: mixed
+      capabilities:
+        - llm-chat
+      modelFormats:
+        - gguf
+      protocolVersion: llama-c-api-b10036
+    - id: llama-win-x86_64-cuda-12.4
+      engineFamily: llama
+      backend: llama
+      label: CUDA 12.4
+      name: llama.cpp official CUDA 12.4 runtime (x64)
+      version: b10036
+      source: https://github.com/ggml-org/llama.cpp/releases/download/
+      asset: llama-b10036-bin-win-cuda-12.4-x64.zip
+      kind: dynamic-library
+      library: llama.dll
+      type: mixed
+      capabilities:
+        - llm-chat
+      modelFormats:
+        - gguf
+      protocolVersion: llama-c-api-b10036
+  studio:
+    llm-chat:
+      layout: chat
+      action: chat

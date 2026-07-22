@@ -505,6 +505,7 @@ def generate_catalog(fetch_hf_stats=False):
     # Load families
     tts_families = []
     stt_families = []
+    llm_families = []
     family_ids = set()
     
     if not hub_models_dir.exists():
@@ -568,11 +569,13 @@ def generate_catalog(fetch_hf_stats=False):
             tts_families.append(family)
         elif ftype == "stt":
             stt_families.append(family)
+        elif ftype == "llm":
+            llm_families.append(family)
         else:
             print(f"Error: Unknown family type '{ftype}' in {family_file}")
             sys.exit(1)
 
-    all_families = tts_families + stt_families
+    all_families = tts_families + stt_families + llm_families
     if fetch_hf_stats:
         enrich_families_with_hf_stats(all_families)
 
@@ -585,7 +588,8 @@ def generate_catalog(fetch_hf_stats=False):
         "modelPicks": model_picks,
         "modelCategories": model_categories,
         "ttsFamilies": tts_families,
-        "sttFamilies": stt_families
+        "sttFamilies": stt_families,
+        "llmFamilies": llm_families
     }
     
     # Write output

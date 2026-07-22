@@ -29,9 +29,10 @@ ResolvedConfiguration StudioConfigurationResolver::resolve(const StudioConfigura
 
     // Resolve the family configuration from the registry
     const QString domain = StudioCapabilityRegistry::instance()->familyDomain(config.capabilityId);
-    const QVariantList allFamilies = (domain == QStringLiteral("stt"))
+    const QVariantList allFamilies = domain == QStringLiteral("stt")
         ? app->registry()->sttFamilies()
-        : app->registry()->ttsFamilies();
+        : (domain == QStringLiteral("llm") ? app->registry()->llmFamilies()
+                                            : app->registry()->ttsFamilies());
 
     for (const QVariant &item : allFamilies) {
         QVariantMap fam = item.toMap();

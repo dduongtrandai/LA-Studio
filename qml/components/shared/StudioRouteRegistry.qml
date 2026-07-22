@@ -15,10 +15,11 @@ QtObject {
         "studio-alignment": 6,
         "studio-translation": 7,
         "studio-dubbing": 8,
-        "models": 9,
-        "my-models": 10,
-        "developer": 11,
-        "settings": 12,
+        "studio-llm": 9,
+        "models": 10,
+        "my-models": 11,
+        "developer": 12,
+        "settings": 13,
         "tools-alignment": 6
     }
 
@@ -33,6 +34,7 @@ QtObject {
         { id: "studio-alignment", label: qsTr("Alignment"), iconName: "alignment" },
         { id: "studio-translation", label: qsTr("Translation"), iconName: "translate" },
         { id: "studio-dubbing", label: qsTr("Dubbing"), iconName: "dubbing" },
+        { id: "studio-llm", label: qsTr("LLM Chat"), iconName: "chat" },
         { id: "models", label: qsTr("Models"), iconName: "gallery" },
         { id: "my-models", label: qsTr("My Models"), iconName: "folder" },
         { id: "developer", label: qsTr("Developer"), iconName: "code" },
@@ -47,7 +49,8 @@ QtObject {
         "forced-alignment": "studio-alignment",
         "translation": "studio-translation",
         "dubbing": "studio-dubbing",
-        "voice-isolation": "studio-voice-isolator"
+        "voice-isolation": "studio-voice-isolator",
+        "llm-chat": "studio-llm"
     }
 
     function getIndex(routeId) {

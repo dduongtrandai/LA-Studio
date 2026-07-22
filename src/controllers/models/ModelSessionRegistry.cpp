@@ -5,6 +5,8 @@
 #include "VoiceIsolatorModelSession.h"
 #include "TranslationModelSession.h"
 #include "translation/TranslationEngine.h"
+#include "llm/LlmChatEngine.h"
+#include "controllers/llm/LlmChatModelSession.h"
 #include "core/StudioCapabilityRegistry.h"
 #include "core/Logger.h"
 
@@ -17,13 +19,14 @@ ModelSessionRegistry::ModelSessionRegistry(SttEngine *sttEngine,
                                            AlignmentExecutionService *alignment,
                                            VoiceIsolatorController *voiceIsolator,
                                            QObject *parent)
-    : ModelSessionRegistry(sttEngine, ttsEngine, nullptr, alignment, voiceIsolator, parent)
+    : ModelSessionRegistry(sttEngine, ttsEngine, nullptr, nullptr, alignment, voiceIsolator, parent)
 {
 }
 
 ModelSessionRegistry::ModelSessionRegistry(SttEngine *sttEngine,
                                            TtsEngine *ttsEngine,
                                            TranslationEngine *translationEngine,
+                                           LlmChatEngine *llmEngine,
                                            AlignmentExecutionService *alignment,
                                            VoiceIsolatorController *voiceIsolator,
                                            QObject *parent)
@@ -34,6 +37,7 @@ ModelSessionRegistry::ModelSessionRegistry(SttEngine *sttEngine,
     m_alignmentSession = new AlignmentModelSession(alignment, this);
     m_voiceIsolatorSession = new VoiceIsolatorModelSession(voiceIsolator, this);
     m_translationSession = new TranslationModelSession(translationEngine, this);
+    m_llmSession = new LlmChatModelSession(llmEngine, this);
 }
 
 IModelSession *ModelSessionRegistry::sessionForCapability(const QString &capabilityId) const
@@ -52,6 +56,7 @@ IModelSession *ModelSessionRegistry::sessionForCapability(const QString &capabil
         return m_voiceIsolatorSession;
     }
     if (desc.sharedEngineGroup == QStringLiteral("translation")) return m_translationSession;
+    if (desc.sharedEngineGroup == QStringLiteral("llm")) return m_llmSession;
     return nullptr;
 }
 
@@ -71,6 +76,7 @@ QList<IModelSession *> ModelSessionRegistry::sessions() const
         out.append(m_voiceIsolatorSession);
     }
     if (m_translationSession) out.append(m_translationSession);
+    if (m_llmSession) out.append(m_llmSession);
     return out;
 }
 
@@ -80,7 +86,7 @@ ResourceReleaseResult ModelSessionRegistry::prepareRuntimeRemoval(const QString 
     Logger::info(QStringLiteral("ModelSessionRegistry"),
                  QStringLiteral("prepareRuntimeRemoval: %1 %2").arg(runtimeId, runtimeVersion));
 
-    QList<IModelSession*> sessions = { m_sttSession, m_ttsSession, m_alignmentSession, m_voiceIsolatorSession, m_translationSession };
+    QList<IModelSession*> sessions = { m_sttSession, m_ttsSession, m_alignmentSession, m_voiceIsolatorSession, m_translationSession, m_llmSession };
     ResourceReleaseResult overallResult = ResourceReleaseResult::NotInUse;
 
     for (IModelSession *session : sessions) {
@@ -114,7 +120,7 @@ ResourceReleaseResult ModelSessionRegistry::prepareModelRemoval(const QString &m
     Logger::info(QStringLiteral("ModelSessionRegistry"),
                  QStringLiteral("prepareModelRemoval: %1").arg(modelPath));
 
-    QList<IModelSession*> sessions = { m_sttSession, m_ttsSession, m_alignmentSession, m_voiceIsolatorSession, m_translationSession };
+    QList<IModelSession*> sessions = { m_sttSession, m_ttsSession, m_alignmentSession, m_voiceIsolatorSession, m_translationSession, m_llmSession };
     ResourceReleaseResult overallResult = ResourceReleaseResult::NotInUse;
 
     for (IModelSession *session : sessions) {

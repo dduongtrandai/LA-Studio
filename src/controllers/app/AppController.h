@@ -16,6 +16,8 @@
 #include "stt/SttEngine.h"
 #include "tts/TtsEngine.h"
 #include "translation/TranslationEngine.h"
+#include "llm/LlmChatEngine.h"
+#include "controllers/llm/LlmChatController.h"
 #include "audio/AudioRecorder.h"
 #include "audio/AudioPlayer.h"
 #include "audio/WaveformProvider.h"
@@ -58,6 +60,8 @@ class AppController : public QObject {
     Q_PROPERTY(SttEngine*       stt       READ stt       CONSTANT)
     Q_PROPERTY(TtsEngine*       tts       READ tts       CONSTANT)
     Q_PROPERTY(TranslationEngine* translationEngine READ translationEngine CONSTANT)
+    Q_PROPERTY(LlmChatEngine* llmEngine READ llmEngine CONSTANT)
+    Q_PROPERTY(LlmChatController* llmChat READ llmChat CONSTANT)
     Q_PROPERTY(AudioRecorder*   recorder  READ recorder  CONSTANT)
     Q_PROPERTY(AudioPlayer*     player    READ player    CONSTANT)
     Q_PROPERTY(AudioPreviewService* preview READ preview CONSTANT)
@@ -102,6 +106,8 @@ public:
     SttEngine*       stt()       const { return m_stt; }
     TtsEngine*       tts()       const { return m_tts; }
     TranslationEngine* translationEngine() const { return m_translationEngine; }
+    LlmChatEngine* llmEngine() const { return m_llmEngine; }
+    LlmChatController* llmChat() const { return m_llmChat; }
     AudioRecorder*   recorder()  const { return m_recorder; }
     AudioPlayer*     player()    const { return m_player; }
     AudioPreviewService* preview() const { return m_preview; }
@@ -153,6 +159,8 @@ private:
     SttEngine*       m_stt = nullptr;
     TtsEngine*       m_tts = nullptr;
     TranslationEngine* m_translationEngine = nullptr;
+    LlmChatEngine* m_llmEngine = nullptr;
+    LlmChatController* m_llmChat = nullptr;
     AudioRecorder*   m_recorder = nullptr;
     AudioPlayer*     m_player = nullptr;
     WaveformProvider* m_waveformProvider = nullptr;

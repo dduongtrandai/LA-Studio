@@ -1105,7 +1105,7 @@ void CapabilityFamilyModel::updateItems()
     QVariantList all;
     if (m_capabilityId == QStringLiteral("all")) {
         // Combined list without duplicates
-        QVariantList combined = m_registry->ttsFamilies() + m_registry->sttFamilies();
+        QVariantList combined = m_registry->ttsFamilies() + m_registry->sttFamilies() + m_registry->llmFamilies();
         QHash<QString, bool> seen;
         for (const QVariant &itemVal : combined) {
             QVariantMap family = itemVal.toMap();
@@ -1119,7 +1119,8 @@ void CapabilityFamilyModel::updateItems()
         const QString domain = StudioCapabilityRegistry::instance()->familyDomain(m_capabilityId);
         all = domain == QStringLiteral("stt")
             ? m_registry->sttFamilies()
-            : m_registry->ttsFamilies();
+            : (domain == QStringLiteral("llm") ? m_registry->llmFamilies()
+                                                : m_registry->ttsFamilies());
     }
 
     QList<QPair<QString, QString>> rawLangs;
@@ -1794,7 +1795,7 @@ void CapabilityFamilyModel::saveSelectionForFamily(const QString &familyId,
         }
     }
     if (family.isEmpty() && m_registry) {
-        const QVariantList all = m_registry->ttsFamilies() + m_registry->sttFamilies();
+        const QVariantList all = m_registry->ttsFamilies() + m_registry->sttFamilies() + m_registry->llmFamilies();
         for (const QVariant &itemVal : all) {
             const QVariantMap candidate = itemVal.toMap();
             if (candidate.value(QStringLiteral("id")).toString() == familyId) {

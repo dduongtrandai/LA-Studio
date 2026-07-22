@@ -18,6 +18,7 @@ class CatalogManager : public QObject {
     Q_PROPERTY(QVariantList modelCategories READ modelCategories NOTIFY catalogUpdated)
     Q_PROPERTY(QVariantList ttsFamilies READ ttsFamilies NOTIFY catalogUpdated)
     Q_PROPERTY(QVariantList sttFamilies READ sttFamilies NOTIFY catalogUpdated)
+    Q_PROPERTY(QVariantList llmFamilies READ llmFamilies NOTIFY catalogUpdated)
     Q_PROPERTY(bool isUpdating READ isUpdating NOTIFY isUpdatingChanged)
 
 public:
@@ -26,6 +27,7 @@ public:
     QVariantList modelCategories() const { return m_modelCategories; }
     QVariantList ttsFamilies() const { return m_ttsFamilies; }
     QVariantList sttFamilies() const { return m_sttFamilies; }
+    QVariantList llmFamilies() const { return m_llmFamilies; }
     QString version() const { return m_version; }
     bool isUpdating() const { return m_isUpdating; }
 
@@ -45,6 +47,7 @@ private:
     QVariantList m_modelCategories;
     QVariantList m_ttsFamilies;
     QVariantList m_sttFamilies;
+    QVariantList m_llmFamilies;
     QString m_version;
     bool m_isUpdating = false;
     QNetworkAccessManager *m_networkManager;

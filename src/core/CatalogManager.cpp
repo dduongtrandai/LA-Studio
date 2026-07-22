@@ -76,7 +76,8 @@ QByteArray catalogWithBundledFallback(const QByteArray &candidateData,
     const QStringList requiredArrays = {
         QStringLiteral("modelCategories"),
         QStringLiteral("ttsFamilies"),
-        QStringLiteral("sttFamilies")
+        QStringLiteral("sttFamilies"),
+        QStringLiteral("llmFamilies")
     };
 
     for (const QString &key : requiredArrays) {
@@ -238,9 +239,11 @@ void CatalogManager::parseCatalog(const QByteArray &data)
     m_modelCategories = obj.value("modelCategories").toArray().toVariantList();
     m_ttsFamilies = obj.value("ttsFamilies").toArray().toVariantList();
     m_sttFamilies = obj.value("sttFamilies").toArray().toVariantList();
+    m_llmFamilies = obj.value("llmFamilies").toArray().toVariantList();
 
     applyLastudioPickMetadata(m_ttsFamilies, modelPicks);
     applyLastudioPickMetadata(m_sttFamilies, modelPicks);
+    applyLastudioPickMetadata(m_llmFamilies, modelPicks);
 
     // Clear the language sets cache when catalog updates, to ensure fresh copies are loaded
     m_languageSetsCache.clear();

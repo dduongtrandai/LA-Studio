@@ -83,6 +83,15 @@ StudioCapabilityRegistry::StudioCapabilityRegistry(QObject *parent)
         QStringLiteral("Translation Studio"),
         QStringLiteral("Translation Model Gallery")
     });
+    registerCapability(StudioCapabilityDescriptor{
+        QStringLiteral("llm-chat"),
+        QStringLiteral("LLM Chat"),
+        QStringLiteral("studio-llm"),
+        QStringLiteral("chat"),
+        QStringLiteral("llm"),
+        QStringLiteral("LLM Chat Studio"),
+        QStringLiteral("LLM Model Gallery")
+    });
 }
 
 void StudioCapabilityRegistry::registerCapability(const StudioCapabilityDescriptor &descriptor)
@@ -132,6 +141,7 @@ bool StudioCapabilityRegistry::familySupportsCapability(const QVariantMap &famil
         return family.value(QStringLiteral("supportsCloning")).toBool();
     }
     if (capabilityId == QStringLiteral("translation")) return family.value(QStringLiteral("supportsTranslation")).toBool();
+    if (capabilityId == QStringLiteral("llm-chat")) return family.value(QStringLiteral("capabilities")).toList().contains(QStringLiteral("llm-chat"));
     return false;
 }
 
@@ -151,6 +161,7 @@ QString StudioCapabilityRegistry::familyDomain(const QString &capabilityId) cons
         return QStringLiteral("stt");
     }
     if (capabilityId == QStringLiteral("translation")) return QStringLiteral("stt");
+    if (capabilityId == QStringLiteral("llm-chat")) return QStringLiteral("llm");
     // TTS-shared studios resolve from the TTS family pool.
     return QStringLiteral("tts");
 }

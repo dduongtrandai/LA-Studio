@@ -3,8 +3,11 @@
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
+#include <QVariantMap>
+#include <QList>
 #include <atomic>
 #include <memory>
+#include <functional>
 
 namespace LAStudio {
 
@@ -36,6 +39,19 @@ public:
                                QString *error = nullptr,
                                const QString &task = QStringLiteral("translate"),
                                const QVariantList &segments = QVariantList());
+
+    using ChatTokenCallback = std::function<void(const QString &)>;
+    bool generateChat(const QList<QVariantMap> &messages,
+                      int contextTokens,
+                      int maxTokens,
+                      float temperature,
+                      float topP,
+                      int topK,
+                      float repeatPenalty,
+                      const std::shared_ptr<std::atomic_bool> &cancelToken,
+                      const ChatTokenCallback &onToken,
+                      QString *fullText = nullptr,
+                      QString *error = nullptr);
 
 private:
     struct Api;

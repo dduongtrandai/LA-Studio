@@ -437,6 +437,16 @@ ApplicationWindow {
                     active: stack.currentIndex === 8
                     sourceComponent: DubbingPage {}
                 }
+                Loader {
+                    id: llmLoader
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    active: stack.currentIndex === 9 || pendingFamilyId !== ""
+                    property string pendingFamilyId: ""
+                    sourceComponent: LlmPage {}
+                    onLoaded: if (pendingFamilyId !== "") { item.openConfiguration(pendingFamilyId); pendingFamilyId = "" }
+                    function openConfig(familyId) { if (item) item.openConfiguration(familyId); else pendingFamilyId = familyId }
+                }
                 ModelsPage {
                     onOpenStudioRequested: function(capability, familyId) {
                         var routeId = StudioRouteRegistry.routeForCapability(capability)
@@ -453,6 +463,8 @@ ApplicationWindow {
                             alignmentLoader.openConfig(familyId)
                         } else if (routeId === "studio-translation") {
                             translationLoader.openConfig(familyId)
+                        } else if (routeId === "studio-llm") {
+                            llmLoader.openConfig(familyId)
                         }
                     }
                 }
@@ -472,6 +484,8 @@ ApplicationWindow {
                             alignmentLoader.openConfig(familyId)
                         } else if (routeId === "studio-translation") {
                             translationLoader.openConfig(familyId)
+                        } else if (routeId === "studio-llm") {
+                            llmLoader.openConfig(familyId)
                         }
                     }
                 }
@@ -479,14 +493,14 @@ ApplicationWindow {
                     id: developerLoader
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    active: stack.currentIndex === 11
+                    active: stack.currentIndex === 12
                     sourceComponent: DeveloperPage {}
                 }
                 Loader {
                     id: settingsLoader
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    active: stack.currentIndex === 12
+                    active: stack.currentIndex === 13
                     sourceComponent: SettingsPage {}
                 }
                 }

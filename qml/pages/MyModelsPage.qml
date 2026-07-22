@@ -10,7 +10,7 @@ Rectangle {
 
     signal openStudioRequested(string capability, string familyId)
 
-    property string activeCategory: "all" // "all", "stt", "tts", "voice-clone"
+    property string activeCategory: "all" // "all", "stt", "tts", "voice-clone", "llm-chat"
     property string searchText: ""
     property var selectedModel: null
     property var filteredModelsList: []
@@ -161,7 +161,8 @@ Rectangle {
         var stt = AppController.models.modelsForTask("stt")
         var tts = AppController.models.modelsForTask("tts")
         var vc = AppController.models.modelsForTask("voice-clone")
-        var all = stt.concat(tts).concat(vc)
+        var llm = AppController.models.modelsForTask("llm-chat")
+        var all = stt.concat(tts).concat(vc).concat(llm)
 
         var filtered = []
         for (var i = 0; i < all.length; i++) {
@@ -271,8 +272,10 @@ Rectangle {
             families = registry.sttFamilies
         } else if (task === "tts") {
             families = registry.ttsFamilies
+        } else if (task === "llm-chat") {
+            families = registry.llmFamilies
         } else {
-            families = registry.sttFamilies.concat(registry.ttsFamilies)
+            families = registry.sttFamilies.concat(registry.ttsFamilies).concat(registry.llmFamilies)
         }
 
         // Exact match
@@ -402,6 +405,13 @@ Rectangle {
                         active: root.activeCategory === "voice-clone"
                         onClicked: root.activeCategory = "voice-clone"
                     }
+
+                    CategoryButton {
+                        text: qsTr("LLM Chat")
+                        iconName: "chat"
+                        active: root.activeCategory === "llm-chat"
+                        onClicked: root.activeCategory = "llm-chat"
+                    }
                 }
 
                 Item { Layout.fillHeight: true }
@@ -438,6 +448,7 @@ Rectangle {
                             if (root.activeCategory === "stt") return qsTr("Speech to Text Models")
                             if (root.activeCategory === "tts") return qsTr("Text to Speech Models")
                             if (root.activeCategory === "voice-clone") return qsTr("Voice Cloning Models")
+                            if (root.activeCategory === "llm-chat") return qsTr("LLM Chat Models")
                             return qsTr("All Local Models")
                         }
                         color: Theme.textPrimary
@@ -665,6 +676,7 @@ Rectangle {
                                     name: {
                                         if (modelData.task === "stt") return "mic"
                                         if (modelData.task === "tts") return "volume"
+                                        if (modelData.task === "llm-chat") return "chat"
                                         return "spark"
                                     }
                                     color: {

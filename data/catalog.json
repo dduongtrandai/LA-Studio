@@ -1426,6 +1426,66 @@
           ]
         }
       ]
+    },
+    {
+      "id": "llm-chat",
+      "name": "LLM Chat",
+      "title": "LLM Chat",
+      "description": "Local language models for private text conversations.",
+      "capabilities": [
+        "llm-chat"
+      ],
+      "items": [
+        {
+          "id": "qwen3.5-2b",
+          "name": "Qwen3.5 2B",
+          "realId": "lmstudio-community/Qwen3.5-2B-GGUF",
+          "modelId": "lmstudio-community/Qwen3.5-2B-GGUF",
+          "source": "https://huggingface.co/lmstudio-community/Qwen3.5-2B-GGUF",
+          "localDir": "qwen3.5-2b",
+          "task": "llm-chat",
+          "desc": "Compact local Qwen3.5 chat model running through llama.cpp.",
+          "tags": [
+            "llm",
+            "chat",
+            "gguf",
+            "offline"
+          ],
+          "params": "2B",
+          "isPackage": true,
+          "components": [
+            {
+              "name": "Qwen3.5 2B GGUF",
+              "variants": [
+                {
+                  "name": "Q4_K_M (Recommended)",
+                  "file": "Qwen3.5-2B-Q4_K_M.gguf",
+                  "size": "1.27 GB",
+                  "tags": [
+                    "q4_k_m"
+                  ]
+                },
+                {
+                  "name": "Q6_K",
+                  "file": "Qwen3.5-2B-Q6_K.gguf",
+                  "size": "1.56 GB",
+                  "tags": [
+                    "q6_k"
+                  ]
+                },
+                {
+                  "name": "Q8_0",
+                  "file": "Qwen3.5-2B-Q8_0.gguf",
+                  "size": "2.01 GB",
+                  "tags": [
+                    "q8_0"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "ttsFamilies": [
@@ -11261,6 +11321,201 @@
         }
       },
       "modelPath": "tencent/Hy-MT2-1.8B-GGUF"
+    }
+  ],
+  "llmFamilies": [
+    {
+      "id": "qwen3.5-2b",
+      "localDir": "qwen3.5-2b",
+      "shortName": "Qwen3.5 2B",
+      "title": "Qwen3.5 2B",
+      "subtitle": "Local chat with llama.cpp",
+      "description": "Qwen3.5 2B quantized GGUF model for offline text chat.",
+      "capabilities": [
+        "llm-chat"
+      ],
+      "tags": [
+        "GGUF",
+        "LLM",
+        "Chat",
+        "Offline",
+        "CPU",
+        "GPU"
+      ],
+      "runtimes": [
+        {
+          "id": "llama-win-x86_64-cpu",
+          "engineFamily": "llama",
+          "backend": "llama",
+          "label": "CPU",
+          "name": "llama.cpp official CPU runtime (x64)",
+          "version": "b10036",
+          "source": "https://github.com/ggml-org/llama.cpp/releases/download/",
+          "asset": "llama-b10036-bin-win-cpu-x64.zip",
+          "kind": "dynamic-library",
+          "library": "llama.dll",
+          "type": "mixed",
+          "capabilities": [
+            "llm-chat"
+          ],
+          "modelFormats": [
+            "gguf"
+          ],
+          "protocolVersion": "llama-c-api-b10036"
+        },
+        {
+          "id": "llama-win-x86_64-cuda-12.4",
+          "engineFamily": "llama",
+          "backend": "llama",
+          "label": "CUDA 12.4",
+          "name": "llama.cpp official CUDA 12.4 runtime (x64)",
+          "version": "b10036",
+          "source": "https://github.com/ggml-org/llama.cpp/releases/download/",
+          "asset": "llama-b10036-bin-win-cuda-12.4-x64.zip",
+          "kind": "dynamic-library",
+          "library": "llama.dll",
+          "type": "mixed",
+          "capabilities": [
+            "llm-chat"
+          ],
+          "modelFormats": [
+            "gguf"
+          ],
+          "protocolVersion": "llama-c-api-b10036"
+        }
+      ],
+      "studio": {
+        "llm-chat": {
+          "layout": "chat",
+          "action": "chat"
+        }
+      },
+      "modelId": "lmstudio-community/Qwen3.5-2B-GGUF",
+      "requiredFiles": [
+        {
+          "role": "model",
+          "name": "Qwen3.5 2B GGUF",
+          "purpose": "Local text chat model",
+          "file": "Qwen3.5-2B-Q4_K_M.gguf",
+          "candidates": [
+            "Qwen3.5-2B-Q4_K_M.gguf",
+            "Qwen3.5-2B-Q6_K.gguf",
+            "Qwen3.5-2B-Q8_0.gguf"
+          ],
+          "modelKey": "lmstudio-community/Qwen3.5-2B-GGUF",
+          "size": "1.27 GB",
+          "variants": [
+            {
+              "name": "Qwen3.5-2B-Q4_K_M.gguf",
+              "size": "1.27 GB"
+            },
+            {
+              "name": "Qwen3.5-2B-Q6_K.gguf",
+              "size": "1.56 GB"
+            },
+            {
+              "name": "Qwen3.5-2B-Q8_0.gguf",
+              "size": "2.01 GB"
+            }
+          ],
+          "sources": [
+            {
+              "type": "huggingface",
+              "user": "lmstudio-community",
+              "repo": "Qwen3.5-2B-GGUF",
+              "files": [
+                {
+                  "name": "Qwen3.5-2B-Q4_K_M.gguf",
+                  "size": "1.27 GB"
+                },
+                {
+                  "name": "Qwen3.5-2B-Q6_K.gguf",
+                  "size": "1.56 GB"
+                },
+                {
+                  "name": "Qwen3.5-2B-Q8_0.gguf",
+                  "size": "2.01 GB"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "metadataOverrides": {
+        "domain": "llm",
+        "architectures": [
+          "qwen35"
+        ],
+        "compatibilityTypes": [
+          "gguf"
+        ],
+        "paramsStrings": [
+          "2B"
+        ],
+        "capabilities": [
+          "llm-chat"
+        ]
+      },
+      "modelYaml": {
+        "model": "lmstudio-community/Qwen3.5-2B-GGUF",
+        "base": [
+          {
+            "key": "lmstudio-community/Qwen3.5-2B-GGUF",
+            "role": "model",
+            "name": "Qwen3.5 2B GGUF",
+            "purpose": "Local text chat model",
+            "defaultFile": "Qwen3.5-2B-Q4_K_M.gguf",
+            "sources": [
+              {
+                "type": "huggingface",
+                "user": "lmstudio-community",
+                "repo": "Qwen3.5-2B-GGUF",
+                "files": [
+                  {
+                    "name": "Qwen3.5-2B-Q4_K_M.gguf",
+                    "size": "1.27 GB"
+                  },
+                  {
+                    "name": "Qwen3.5-2B-Q6_K.gguf",
+                    "size": "1.56 GB"
+                  },
+                  {
+                    "name": "Qwen3.5-2B-Q8_0.gguf",
+                    "size": "2.01 GB"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "metadataOverrides": {
+          "domain": "llm",
+          "architectures": [
+            "qwen35"
+          ],
+          "compatibilityTypes": [
+            "gguf"
+          ],
+          "paramsStrings": [
+            "2B"
+          ],
+          "capabilities": [
+            "llm-chat"
+          ]
+        }
+      },
+      "stats": {
+        "upstreamModelId": "lmstudio-community/Qwen3.5-2B-GGUF",
+        "likesModelId": "lmstudio-community/Qwen3.5-2B-GGUF",
+        "downloadModelIds": [
+          "lmstudio-community/Qwen3.5-2B-GGUF"
+        ],
+        "policy": {
+          "downloads": "upstream-hf-model",
+          "likes": "upstream-hf-model"
+        }
+      },
+      "modelPath": "lmstudio-community/Qwen3.5-2B-GGUF"
     }
   ]
 }

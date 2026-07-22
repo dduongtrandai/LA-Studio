@@ -103,6 +103,18 @@ Canvas {
         } else if (name === "close") {
             line(ctx, cx - 6 * u, cy - 6 * u, cx + 6 * u, cy + 6 * u)
             line(ctx, cx + 6 * u, cy - 6 * u, cx - 6 * u, cy + 6 * u)
+        } else if (name === "plus") {
+            line(ctx, cx - 7 * u, cy, cx + 7 * u, cy)
+            line(ctx, cx, cy - 7 * u, cx, cy + 7 * u)
+        } else if (name === "send") {
+            ctx.beginPath()
+            ctx.moveTo(cx - 9 * u, cy - 7 * u)
+            ctx.lineTo(cx + 9 * u, cy)
+            ctx.lineTo(cx - 9 * u, cy + 7 * u)
+            ctx.lineTo(cx - 5 * u, cy)
+            ctx.closePath()
+            ctx.stroke()
+            line(ctx, cx - 5 * u, cy, cx + 4 * u, cy)
         } else if (name === "minus") {
             line(ctx, cx - 7 * u, cy, cx + 7 * u, cy)
         } else if (name === "maximize") {
@@ -191,6 +203,29 @@ Canvas {
             line(ctx, cx - 4 * u, cy - 8 * u, cx - 4 * u, cy - 2 * u)
             line(ctx, cx + 4 * u, cy - 8 * u, cx + 4 * u, cy - 2 * u)
             line(ctx, cx - 4 * u, cy + 4 * u, cx + 4 * u, cy + 4 * u)
+        } else if (name === "chat") {
+            // Compact conversation bubble used by the local LLM studio.
+            // The three dots communicate an active dialogue without implying
+            // a cloud provider or external brand.
+            ctx.beginPath()
+            ctx.moveTo(cx - 8 * u, cy - 7 * u)
+            ctx.lineTo(cx + 7 * u, cy - 7 * u)
+            ctx.quadraticCurveTo(cx + 9 * u, cy - 7 * u, cx + 9 * u, cy - 5 * u)
+            ctx.lineTo(cx + 9 * u, cy + 4 * u)
+            ctx.quadraticCurveTo(cx + 9 * u, cy + 6 * u, cx + 7 * u, cy + 6 * u)
+            ctx.lineTo(cx - 1 * u, cy + 6 * u)
+            ctx.lineTo(cx - 6 * u, cy + 10 * u)
+            ctx.lineTo(cx - 5 * u, cy + 6 * u)
+            ctx.lineTo(cx - 8 * u, cy + 6 * u)
+            ctx.quadraticCurveTo(cx - 10 * u, cy + 6 * u, cx - 10 * u, cy + 4 * u)
+            ctx.lineTo(cx - 10 * u, cy - 5 * u)
+            ctx.quadraticCurveTo(cx - 10 * u, cy - 7 * u, cx - 8 * u, cy - 7 * u)
+            ctx.stroke()
+            ctx.beginPath()
+            ctx.arc(cx - 5 * u, cy, 1.2 * u, 0, Math.PI * 2, false)
+            ctx.arc(cx, cy, 1.2 * u, 0, Math.PI * 2, false)
+            ctx.arc(cx + 5 * u, cy, 1.2 * u, 0, Math.PI * 2, false)
+            ctx.fill()
         } else if (name === "spark") {
             line(ctx, cx, cy - 9 * u, cx, cy + 9 * u)
             line(ctx, cx - 9 * u, cy, cx + 9 * u, cy)

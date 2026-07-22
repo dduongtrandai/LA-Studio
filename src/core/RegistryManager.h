@@ -13,6 +13,7 @@ class RegistryManager : public QObject {
     Q_PROPERTY(QVariantList modelCategories READ modelCategories NOTIFY registryUpdated)
     Q_PROPERTY(QVariantList ttsFamilies READ ttsFamilies NOTIFY registryUpdated)
     Q_PROPERTY(QVariantList sttFamilies READ sttFamilies NOTIFY registryUpdated)
+    Q_PROPERTY(QVariantList llmFamilies READ llmFamilies NOTIFY registryUpdated)
     Q_PROPERTY(QVariantList translationFamilies READ translationFamilies NOTIFY registryUpdated)
     Q_PROPERTY(QString databasePath READ databasePath CONSTANT)
 
@@ -22,6 +23,7 @@ public:
     QVariantList modelCategories() const { return m_modelCategories; }
     QVariantList ttsFamilies() const { return m_ttsFamilies; }
     QVariantList sttFamilies() const { return m_sttFamilies; }
+    QVariantList llmFamilies() const { return m_llmFamilies; }
     QVariantList translationFamilies() const;
     QString databasePath() const { return m_databasePath; }
 
@@ -39,6 +41,7 @@ private:
     bool importCatalog(const QVariantList &modelCategories,
                        const QVariantList &ttsFamilies,
                        const QVariantList &sttFamilies,
+                       const QVariantList &llmFamilies,
                        const QString &catalogVersion);
     bool reloadCachedViews();
 
@@ -48,6 +51,7 @@ private:
     QVariantList m_modelCategories;
     QVariantList m_ttsFamilies;
     QVariantList m_sttFamilies;
+    QVariantList m_llmFamilies;
 };
 
 } // namespace LAStudio

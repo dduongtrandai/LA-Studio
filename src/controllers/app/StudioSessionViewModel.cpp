@@ -385,7 +385,8 @@ QVariantMap StudioSessionViewModel::getFamilyConfig(const QString &familyId) con
     const QString domain = StudioCapabilityRegistry::instance()->familyDomain(m_capabilityId);
     const QVariantList all = domain == QStringLiteral("stt")
         ? app->registry()->sttFamilies()
-        : app->registry()->ttsFamilies();
+        : (domain == QStringLiteral("llm") ? app->registry()->llmFamilies()
+                                            : app->registry()->ttsFamilies());
     for (const QVariant &item : all) {
         QVariantMap fam = item.toMap();
         if (fam.value(QStringLiteral("id")).toString() == familyId) {
@@ -403,7 +404,8 @@ QVariantList StudioSessionViewModel::families() const
     const QString domain = StudioCapabilityRegistry::instance()->familyDomain(m_capabilityId);
     const QVariantList all = domain == QStringLiteral("stt")
         ? app->registry()->sttFamilies()
-        : app->registry()->ttsFamilies();
+        : (domain == QStringLiteral("llm") ? app->registry()->llmFamilies()
+                                            : app->registry()->ttsFamilies());
     QVariantList out;
     for (const QVariant &item : all) {
         QVariantMap fam = item.toMap();

@@ -71,6 +71,14 @@ Rectangle {
             iconName: "dubbing",
             routeId: "studio-dubbing",
             accent: "#64d8cb"
+        },
+        {
+            title: qsTr("LLM Chat"),
+            group: qsTr("Language Models"),
+            description: qsTr("Chat privately with local language models powered by llama.cpp."),
+            iconName: "chat",
+            routeId: "studio-llm",
+            accent: Theme.accentLight
         }
     ]
 

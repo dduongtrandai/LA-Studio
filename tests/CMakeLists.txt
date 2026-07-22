@@ -42,6 +42,9 @@ set(TEST_SOURCES
     ../src/alignment/CrispAlignmentInterface.cpp
     ../src/translation/CrispTranslationInterface.cpp
     ../src/translation/LlamaTranslationInterface.cpp
+    ../src/llm/LlmChatEngine.cpp
+    ../src/controllers/llm/LlmChatModelSession.cpp
+    ../src/controllers/llm/LlmChatController.cpp
     ../src/controllers/models/ModelsPathMigrator.cpp
     ../src/controllers/models/ModelsPathMigrationService.cpp
     ../src/controllers/shared/HistoryRepository.cpp
@@ -171,6 +174,9 @@ set(TEST_SOURCES
     ../src/controllers/translation/TranslationController.h
     ../src/controllers/separation/VoiceIsolatorModelSession.h
     ../src/controllers/models/ModelSessionRegistry.h
+    ../src/llm/LlmChatEngine.h
+    ../src/controllers/llm/LlmChatModelSession.h
+    ../src/controllers/llm/LlmChatController.h
     ../src/controllers/app/WorkflowActivityManager.h
     ../src/workflows/WorkflowTypes.h
     ../src/workflows/IWorkflowResolver.h

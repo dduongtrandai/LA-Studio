@@ -20,6 +20,8 @@ class AlignmentExecutionService;
 class VoiceIsolatorController;
 class TranslationModelSession;
 class TranslationEngine;
+class LlmChatEngine;
+class LlmChatModelSession;
 
 class ModelSessionRegistry : public QObject {
     Q_OBJECT
@@ -27,6 +29,7 @@ public:
     explicit ModelSessionRegistry(SttEngine *sttEngine,
                                   TtsEngine *ttsEngine,
                                   TranslationEngine *translationEngine,
+                                  LlmChatEngine *llmEngine,
                                   AlignmentExecutionService *alignment,
                                   VoiceIsolatorController *voiceIsolator,
                                   QObject *parent = nullptr);
@@ -51,6 +54,7 @@ private:
     IModelSession *m_alignmentSession = nullptr;
     IModelSession *m_voiceIsolatorSession = nullptr;
     IModelSession *m_translationSession = nullptr;
+    IModelSession *m_llmSession = nullptr;
 };
 
 } // namespace LAStudio
