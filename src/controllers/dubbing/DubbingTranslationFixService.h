@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QPointer>
 #include <QSet>
+#include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -17,6 +18,17 @@ class DubbingTranslationFixService final : public QObject
 {
     Q_OBJECT
 public:
+    struct CliInvocation {
+        QString agentId;
+        QString binaryName;
+        QString displayName;
+        QString program;
+        QStringList arguments;
+        QString diagnosticLogPath;
+        QString workingDirectory;
+        bool promptViaStdin = true;
+    };
+
     explicit DubbingTranslationFixService(QObject *parent = nullptr);
 
     bool busy() const { return m_busy; }
@@ -41,6 +53,18 @@ public:
     static QString cleanAssistantText(const QString &content);
     static QString parseCliResponse(const QByteArray &body);
     static QString cliExecutablePath(const QString &cliAgent);
+    static QVariantList cliModelOptions(const QString &cliAgent,
+                                        const QString &homePath = {});
+    static CliInvocation cliInvocation(const QString &cliAgent,
+                                       const QString &model,
+                                       const QString &prompt,
+                                       const QString &executablePath,
+                                       const QString &diagnosticLogPath,
+                                       int timeoutSeconds);
+    static QString cliFailureMessage(const QString &cliAgent,
+                                     const QByteArray &stdoutData,
+                                     const QByteArray &stderrData,
+                                     const QByteArray &diagnosticLog = {});
     static bool isCloserToBudget(int currentPhonemes, int candidatePhonemes,
                                  int minimum, int maximum);
 

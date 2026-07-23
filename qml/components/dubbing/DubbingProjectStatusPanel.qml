@@ -12,6 +12,7 @@ Rectangle {
     required property var languageCatalog
     required property string currentStepTitle
     signal adaptiveSetupRequested()
+    signal customSetupRequested()
 
     Layout.fillWidth: true
     Layout.preferredHeight: 136
@@ -73,7 +74,7 @@ Rectangle {
         Rectangle { Layout.fillHeight: true; Layout.preferredWidth: 1; color: Qt.rgba(1, 1, 1, 0.08) }
 
         ColumnLayout {
-            Layout.preferredWidth: 250
+            Layout.preferredWidth: 330
             Layout.fillHeight: true
             spacing: 4
 
@@ -117,15 +118,30 @@ Rectangle {
                         warning: selected && !root.dubbing.adaptiveReady
                         onClicked: root.dubbing.dubbingQuality = "adaptive"
                     }
+                    QualityModeButton {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.preferredWidth: 1
+                        text: qsTr("Custom")
+                        iconName: "sliders"
+                        selected: root.dubbing.dubbingQuality === "custom"
+                        warning: selected && !root.dubbing.customReady
+                        onClicked: {
+                            root.dubbing.dubbingQuality = "custom"
+                            root.customSetupRequested()
+                        }
+                    }
                 }
             }
 
             Text {
                 Layout.fillWidth: true
                 text: root.dubbing.dubbingQuality === "fast"
-                      ? qsTr("Direct local workflow without LLM adaptation.")
-                      : root.dubbing.adaptiveStatusText
-                color: root.dubbing.dubbingQuality === "adaptive" && !root.dubbing.adaptiveReady
+                      ? qsTr("Fast local workflow · VieNeu-TTS v2 Turbo by default.")
+                      : (root.dubbing.dubbingQuality === "custom"
+                         ? root.dubbing.customStatusText : root.dubbing.adaptiveStatusText)
+                color: ((root.dubbing.dubbingQuality === "adaptive" && !root.dubbing.adaptiveReady)
+                        || (root.dubbing.dubbingQuality === "custom" && !root.dubbing.customReady))
                        ? Theme.warning : Theme.textSecondary
                 font.pixelSize: 10
                 elide: Text.ElideRight
@@ -133,10 +149,17 @@ Rectangle {
 
             PrimaryButton {
                 visible: root.dubbing.dubbingQuality === "adaptive"
-                text: qsTr("Configure LLM")
+                         || root.dubbing.dubbingQuality === "custom"
+                text: root.dubbing.dubbingQuality === "custom"
+                      ? qsTr("Configure Custom") : qsTr("Configure LLM")
                 iconName: "settings"
                 quiet: true
-                onClicked: root.adaptiveSetupRequested()
+                onClicked: {
+                    if (root.dubbing.dubbingQuality === "custom")
+                        root.customSetupRequested()
+                    else
+                        root.adaptiveSetupRequested()
+                }
             }
         }
 

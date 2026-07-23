@@ -60,7 +60,7 @@ Rectangle {
         PrimaryButton { visible: root.canRerun; iconName: "run-again"; iconOnly: true; toolTip: qsTr("Run again"); quiet: true; enabled: !root.dubbing.processing && root.runReady; onClicked: root.runRequested() }
         PrimaryButton {
             visible: root.nodeId === "translate"
-                     && root.dubbing.dubbingQuality === "adaptive"
+                     && root.dubbing.dubbingQuality !== "fast"
                      && root.dubbing.adaptiveProvider !== "local"
                      && root.dubbing.translationFixCandidateCount > 0
             text: qsTr("Fix %1").arg(root.dubbing.translationFixCandidateCount)

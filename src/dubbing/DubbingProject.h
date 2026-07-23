@@ -13,7 +13,7 @@ namespace LAStudio {
 class DubbingProject
 {
 public:
-    static constexpr int CurrentSchemaVersion = 5;
+    static constexpr int CurrentSchemaVersion = 7;
 
     QString projectPath;
     QString sourceMediaPath;
@@ -27,12 +27,14 @@ public:
     bool sourceIsVideo = false;
     QString sourceLanguage = QStringLiteral("en");
     QString targetLanguage = QStringLiteral("vi");
-    QString dubbingQuality = QStringLiteral("fast");
+    QString dubbingQuality = QStringLiteral("adaptive");
     QVariantMap durationControl = QVariantMap{{QStringLiteral("enabled"), true},
                                                {QStringLiteral("unit"), QStringLiteral("phoneme-v1")},
                                                {QStringLiteral("lowerToleranceRatio"), 0.20},
                                                {QStringLiteral("upperToleranceRatio"), 0.20},
                                                {QStringLiteral("autoRewrite"), true}};
+    QVariantMap workflowNodeConfigurations;
+    QVariantMap customRewriteConfiguration;
     QVariantList speakers;
     QVariantList segments;
 

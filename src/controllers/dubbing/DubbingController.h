@@ -75,6 +75,8 @@ class DubbingController : public QObject
     Q_PROPERTY(QString adaptiveProvider READ adaptiveProvider NOTIFY translationFixChanged)
     Q_PROPERTY(bool adaptiveReady READ adaptiveReady NOTIFY workflowChanged)
     Q_PROPERTY(QString adaptiveStatusText READ adaptiveStatusText NOTIFY workflowChanged)
+    Q_PROPERTY(bool customReady READ customReady NOTIFY workflowChanged)
+    Q_PROPERTY(QString customStatusText READ customStatusText NOTIFY workflowChanged)
     Q_PROPERTY(bool settingsLocked READ settingsLocked NOTIFY workflowChanged)
     Q_PROPERTY(bool automaticSetupActive READ automaticSetupActive NOTIFY workflowChanged)
     Q_PROPERTY(QString automaticStatusText READ automaticStatusText NOTIFY workflowChanged)
@@ -138,6 +140,8 @@ public:
     QString adaptiveProvider() const;
     bool adaptiveReady() const;
     QString adaptiveStatusText() const;
+    bool customReady() const;
+    QString customStatusText() const;
     bool settingsLocked() const;
     bool automaticSetupActive() const { return m_automaticSetupActive; }
     QString automaticStatusText() const { return m_automaticStatusText; }
@@ -170,6 +174,8 @@ public:
     Q_INVOKABLE void addSpeaker(const QString &name = QString());
     Q_INVOKABLE void setSpeakerVoice(int speakerIndex, const QVariantMap &voice);
     Q_INVOKABLE void clearError();
+    Q_INVOKABLE void resetStandardWorkflowNodeModels();
+    Q_INVOKABLE QString defaultWorkflowModelFamily(const QString &nodeId) const;
     Q_INVOKABLE void prepareWorkflow();
     Q_INVOKABLE bool runWorkflow(const QString &outputPath = QString());
     Q_INVOKABLE bool startAutomaticWorkflow(const QString &outputPath);
@@ -195,6 +201,8 @@ public:
     Q_INVOKABLE bool translationSegmentNeedsFix(int index) const;
     Q_INVOKABLE void testTranslationFixConnection(
         const QVariantMap &configuration = QVariantMap());
+    Q_INVOKABLE QVariantList translationFixCliModelOptions(
+        const QString &cliAgent) const;
     Q_INVOKABLE void cancelTranslationFix();
     Q_INVOKABLE void setAdaptiveConfiguration(const QVariantMap &configuration);
 
@@ -209,6 +217,8 @@ signals:
     void historyChanged();
     void translationFixChanged();
     void translationFixConnectionTested(bool success, const QString &message);
+    void workflowSetupRequired(const QString &nodeId, const QString &setupKind,
+                               const QString &message);
 
 private slots:
     void onIngestFinished(bool success, const QVariantMap &manifest);
@@ -230,6 +240,8 @@ private:
     bool ensureAutomaticModel(const QString &nodeId, const QString &capabilityId,
                               bool loadSession);
     bool ensureAutomaticAdaptiveModel();
+    QVariantMap firstCustomSetupIssue() const;
+    void resetStandardTranslationFixConfiguration();
     void advanceAutomaticSetup();
     void scheduleAutomaticSetupAdvance();
     void prepareAutomaticVoiceRuntime();

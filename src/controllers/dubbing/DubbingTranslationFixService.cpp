@@ -8,6 +8,8 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
@@ -16,6 +18,7 @@
 #include <QRegularExpression>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QTemporaryFile>
 #include <QTimer>
 #include <QUrl>
 
@@ -79,6 +82,193 @@ QString responseError(const QByteArray &body)
     if (error.isObject())
         return error.toObject().value(QStringLiteral("message")).toString();
     return {};
+}
+
+QString cliConnectionError(const QByteArray &stderrData)
+{
+    QString detail = QString::fromUtf8(stderrData).trimmed();
+    if (detail.contains(QStringLiteral("not logged into"), Qt::CaseInsensitive)
+        || detail.contains(QStringLiteral("authentication required"), Qt::CaseInsensitive)
+        || detail.contains(QStringLiteral("not authenticated"), Qt::CaseInsensitive)
+        || detail.contains(QStringLiteral("login required"), Qt::CaseInsensitive)) {
+        return QStringLiteral("CLI authentication is required. Open a terminal, run the selected CLI, and complete its sign-in flow.");
+    }
+    if (detail.contains(QStringLiteral("unauthorized"), Qt::CaseInsensitive)
+        || detail.contains(QStringLiteral("invalid api key"), Qt::CaseInsensitive)) {
+        return QStringLiteral("CLI authentication was rejected. Sign in again and retry.");
+    }
+    if (detail.isEmpty())
+        return QStringLiteral("The CLI completed without returning a model response.");
+
+    const QStringList lines = detail.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+    detail = lines.isEmpty() ? detail : lines.constLast().trimmed();
+    if (detail.size() > 500) detail = detail.left(500) + QChar(0x2026);
+    return detail;
+}
+
+QString translationRepairSystemPrompt()
+{
+    return QStringLiteral(
+        "You repair translations for timed dubbing. This is a text-only "
+        "transformation: do not call command, terminal, filesystem, web, search, "
+        "or any other tool. Preserve the complete source meaning and the meaning "
+        "of the current translation: facts, names, numbers, rank/order, time, "
+        "comparison, causality, and negation. Rewrite naturally in the requested "
+        "target language while meeting the supplied eSpeak NG phoneme maximum. "
+        "Never invent or omit information. Return only the rewritten translation, "
+        "without analysis, labels, quotes, or a phoneme count.");
+}
+
+QString createCliDiagnosticLogPath(const QString &cliAgent)
+{
+    if (cliAgent != QStringLiteral("antigravity")) return {};
+    QTemporaryFile file(
+        QDir(QDir::tempPath()).filePath(
+            QStringLiteral("la-studio-agy-XXXXXX.log")));
+    file.setAutoRemove(false);
+    if (!file.open()) return {};
+    const QString path = file.fileName();
+    file.close();
+    return path;
+}
+
+QByteArray takeCliDiagnosticLog(const QString &path)
+{
+    if (path.isEmpty()) return {};
+    QFile file(path);
+    QByteArray result;
+    if (file.open(QIODevice::ReadOnly)) result = file.readAll();
+    file.close();
+    QFile::remove(path);
+    return result;
+}
+
+bool containsCliAuthFailure(const QString &detail)
+{
+    return detail.contains(QStringLiteral("not logged into"), Qt::CaseInsensitive)
+        || detail.contains(QStringLiteral("authentication required"), Qt::CaseInsensitive)
+        || detail.contains(QStringLiteral("authentication timed out"), Qt::CaseInsensitive)
+        || detail.contains(QStringLiteral("not authenticated"), Qt::CaseInsensitive)
+        || detail.contains(QStringLiteral("login required"), Qt::CaseInsensitive)
+        || detail.contains(QStringLiteral("\"authenticated\":false"), Qt::CaseInsensitive)
+        || detail.contains(QStringLiteral("\"loggedIn\":false"), Qt::CaseInsensitive);
+}
+
+bool containsCliAuthSuccess(const QString &detail)
+{
+    // agy 1.1.5 may log transient "not logged into" errors while its backend
+    // starts, then silently load a valid token from the OS keyring. Treat the
+    // later successful authentication markers as the final state.
+    return detail.contains(QStringLiteral("silent auth succeeded"), Qt::CaseInsensitive)
+        || detail.contains(QStringLiteral("authenticated via keyring"), Qt::CaseInsensitive)
+        || detail.contains(QStringLiteral("OAuth: authenticated successfully"), Qt::CaseInsensitive);
+}
+
+QString classifiedCliFailure(const QString &cliAgent,
+                             const QByteArray &stdoutData,
+                             const QByteArray &stderrData,
+                             const QByteArray &diagnosticLog)
+{
+    const QString processDetail = QString::fromUtf8(
+        stdoutData + QByteArrayLiteral("\n") + stderrData);
+    const QString diagnosticDetail = QString::fromUtf8(diagnosticLog);
+    const QString detail = processDetail + QLatin1Char('\n') + diagnosticDetail;
+    if (detail.contains(QStringLiteral("RESOURCE_EXHAUSTED"), Qt::CaseInsensitive)
+        || detail.contains(QStringLiteral("individual quota reached"), Qt::CaseInsensitive)
+        || (detail.contains(QStringLiteral("429"))
+            && detail.contains(QStringLiteral("quota"), Qt::CaseInsensitive))) {
+        return cliAgent == QStringLiteral("antigravity")
+            ? QStringLiteral("Antigravity quota is exhausted for the selected model. Choose another model in LA Studio or wait for the quota to reset.")
+            : QStringLiteral("The selected CLI model has reached its usage limit. Retry later or select another model.");
+    }
+    const bool processReportsAuthFailure = containsCliAuthFailure(processDetail);
+    const bool diagnosticReportsFinalAuthFailure =
+        containsCliAuthFailure(diagnosticDetail)
+        && !containsCliAuthSuccess(diagnosticDetail);
+    if (processReportsAuthFailure || diagnosticReportsFinalAuthFailure) {
+        return cliAgent == QStringLiteral("antigravity")
+            ? QStringLiteral("Antigravity authentication is required. Open a terminal, run agy once, complete Google sign-in, then retry.")
+            : QStringLiteral("CLI authentication is required. Open a terminal, run the selected CLI, and complete its sign-in flow.");
+    }
+    if (detail.contains(QStringLiteral("unauthorized"), Qt::CaseInsensitive)
+        || detail.contains(QStringLiteral("invalid api key"), Qt::CaseInsensitive)
+        || detail.contains(QStringLiteral("oauth token expired"), Qt::CaseInsensitive)) {
+        return QStringLiteral("CLI authentication was rejected. Sign in again and retry.");
+    }
+    if (detail.contains(QStringLiteral("headless mode cannot prompt"), Qt::CaseInsensitive)
+        || detail.contains(QStringLiteral("tool required the \"command\" permission"), Qt::CaseInsensitive)
+        || detail.contains(QStringLiteral("permission request was denied"), Qt::CaseInsensitive)) {
+        return QStringLiteral("The CLI requested an interactive tool permission that cannot be approved in headless mode. Update the CLI and retry with the sandboxed non-interactive integration.");
+    }
+    if (detail.contains(QStringLiteral("unknown option"), Qt::CaseInsensitive)
+        || detail.contains(QStringLiteral("unknown flag"), Qt::CaseInsensitive)
+        || detail.contains(QStringLiteral("unexpected argument"), Qt::CaseInsensitive)) {
+        return QStringLiteral("The installed CLI version does not support the required non-interactive options. Update the CLI and retry.");
+    }
+    return {};
+}
+
+QString cliArgumentsForLog(
+    const DubbingTranslationFixService::CliInvocation &invocation)
+{
+    QStringList safeArguments = invocation.arguments;
+    if (!invocation.promptViaStdin
+        && invocation.agentId == QStringLiteral("antigravity")
+        && !safeArguments.isEmpty()) {
+        safeArguments.last() = QStringLiteral("<prompt>");
+    }
+    return safeArguments.join(QLatin1Char(' '));
+}
+
+QJsonObject readJsonObject(const QString &path)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) return {};
+    const QJsonDocument document = QJsonDocument::fromJson(file.readAll());
+    return document.isObject() ? document.object() : QJsonObject();
+}
+
+QByteArray readLocalFile(const QString &path)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) return {};
+    return file.readAll();
+}
+
+void appendCliModel(QVariantList &models, QSet<QString> &seen,
+                    const QString &value, const QString &text,
+                    const QString &detail)
+{
+    const QString id = value.trimmed();
+    if (id.isEmpty() || seen.contains(id)) return;
+    seen.insert(id);
+    models.append(QVariantMap{
+        {QStringLiteral("value"), id},
+        {QStringLiteral("text"), text.trimmed().isEmpty() ? id : text.trimmed()},
+        {QStringLiteral("detail"), detail}
+    });
+}
+
+QString configuredCliModel(const QString &agent, const QString &home)
+{
+    if (agent == QStringLiteral("claude")) {
+        return readJsonObject(
+                   QDir(home).filePath(QStringLiteral(".claude/settings.json")))
+            .value(QStringLiteral("model")).toString().trimmed();
+    }
+    if (agent == QStringLiteral("codex")) {
+        const QString config = QString::fromUtf8(readLocalFile(
+            QDir(home).filePath(QStringLiteral(".codex/config.toml"))));
+        const QRegularExpression modelPattern(
+            QStringLiteral("^\\s*model\\s*=\\s*\"([^\"]+)\""),
+            QRegularExpression::MultilineOption);
+        const QRegularExpressionMatch match = modelPattern.match(config);
+        return match.hasMatch() ? match.captured(1).trimmed() : QString();
+    }
+    return readJsonObject(
+               QDir(home).filePath(
+                   QStringLiteral(".gemini/antigravity-cli/settings.json")))
+        .value(QStringLiteral("model")).toString().trimmed();
 }
 
 } // namespace
@@ -198,6 +388,203 @@ QString DubbingTranslationFixService::cliExecutablePath(const QString &cliAgent)
     }
 #endif
     return {};
+}
+
+QVariantList DubbingTranslationFixService::cliModelOptions(
+    const QString &cliAgent, const QString &homePath)
+{
+    QString agent = cliAgent.trimmed().toLower();
+    if (agent != QStringLiteral("codex")
+        && agent != QStringLiteral("antigravity"))
+        agent = QStringLiteral("claude");
+
+    const QString home = homePath.trimmed().isEmpty()
+        ? QDir::homePath() : QDir(homePath).absolutePath();
+    QVariantList models;
+    QSet<QString> seen;
+    const QString configured = configuredCliModel(agent, home);
+    appendCliModel(
+        models, seen, QStringLiteral("default"),
+        QStringLiteral("Default (CLI config)"),
+        configured.isEmpty()
+            ? QStringLiteral("Use the model selected by the CLI")
+            : QStringLiteral("Configured model: %1").arg(configured));
+    if (!configured.isEmpty()) {
+        appendCliModel(models, seen, configured, configured,
+                       QStringLiteral("Selected in the CLI configuration"));
+    }
+
+    if (agent == QStringLiteral("claude")) {
+        const QJsonObject usage = readJsonObject(
+            QDir(home).filePath(QStringLiteral(".claude/stats-cache.json")))
+                                      .value(QStringLiteral("modelUsage"))
+                                      .toObject();
+        for (auto it = usage.constBegin(); it != usage.constEnd(); ++it) {
+            appendCliModel(models, seen, it.key(), it.key(),
+                           QStringLiteral("Found in Claude Code usage cache"));
+        }
+        const QList<QPair<QString, QString>> fallbacks = {
+            {QStringLiteral("sonnet"), QStringLiteral("Sonnet (latest alias)")},
+            {QStringLiteral("opus"), QStringLiteral("Opus (latest alias)")},
+            {QStringLiteral("haiku"), QStringLiteral("Haiku (latest alias)")}
+        };
+        for (const auto &option : fallbacks) {
+            appendCliModel(models, seen, option.first, option.second,
+                           QStringLiteral("Claude Code model alias"));
+        }
+        return models;
+    }
+
+    if (agent == QStringLiteral("codex")) {
+        const QJsonArray cachedModels = readJsonObject(
+            QDir(home).filePath(QStringLiteral(".codex/models_cache.json")))
+                                            .value(QStringLiteral("models"))
+                                            .toArray();
+        for (const QJsonValue &value : cachedModels) {
+            const QJsonObject item = value.toObject();
+            if (item.value(QStringLiteral("visibility")).toString()
+                == QStringLiteral("hidden"))
+                continue;
+            const QString id =
+                item.value(QStringLiteral("slug")).toString().trimmed();
+            appendCliModel(
+                models, seen, id,
+                item.value(QStringLiteral("display_name")).toString(),
+                QStringLiteral("Available in the Codex model cache"));
+        }
+        const QStringList fallbacks = {
+            QStringLiteral("gpt-5.6-sol"),
+            QStringLiteral("gpt-5.6-terra"),
+            QStringLiteral("gpt-5.6-luna"),
+            QStringLiteral("gpt-5.5"),
+            QStringLiteral("gpt-5.4"),
+            QStringLiteral("gpt-5.4-mini")
+        };
+        for (const QString &model : fallbacks) {
+            appendCliModel(models, seen, model, model,
+                           QStringLiteral("Codex CLI fallback model"));
+        }
+        return models;
+    }
+
+    // agy 1.1.5 exposes these exact ids through `agy models`. Unlike the
+    // display labels used by agy 1.0.3 and the older Open Design adapter,
+    // these slugs are accepted directly by the current --model option.
+    const QList<QPair<QString, QString>> antigravityModels = {
+        {QStringLiteral("gemini-3.6-flash-high"),
+         QStringLiteral("Gemini 3.6 Flash (High)")},
+        {QStringLiteral("gemini-3.6-flash-medium"),
+         QStringLiteral("Gemini 3.6 Flash (Medium)")},
+        {QStringLiteral("gemini-3.6-flash-low"),
+         QStringLiteral("Gemini 3.6 Flash (Low)")},
+        {QStringLiteral("gemini-3.5-flash-high"),
+         QStringLiteral("Gemini 3.5 Flash (High)")},
+        {QStringLiteral("gemini-3.5-flash-medium"),
+         QStringLiteral("Gemini 3.5 Flash (Medium)")},
+        {QStringLiteral("gemini-3.5-flash-low"),
+         QStringLiteral("Gemini 3.5 Flash (Low)")},
+        {QStringLiteral("gemini-3.1-pro-high"),
+         QStringLiteral("Gemini 3.1 Pro (High)")},
+        {QStringLiteral("gemini-3.1-pro-low"),
+         QStringLiteral("Gemini 3.1 Pro (Low)")},
+        {QStringLiteral("claude-sonnet-4-6"),
+         QStringLiteral("Claude Sonnet 4.6")},
+        {QStringLiteral("claude-opus-4-6-thinking"),
+         QStringLiteral("Claude Opus 4.6 (Thinking)")},
+        {QStringLiteral("gpt-oss-120b-medium"),
+         QStringLiteral("GPT-OSS 120B (Medium)")}
+    };
+    for (const auto &option : antigravityModels) {
+        appendCliModel(models, seen, option.first, option.second,
+                       QStringLiteral("Available from Antigravity CLI"));
+    }
+    return models;
+}
+
+DubbingTranslationFixService::CliInvocation
+DubbingTranslationFixService::cliInvocation(
+    const QString &cliAgent, const QString &model,
+    const QString &prompt, const QString &executablePath,
+    const QString &diagnosticLogPath, int timeoutSeconds)
+{
+    CliInvocation invocation;
+    invocation.agentId = cliAgent.trimmed().toLower();
+    invocation.program = executablePath;
+    invocation.workingDirectory = QDir::tempPath();
+
+    if (invocation.agentId == QStringLiteral("codex")) {
+        invocation.binaryName = QStringLiteral("codex");
+        invocation.displayName = QStringLiteral("Codex CLI");
+        invocation.arguments
+            << QStringLiteral("exec") << QStringLiteral("--json")
+            << QStringLiteral("--ephemeral")
+            << QStringLiteral("--sandbox") << QStringLiteral("read-only")
+            << QStringLiteral("--skip-git-repo-check");
+    } else if (invocation.agentId == QStringLiteral("antigravity")) {
+        invocation.binaryName = QStringLiteral("agy");
+        invocation.displayName = QStringLiteral("Google Antigravity");
+        invocation.diagnosticLogPath = diagnosticLogPath;
+        if (!diagnosticLogPath.isEmpty()) {
+            // agy requires --log-file before -p for the diagnostic file to be
+            // populated reliably.
+            invocation.arguments
+                << QStringLiteral("--log-file") << diagnosticLogPath;
+        }
+        invocation.arguments
+            // Keep terminal activity restricted to agy's sandbox while
+            // auto-approving requests that a headless process cannot prompt for.
+            << QStringLiteral("--sandbox")
+            << QStringLiteral("--dangerously-skip-permissions")
+            << QStringLiteral("--print-timeout")
+            << QStringLiteral("%1s").arg(qMax(1, timeoutSeconds));
+        // agy 1.1.5 treats `-p -` as the literal one-character prompt "-".
+        // Supply the prompt as -p's value instead of writing it to stdin.
+        invocation.promptViaStdin = false;
+    } else {
+        invocation.agentId = QStringLiteral("claude");
+        invocation.binaryName = QStringLiteral("claude");
+        invocation.displayName = QStringLiteral("Claude Code");
+        invocation.arguments
+            << QStringLiteral("-p")
+            << QStringLiteral("--input-format") << QStringLiteral("text")
+            << QStringLiteral("--output-format") << QStringLiteral("json")
+            << QStringLiteral("--no-session-persistence")
+            // Dubbing repair only needs a text response; disable Claude's tools.
+            << QStringLiteral("--tools") << QString();
+    }
+
+    if (!model.isEmpty() && model != QStringLiteral("default"))
+        invocation.arguments << QStringLiteral("--model") << model;
+    if (invocation.agentId == QStringLiteral("antigravity"))
+        invocation.arguments << QStringLiteral("-p") << prompt;
+
+#ifdef Q_OS_WIN
+    const QString lowerExe = executablePath.toLower();
+    if (lowerExe.endsWith(QStringLiteral(".cmd"))
+        || lowerExe.endsWith(QStringLiteral(".bat"))) {
+        invocation.program = QStringLiteral("cmd.exe");
+        invocation.arguments.prepend(executablePath);
+        invocation.arguments.prepend(QStringLiteral("/c"));
+    }
+#endif
+    return invocation;
+}
+
+QString DubbingTranslationFixService::cliFailureMessage(
+    const QString &cliAgent, const QByteArray &stdoutData,
+    const QByteArray &stderrData, const QByteArray &diagnosticLog)
+{
+    const QString classified = classifiedCliFailure(
+        cliAgent, stdoutData, stderrData, diagnosticLog);
+    if (!classified.isEmpty()) return classified;
+    if (!stderrData.trimmed().isEmpty()) return cliConnectionError(stderrData);
+    if (!stdoutData.trimmed().isEmpty()
+        && containsCliAuthSuccess(QString::fromUtf8(diagnosticLog)))
+        return {};
+    if (!diagnosticLog.trimmed().isEmpty()
+        && !containsCliAuthSuccess(QString::fromUtf8(diagnosticLog)))
+        return cliConnectionError(diagnosticLog);
+    return QStringLiteral("The CLI completed without returning a model response.");
 }
 
 void DubbingTranslationFixService::setConfiguration(const QVariantMap &configuration)
@@ -383,25 +770,118 @@ void DubbingTranslationFixService::testConnection(
         return;
     }
     if (provider == QStringLiteral("cli")) {
-        const QString cliAgent = m_configuration.value(QStringLiteral("cliAgent"), QStringLiteral("claude")).toString();
-        QString binName = QStringLiteral("claude");
-        QString displayName = QStringLiteral("Claude Code");
-        if (cliAgent == QStringLiteral("codex")) {
-            binName = QStringLiteral("codex");
-            displayName = QStringLiteral("Codex CLI");
-        } else if (cliAgent == QStringLiteral("antigravity")) {
-            binName = QStringLiteral("agy");
-            displayName = QStringLiteral("Google Antigravity");
-        }
+        const QString cliAgent = m_configuration
+                                     .value(QStringLiteral("cliAgent"),
+                                            QStringLiteral("claude"))
+                                     .toString();
         saveConfiguration();
         const QString exePath = cliExecutablePath(cliAgent);
-        if (!exePath.isEmpty()) {
-            emit connectionTested(true, QStringLiteral("Local CLI Agent \"%1\" is available on system PATH (%2).")
-                                            .arg(displayName, exePath));
-        } else {
+        if (exePath.isEmpty()) {
+            const CliInvocation unresolved = cliInvocation(
+                cliAgent, {}, {}, {}, {}, 30);
             emit connectionTested(false, QStringLiteral("CLI binary \"%1\" was not found on system PATH.")
-                                             .arg(binName));
+                                             .arg(unresolved.binaryName));
+            emit stateChanged();
+            return;
         }
+
+        const QString prompt = QStringLiteral(
+            "Connection health check for LA Studio. This is a text-only request. "
+            "Do not call any tools. Reply with exactly: OK");
+        const QString logPath = createCliDiagnosticLogPath(cliAgent);
+        const CliInvocation invocation = cliInvocation(
+            cliAgent,
+            m_configuration.value(QStringLiteral("model")).toString(),
+            prompt, exePath, logPath, 30);
+
+        QProcess *process = new QProcess(this);
+        process->setWorkingDirectory(invocation.workingDirectory);
+        connect(process, &QObject::destroyed,
+                [logPath = invocation.diagnosticLogPath]() {
+            if (!logPath.isEmpty()) QFile::remove(logPath);
+        });
+        m_cliProcess = process;
+        m_testing = true;
+        emit stateChanged();
+        connect(process, &QProcess::finished, this,
+                [this, process, invocation](int exitCode,
+                                            QProcess::ExitStatus exitStatus) {
+            if (m_cliProcess == process) m_cliProcess = nullptr;
+            const QByteArray diagnosticLog =
+                takeCliDiagnosticLog(invocation.diagnosticLogPath);
+            if (!m_testing) {
+                process->deleteLater();
+                return;
+            }
+            m_testing = false;
+            const QByteArray stdoutData = process->readAllStandardOutput();
+            const QByteArray stderrData = process->readAllStandardError();
+            const QString response = parseCliResponse(stdoutData);
+            const QString classifiedFailure = classifiedCliFailure(
+                invocation.agentId, stdoutData, stderrData, diagnosticLog);
+            const bool expectedSmokeReply =
+                response.compare(QStringLiteral("OK"),
+                                 Qt::CaseInsensitive) == 0;
+            const bool success = exitStatus == QProcess::NormalExit
+                && exitCode == 0 && !response.isEmpty()
+                && classifiedFailure.isEmpty() && expectedSmokeReply;
+            const QString message = success
+                ? QStringLiteral("%1 is authenticated and returned a valid model response.")
+                      .arg(invocation.displayName)
+                : QStringLiteral("%1 connection failed: %2")
+                      .arg(invocation.displayName,
+                           classifiedFailure.isEmpty()
+                               ? (!response.isEmpty() && !expectedSmokeReply
+                                      ? QStringLiteral("The CLI returned an unexpected smoke-test response instead of OK: \"%1\"")
+                                            .arg(response.left(160))
+                                      : cliFailureMessage(invocation.agentId,
+                                                          stdoutData, stderrData,
+                                                          diagnosticLog))
+                               : classifiedFailure);
+            Logger::info(QStringLiteral("DubbingTranslationFix"),
+                         QStringLiteral("CLI connection test agent=%1 success=%2 exitCode=%3 responseChars=%4 message=%5")
+                             .arg(invocation.displayName,
+                                  success ? QStringLiteral("true") : QStringLiteral("false"))
+                             .arg(exitCode).arg(response.size()).arg(message));
+            process->deleteLater();
+            emit stateChanged();
+            emit connectionTested(success, message);
+        });
+
+        Logger::info(
+            QStringLiteral("DubbingTranslationFix"),
+            QStringLiteral("CLI connection launch agent=%1 executable=%2 args=%3 promptViaStdin=%4 diagnosticLog=%5")
+                .arg(invocation.agentId, invocation.program,
+                     cliArgumentsForLog(invocation),
+                     invocation.promptViaStdin ? QStringLiteral("true")
+                                               : QStringLiteral("false"),
+                     invocation.diagnosticLogPath.isEmpty()
+                         ? QStringLiteral("disabled") : QStringLiteral("enabled")));
+        process->start(invocation.program, invocation.arguments);
+        if (!process->waitForStarted(5000)) {
+            takeCliDiagnosticLog(invocation.diagnosticLogPath);
+            m_cliProcess = nullptr;
+            m_testing = false;
+            process->deleteLater();
+            emit stateChanged();
+            emit connectionTested(
+                false, QStringLiteral("Failed to launch %1 at %2.")
+                           .arg(invocation.displayName, exePath));
+            return;
+        }
+        if (invocation.promptViaStdin) process->write(prompt.toUtf8());
+        process->closeWriteChannel();
+
+        QTimer::singleShot(45000, process, [this, process, invocation]() {
+            if (m_cliProcess != process || !m_testing) return;
+            m_cliProcess = nullptr;
+            m_testing = false;
+            process->kill();
+            emit stateChanged();
+            emit connectionTested(
+                false, QStringLiteral("%1 connection test timed out. Check sign-in and network access.")
+                           .arg(invocation.displayName));
+        });
         emit stateChanged();
         return;
     }
@@ -570,13 +1050,7 @@ void DubbingTranslationFixService::requestAttempt()
     payload.insert(QStringLiteral("top_p"), 0.8);
     if (provider != QStringLiteral("api"))
         payload.insert(QStringLiteral("top_k"), 20);
-    const QString systemPrompt = QStringLiteral(
-                        "You repair translations for timed dubbing. Preserve the complete source "
-                       "meaning and the meaning of the current translation: facts, names, numbers, "
-                       "rank/order, time, comparison, causality, and negation. Rewrite naturally in "
-                       "the requested target language while meeting the supplied eSpeak NG phoneme "
-                       "maximum. Never invent or omit information. Return only the rewritten "
-                        "translation, without analysis, labels, quotes, or a phoneme count.");
+    const QString systemPrompt = translationRepairSystemPrompt();
     if (provider == QStringLiteral("api")) {
         payload.insert(QStringLiteral("messages"), QJsonArray{
             QJsonObject{{QStringLiteral("role"), QStringLiteral("system")},
@@ -624,116 +1098,94 @@ void DubbingTranslationFixService::executeCliAttempt()
     const QString cliAgent = m_configuration.value(QStringLiteral("cliAgent"), QStringLiteral("claude")).toString();
     const QString model = m_configuration.value(QStringLiteral("model")).toString();
 
-    QString program;
-    QStringList args;
-
-    if (cliAgent == QStringLiteral("codex")) {
-        program = QStringLiteral("codex");
-        args << QStringLiteral("exec") << QStringLiteral("--json")
-             << QStringLiteral("--ephemeral")
-             << QStringLiteral("--sandbox") << QStringLiteral("read-only")
-             << QStringLiteral("--skip-git-repo-check");
-        if (!model.isEmpty() && model != QStringLiteral("default")) {
-            args << QStringLiteral("--model") << model;
-        }
-    } else if (cliAgent == QStringLiteral("antigravity")) {
-        program = QStringLiteral("agy");
-        // Antigravity's -p option takes the prompt as its value.  Passing '-'
-        // and then writing stdin leaves the agent with a literal one-character
-        // prompt on current releases.
-        if (!model.isEmpty() && model != QStringLiteral("default"))
-            args << QStringLiteral("--model") << model;
-        args << QStringLiteral("-p");
-    } else {
-        // Claude Code
-        program = QStringLiteral("claude");
-        args << QStringLiteral("-p") << QStringLiteral("--input-format") << QStringLiteral("text")
-             << QStringLiteral("--output-format") << QStringLiteral("json")
-             << QStringLiteral("--no-session-persistence")
-             // This task only needs a text response. Prevent the coding agent
-             // from reading or modifying the project while reviewing subtitles.
-             << QStringLiteral("--tools") << QString();
-        if (!model.isEmpty() && model != QStringLiteral("default")) {
-            args << QStringLiteral("--model") << model;
-        }
-    }
-
     const QString exePath = cliExecutablePath(cliAgent);
     if (exePath.isEmpty()) {
-        setError(QStringLiteral("CLI Agent binary '%1' is not found on system PATH.").arg(program));
+        const CliInvocation unresolved =
+            cliInvocation(cliAgent, model, {}, {}, {}, 180);
+        setError(QStringLiteral("CLI Agent binary '%1' is not found on system PATH.")
+                     .arg(unresolved.binaryName));
         return;
     }
 
-    const QString systemPrompt = QStringLiteral(
-        "You repair translations for timed dubbing. Preserve the complete source "
-        "meaning and the meaning of the current translation: facts, names, numbers, "
-        "rank/order, time, comparison, causality, and negation. Rewrite naturally in "
-        "the requested target language while meeting the supplied eSpeak NG phoneme "
-        "maximum. Never invent or omit information. Return only the rewritten "
-        "translation, without analysis, labels, quotes, or a phoneme count.");
-
+    const QString systemPrompt = translationRepairSystemPrompt();
     const QString fullPrompt = systemPrompt + QStringLiteral("\n\n") + buildPrompt(segment);
-    if (cliAgent == QStringLiteral("antigravity"))
-        args << fullPrompt;
+    const QString logPath = createCliDiagnosticLogPath(cliAgent);
+    const CliInvocation invocation =
+        cliInvocation(cliAgent, model, fullPrompt, exePath, logPath, 180);
 
     Logger::info(
         QStringLiteral("DubbingTranslationFix"),
         QStringLiteral("CLI Request agent=%1 program=%2 segment=%3 attempt=%4/%5 currentPhonemes=%6")
-            .arg(cliAgent, program, segment.value(QStringLiteral("id")).toString())
+            .arg(cliAgent, invocation.binaryName,
+                 segment.value(QStringLiteral("id")).toString())
             .arg(m_attempt + 1).arg(m_maxAttempts).arg(m_lastCandidatePhonemes));
 
     QProcess *process = new QProcess(this);
+    process->setWorkingDirectory(invocation.workingDirectory);
+    connect(process, &QObject::destroyed,
+            [logPath = invocation.diagnosticLogPath]() {
+        if (!logPath.isEmpty()) QFile::remove(logPath);
+    });
     m_cliProcess = process;
 
-    connect(process, &QProcess::finished, this, [this, process](int exitCode, QProcess::ExitStatus status) {
+    connect(process, &QProcess::finished, this,
+            [this, process, invocation](int exitCode,
+                                        QProcess::ExitStatus status) {
         if (m_cliProcess == process) m_cliProcess = nullptr;
+        const QByteArray diagnosticLog =
+            takeCliDiagnosticLog(invocation.diagnosticLogPath);
         if (!m_busy) {
             process->deleteLater();
             return;
         }
-        if (exitCode != 0 || status != QProcess::NormalExit) {
-            const QString errStr = QString::fromUtf8(process->readAllStandardError()).trimmed();
-            process->deleteLater();
+
+        const QByteArray stdoutData = process->readAllStandardOutput();
+        const QByteArray stderrData = process->readAllStandardError();
+        process->deleteLater();
+        const QString classifiedFailure = classifiedCliFailure(
+            invocation.agentId, stdoutData, stderrData, diagnosticLog);
+        if (exitCode != 0 || status != QProcess::NormalExit
+            || !classifiedFailure.isEmpty()) {
+            const QString detail = classifiedFailure.isEmpty()
+                ? cliFailureMessage(invocation.agentId, stdoutData,
+                                    stderrData, diagnosticLog)
+                : classifiedFailure;
             setError(QStringLiteral("CLI Agent process failed (exit code %1): %2")
-                         .arg(exitCode).arg(errStr.isEmpty() ? QStringLiteral("Unknown CLI error") : errStr));
+                         .arg(exitCode).arg(detail));
             return;
         }
 
-        const QByteArray stdoutData = process->readAllStandardOutput();
-        process->deleteLater();
-
         const QString candidate = parseCliResponse(stdoutData);
         if (candidate.isEmpty()) {
-            setError(QStringLiteral("CLI Agent returned an empty translation."));
+            setError(QStringLiteral("CLI Agent did not return a translation: %1")
+                         .arg(cliFailureMessage(invocation.agentId, stdoutData,
+                                                stderrData, diagnosticLog)));
             return;
         }
 
         processCandidate(candidate);
     });
 
-    QString launchProgram = exePath;
-    QStringList launchArgs = args;
-#ifdef Q_OS_WIN
-    // npm-installed CLIs are commonly exposed as .cmd shims. QProcess cannot
-    // reliably CreateProcess a command script directly, so invoke it through
-    // the native command interpreter.
-    const QString lowerExe = exePath.toLower();
-    if (lowerExe.endsWith(QStringLiteral(".cmd"))
-        || lowerExe.endsWith(QStringLiteral(".bat"))) {
-        launchProgram = QStringLiteral("cmd.exe");
-        launchArgs.prepend(exePath);
-        launchArgs.prepend(QStringLiteral("/c"));
-    }
-#endif
-    process->start(launchProgram, launchArgs);
+    Logger::info(
+        QStringLiteral("DubbingTranslationFix"),
+        QStringLiteral("CLI rewrite launch agent=%1 executable=%2 args=%3 promptViaStdin=%4 diagnosticLog=%5")
+            .arg(invocation.agentId, invocation.program,
+                 cliArgumentsForLog(invocation),
+                 invocation.promptViaStdin ? QStringLiteral("true")
+                                           : QStringLiteral("false"),
+                 invocation.diagnosticLogPath.isEmpty()
+                     ? QStringLiteral("disabled") : QStringLiteral("enabled")));
+    process->start(invocation.program, invocation.arguments);
     if (!process->waitForStarted(5000)) {
+        takeCliDiagnosticLog(invocation.diagnosticLogPath);
         process->deleteLater();
         m_cliProcess = nullptr;
-        setError(QStringLiteral("Failed to launch CLI Agent binary '%1'.").arg(program));
+        setError(QStringLiteral("Failed to launch CLI Agent binary '%1'.")
+                     .arg(invocation.binaryName));
         return;
     }
 
-    if (cliAgent != QStringLiteral("antigravity")) {
+    if (invocation.promptViaStdin) {
         process->write(fullPrompt.toUtf8());
         process->closeWriteChannel();
     }

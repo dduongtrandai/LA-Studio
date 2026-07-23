@@ -40,7 +40,8 @@ namespace LAStudio {
 
 namespace {
 
-QString automaticDefaultFamilyId(const QString &capabilityId)
+QString automaticDefaultFamilyId(const QString &capabilityId,
+                                 const QString &dubbingQuality = QString())
 {
     if (capabilityId == QStringLiteral("stt"))
         return QStringLiteral("whisper.cpp");
@@ -51,7 +52,9 @@ QString automaticDefaultFamilyId(const QString &capabilityId)
     if (capabilityId == QStringLiteral("llm-chat"))
         return QStringLiteral("qwen3.5-2b");
     if (capabilityId == QStringLiteral("tts"))
-        return QStringLiteral("omnivoice");
+        return dubbingQuality == QStringLiteral("fast")
+            ? QStringLiteral("vieneu-tts-v2-turbo")
+            : QStringLiteral("omnivoice");
     return {};
 }
 
@@ -551,6 +554,63 @@ QString DubbingController::adaptiveStatusText() const
         : QStringLiteral("LM Studio · %1").arg(model);
 }
 
+QVariantMap DubbingController::firstCustomSetupIssue() const
+{
+    const QList<QPair<QString, QString>> requiredNodes{
+        {QStringLiteral("source-separate"), QStringLiteral("voice-isolation")},
+        {QStringLiteral("transcribe"), QStringLiteral("stt")},
+        {QStringLiteral("translate"), QStringLiteral("translation")},
+        {QStringLiteral("synthesize"), QStringLiteral("tts")}
+    };
+    for (const auto &required : requiredNodes) {
+        const QVariantMap selected = m_workflowNodeConfigurations.value(required.first).toMap();
+        if (selected.isEmpty()) {
+            return {{QStringLiteral("nodeId"), required.first},
+                    {QStringLiteral("setupKind"), QStringLiteral("node-model")},
+                    {QStringLiteral("message"),
+                     QStringLiteral("Choose a model for the %1 node before running Custom dubbing.")
+                         .arg(visibleStepForNode(required.first))}};
+        }
+        StudioConfiguration configuration;
+        configuration.capabilityId = required.second;
+        configuration.familyId = selected.value(QStringLiteral("familyId")).toString();
+        configuration.runtimeId = selected.value(QStringLiteral("runtimeId")).toString();
+        configuration.runtimeVersion = selected.value(QStringLiteral("runtimeVersion")).toString();
+        configuration.selectedFiles = selected.value(QStringLiteral("selectedFiles")).toMap();
+        if (!StudioConfigurationResolver::resolve(configuration).isValid) {
+            return {{QStringLiteral("nodeId"), required.first},
+                    {QStringLiteral("setupKind"), QStringLiteral("node-model")},
+                    {QStringLiteral("message"),
+                     QStringLiteral("The selected model or runtime for %1 is not installed. Choose an available setup.")
+                         .arg(visibleStepForNode(required.first))}};
+        }
+    }
+    const bool rewriteEnabled =
+        m_project.durationControl.value(QStringLiteral("enabled"), true).toBool()
+        && m_project.durationControl.value(QStringLiteral("autoRewrite"), true).toBool();
+    if (rewriteEnabled && !adaptiveReady()) {
+        return {{QStringLiteral("nodeId"), QStringLiteral("translate")},
+                {QStringLiteral("setupKind"), QStringLiteral("rewrite-model")},
+                {QStringLiteral("message"),
+                 QStringLiteral("Choose a local, CLI, or API rewrite model for the Translate node, or turn off automatic rewriting.")}};
+    }
+    return {};
+}
+
+bool DubbingController::customReady() const
+{
+    return firstCustomSetupIssue().isEmpty();
+}
+
+QString DubbingController::customStatusText() const
+{
+    const QVariantMap issue = firstCustomSetupIssue();
+    if (!issue.isEmpty()) return issue.value(QStringLiteral("message")).toString();
+    if (!m_project.durationControl.value(QStringLiteral("autoRewrite"), true).toBool())
+        return QStringLiteral("Custom models ready; long translations require manual review");
+    return QStringLiteral("Custom models ready; rewrite: %1").arg(adaptiveStatusText());
+}
+
 QString DubbingController::previewPath() const
 {
     return m_runner->previewPath();
@@ -642,8 +702,17 @@ QVariantList DubbingController::workflowNodes() const
             detail = voicesReady ? QStringLiteral("Speaker assignments are ready") : QStringLiteral("Translated transcript and a speaker are required");
         } else if (definition.id == QStringLiteral("synthesize")) {
             state = !ttsReady ? QStringLiteral("missing") : (hasClips ? QStringLiteral("completed") : (allTargets ? QStringLiteral("ready") : QStringLiteral("blocked")));
-            detail = ttsReady ? QStringLiteral("TTS model loaded") : QStringLiteral("Load a TTS model");
-            provider = ttsReady ? QStringLiteral("Local TTS") : QStringLiteral("No model loaded");
+            const QString defaultVoice = automaticDefaultFamilyId(
+                QStringLiteral("tts"), m_project.dubbingQuality);
+            detail = ttsReady ? QStringLiteral("TTS model loaded")
+                              : (m_project.dubbingQuality == QStringLiteral("custom")
+                                     ? QStringLiteral("Choose a TTS model")
+                                     : QStringLiteral("Default: %1").arg(defaultVoice));
+            provider = m_project.dubbingQuality == QStringLiteral("custom")
+                ? QStringLiteral("No model configured")
+                : (defaultVoice == QStringLiteral("vieneu-tts-v2-turbo")
+                       ? QStringLiteral("VieNeu-TTS v2 Turbo (default)")
+                       : QStringLiteral("OmniVoice (default)"));
         } else if (definition.id == QStringLiteral("fit-timing")) {
             state = !hasClips ? QStringLiteral("blocked") : (hasConflict ? QStringLiteral("blocked") : QStringLiteral("completed"));
             detail = hasConflict ? QStringLiteral("One or more clips exceed the fit tolerance") : QStringLiteral("Fit generated clips to segment timing");
@@ -683,6 +752,14 @@ QVariantList DubbingController::workflowNodes() const
         } else if (definition.id == QStringLiteral("synthesize")) {
             item.insert(QStringLiteral("configurable"), true);
             item.insert(QStringLiteral("capabilityId"), QStringLiteral("tts"));
+        }
+        if (item.value(QStringLiteral("configurable")).toBool()
+            && m_project.dubbingQuality != QStringLiteral("custom")) {
+            item.insert(
+                QStringLiteral("defaultFamilyId"),
+                automaticDefaultFamilyId(
+                    item.value(QStringLiteral("capabilityId")).toString(),
+                    m_project.dubbingQuality));
         }
         const QVariantMap selected = m_workflowNodeConfigurations.value(definition.id).toMap();
         if (!selected.isEmpty()) {
@@ -876,6 +953,10 @@ bool DubbingController::configureWorkflowNodeModel(const QString &nodeId,
                           {QStringLiteral("studioConfig"),
                            family.value(QStringLiteral("studio")).toMap().value(capabilityId)}};
     m_workflowNodeConfigurations.insert(nodeId, selected);
+    if (m_project.dubbingQuality == QStringLiteral("custom"))
+        m_project.workflowNodeConfigurations = m_workflowNodeConfigurations;
+    else
+        m_project.workflowNodeConfigurations.clear();
     if (loadSession) {
         unloadConflictingDubbingRuntime(app->sessionRegistry(), capabilityId);
         if (IModelSession *session = app->sessionRegistry()->sessionForCapability(capabilityId)) {
@@ -885,6 +966,7 @@ bool DubbingController::configureWorkflowNodeModel(const QString &nodeId,
     Logger::info(QStringLiteral("DubbingController"),
                  QStringLiteral("Workflow node model changed node=%1 family=%2 runtime=%3")
                      .arg(nodeId, familyId, config.runtimeId));
+    persistAfterEdit();
     emit workflowChanged();
     return true;
 }
@@ -937,6 +1019,11 @@ bool DubbingController::setWorkflowNodeParameters(const QString &nodeId, const Q
         current.insert(it.key(), it.value());
     selected.insert(QStringLiteral("parameters"), current);
     m_workflowNodeConfigurations.insert(nodeId, selected);
+    if (m_project.dubbingQuality == QStringLiteral("custom"))
+        m_project.workflowNodeConfigurations = m_workflowNodeConfigurations;
+    else
+        m_project.workflowNodeConfigurations.clear();
+    persistAfterEdit();
     emit workflowChanged();
     return true;
 }
@@ -947,6 +1034,8 @@ QString DubbingController::workflowStatusText() const
         && !m_automaticStatusText.isEmpty()) return m_automaticStatusText;
     if (processing()) return QStringLiteral("Running %1 (%2%)").arg(stage()).arg(progress());
     if (workflowReady()) return QStringLiteral("Workflow configured and ready to run");
+    if (m_project.dubbingQuality == QStringLiteral("custom"))
+        return customStatusText();
     return QStringLiteral("Configure media, transcript, target text, and a TTS model");
 }
 
@@ -1041,6 +1130,45 @@ void DubbingController::prepareWorkflow()
     emit workflowChanged();
 }
 
+QString DubbingController::defaultWorkflowModelFamily(const QString &nodeId) const
+{
+    QString capabilityId;
+    if (nodeId == QStringLiteral("source-separate"))
+        capabilityId = QStringLiteral("voice-isolation");
+    else if (nodeId == QStringLiteral("transcribe"))
+        capabilityId = QStringLiteral("stt");
+    else if (nodeId == QStringLiteral("translate"))
+        capabilityId = QStringLiteral("translation");
+    else if (nodeId == QStringLiteral("synthesize"))
+        capabilityId = QStringLiteral("tts");
+    return automaticDefaultFamilyId(capabilityId, m_project.dubbingQuality);
+}
+
+void DubbingController::resetStandardWorkflowNodeModels()
+{
+    if (m_project.dubbingQuality == QStringLiteral("custom")) return;
+    m_workflowNodeConfigurations.clear();
+    m_project.workflowNodeConfigurations.clear();
+    resetStandardTranslationFixConfiguration();
+    emit workflowChanged();
+}
+
+void DubbingController::resetStandardTranslationFixConfiguration()
+{
+    if (!m_translationFix || m_translationFix->busy()) return;
+    m_translationFix->setConfiguration({
+        {QStringLiteral("provider"), QStringLiteral("lmstudio")},
+        {QStringLiteral("configured"), false},
+        {QStringLiteral("serverUrl"), QStringLiteral("http://127.0.0.1:1234")},
+        {QStringLiteral("model"), QStringLiteral("qwen3.5-2b")},
+        {QStringLiteral("maxAttempts"),
+         m_project.durationControl.value(QStringLiteral("maxPreTtsIterations"), 4)},
+        {QStringLiteral("temperature"), 0.35}
+    });
+    if (m_runner)
+        m_runner->setTranslationFixConfiguration(m_translationFix->configuration());
+}
+
 QString DubbingController::visibleStepForNode(const QString &nodeId)
 {
     if (nodeId == QStringLiteral("media-input")) return QStringLiteral("import");
@@ -1117,11 +1245,12 @@ bool DubbingController::ensureAutomaticModel(const QString &nodeId,
     QVariantMap recommendation;
     if (configuration.isEmpty()) {
         recommendation = model->configurationForFamily(
-            automaticDefaultFamilyId(capabilityId));
+            automaticDefaultFamilyId(capabilityId, m_project.dubbingQuality));
         if (recommendation.isEmpty()) {
             finishAutomaticSetupFailure(
                 QStringLiteral("The required default model %1 is not available for %2.")
-                    .arg(automaticDefaultFamilyId(capabilityId), capabilityId));
+                    .arg(automaticDefaultFamilyId(capabilityId, m_project.dubbingQuality),
+                         capabilityId));
             return false;
         }
     } else {
@@ -1229,6 +1358,15 @@ bool DubbingController::ensureAutomaticModel(const QString &nodeId,
 
 bool DubbingController::ensureAutomaticAdaptiveModel()
 {
+    if (m_project.dubbingQuality == QStringLiteral("custom")) {
+        const bool rewriteEnabled =
+            m_project.durationControl.value(QStringLiteral("enabled"), true).toBool()
+            && m_project.durationControl.value(QStringLiteral("autoRewrite"), true).toBool();
+        if (!rewriteEnabled || adaptiveReady()) return true;
+        finishAutomaticSetupFailure(
+            QStringLiteral("The Translate node requires a rewrite model for Custom dubbing."));
+        return false;
+    }
     if (m_project.dubbingQuality != QStringLiteral("adaptive")) return true;
     if (adaptiveReady()) return true;
     CapabilityFamilyModel *model = automaticModel(QStringLiteral("llm-chat"));
@@ -1238,7 +1376,8 @@ bool DubbingController::ensureAutomaticAdaptiveModel()
         return false;
     }
     const QVariantMap recommendation = model->configurationForFamily(
-        automaticDefaultFamilyId(QStringLiteral("llm-chat")));
+        automaticDefaultFamilyId(QStringLiteral("llm-chat"),
+                                 m_project.dubbingQuality));
     if (recommendation.isEmpty()) {
         finishAutomaticSetupFailure(QStringLiteral("No compatible local LLM is available for Adaptive quality."));
         return false;
@@ -1306,11 +1445,11 @@ void DubbingController::prepareAutomaticVoiceRuntime()
     }
     IModelSession *tts = app->sessionRegistry()->sessionForCapability(QStringLiteral("tts"));
     if (tts && (tts->canProcess() || tts->state() == ModelSessionState::Loading)) return;
-    setAutomaticStatus(QStringLiteral("Loading OmniVoice for the Voice node"));
-    appendAutomaticEvent(QStringLiteral("Loading OmniVoice for voice generation"),
+    setAutomaticStatus(QStringLiteral("Loading the selected model for the Voice node"));
+    appendAutomaticEvent(QStringLiteral("Loading the selected voice generation model"),
                          QStringLiteral("loading"), QStringLiteral("synthesize"));
     if (!loadWorkflowNodeModel(QStringLiteral("synthesize"))) {
-        setError(QStringLiteral("Could not load OmniVoice for the Voice node."));
+        setError(QStringLiteral("Could not load the selected model for the Voice node."));
         if (m_workflowRunner->running()) m_workflowRunner->cancel();
     }
 }
@@ -1365,7 +1504,7 @@ void DubbingController::advanceAutomaticSetup()
     appendAutomaticEvent(QStringLiteral("Translation model is ready"),
                          QStringLiteral("completed"), QStringLiteral("translate"));
     if (!ensureAutomaticModel(QStringLiteral("synthesize"), QStringLiteral("tts"), false)) return;
-    appendAutomaticEvent(QStringLiteral("OmniVoice is configured for the Voice node"),
+    appendAutomaticEvent(QStringLiteral("Voice generation model is configured"),
                          QStringLiteral("completed"), QStringLiteral("synthesize"));
     if (!ensureAutomaticAdaptiveModel()) return;
 
@@ -1402,7 +1541,7 @@ bool DubbingController::runWorkflow(const QString &outputPath)
     QVariantMap effectiveDurationControl = m_project.durationControl;
     effectiveDurationControl.insert(
         QStringLiteral("autoRewrite"),
-        m_project.dubbingQuality == QStringLiteral("adaptive")
+        m_project.dubbingQuality != QStringLiteral("fast")
             && m_project.durationControl.value(QStringLiteral("autoRewrite"), true).toBool());
     for (auto &node : graph.nodes) {
         if (node.id == QStringLiteral("translate"))
@@ -1473,6 +1612,18 @@ bool DubbingController::startAutomaticWorkflow(const QString &outputPath)
     if (!workflowGraphValid() || m_project.sourceMediaPath.trimmed().isEmpty()) {
         setError(QStringLiteral("Import source media before generating the final dub."));
         return false;
+    }
+    if (m_project.dubbingQuality == QStringLiteral("custom")) {
+        const QVariantMap issue = firstCustomSetupIssue();
+        if (!issue.isEmpty()) {
+            const QString message = issue.value(QStringLiteral("message")).toString();
+            setError(message);
+            emit workflowSetupRequired(
+                issue.value(QStringLiteral("nodeId")).toString(),
+                issue.value(QStringLiteral("setupKind")).toString(), message);
+            emit workflowChanged();
+            return false;
+        }
     }
     clearError();
     setWorkflowMode(QStringLiteral("automatic"));
@@ -1677,10 +1828,22 @@ void DubbingController::setDurationControl(const QVariantMap &value)
 
 void DubbingController::setDubbingQuality(const QString &value)
 {
-    const QString normalized = value.trimmed().toLower() == QStringLiteral("adaptive")
-        ? QStringLiteral("adaptive") : QStringLiteral("fast");
+    const QString requested = value.trimmed().toLower();
+    const QString normalized =
+        requested == QStringLiteral("adaptive") || requested == QStringLiteral("custom")
+        ? requested : QStringLiteral("fast");
     if (normalized == m_project.dubbingQuality) return;
     m_project.dubbingQuality = normalized;
+    if (normalized != QStringLiteral("custom")) {
+        m_workflowNodeConfigurations.clear();
+        m_project.workflowNodeConfigurations.clear();
+        resetStandardTranslationFixConfiguration();
+    } else if (m_translationFix
+               && !m_project.customRewriteConfiguration.isEmpty()) {
+        m_translationFix->setConfiguration(m_project.customRewriteConfiguration);
+        if (m_runner)
+            m_runner->setTranslationFixConfiguration(m_translationFix->configuration());
+    }
     emit projectChanged();
     emit workflowChanged();
     persistAfterEdit();
@@ -1701,6 +1864,7 @@ bool DubbingController::ensureProject(const QString &path)
 bool DubbingController::newProject(const QString &path)
 {
     m_project = DubbingProject();
+    m_workflowNodeConfigurations.clear();
     m_stepOutputs.clear();
     m_lastCompletedStepId.clear();
     setWorkflowMode(QStringLiteral("idle"));
@@ -1733,6 +1897,19 @@ bool DubbingController::openProject(const QString &path)
         return false;
     }
     m_project = std::move(loaded);
+    if (m_project.dubbingQuality == QStringLiteral("custom"))
+        m_workflowNodeConfigurations = m_project.workflowNodeConfigurations;
+    else {
+        m_workflowNodeConfigurations.clear();
+        m_project.workflowNodeConfigurations.clear();
+        resetStandardTranslationFixConfiguration();
+    }
+    if (m_project.dubbingQuality == QStringLiteral("custom")
+        && m_translationFix && !m_project.customRewriteConfiguration.isEmpty()) {
+        m_translationFix->setConfiguration(m_project.customRewriteConfiguration);
+        if (m_runner)
+            m_runner->setTranslationFixConfiguration(m_translationFix->configuration());
+    }
     m_stepOutputs.clear();
     m_lastCompletedStepId.clear();
     setWorkflowMode(QStringLiteral("idle"));
@@ -1756,6 +1933,12 @@ bool DubbingController::openProject(const QString &path)
 bool DubbingController::saveProject()
 {
     if (!ensureProject(QString())) return false;
+    if (m_project.dubbingQuality == QStringLiteral("custom"))
+        m_project.workflowNodeConfigurations = m_workflowNodeConfigurations;
+    else
+        m_project.workflowNodeConfigurations.clear();
+    if (m_project.dubbingQuality == QStringLiteral("custom"))
+        m_project.customRewriteConfiguration = translationFixConfiguration();
     QString error;
     if (!m_project.save(&error)) {
         setError(error);
@@ -1844,6 +2027,7 @@ void DubbingController::clearHistory()
 void DubbingController::closeProject()
 {
     m_project = DubbingProject();
+    m_workflowNodeConfigurations.clear();
     m_stepOutputs.clear();
     m_lastCompletedStepId.clear();
     setWorkflowMode(QStringLiteral("idle"));
@@ -1989,7 +2173,7 @@ void DubbingController::translateSource()
     QVariantMap effectiveDurationControl = m_project.durationControl;
     effectiveDurationControl.insert(
         QStringLiteral("autoRewrite"),
-        m_project.dubbingQuality == QStringLiteral("adaptive")
+        m_project.dubbingQuality != QStringLiteral("fast")
             && m_project.durationControl.value(QStringLiteral("autoRewrite"), true).toBool());
     parameters.insert(QStringLiteral("durationControl"), effectiveDurationControl);
     translationConfig.insert(QStringLiteral("parameters"), parameters);
@@ -2072,6 +2256,12 @@ void DubbingController::testTranslationFixConnection(
     m_translationFix->testConnection(configuration);
 }
 
+QVariantList DubbingController::translationFixCliModelOptions(
+    const QString &cliAgent) const
+{
+    return DubbingTranslationFixService::cliModelOptions(cliAgent);
+}
+
 void DubbingController::cancelTranslationFix()
 {
     if (m_translationFix) m_translationFix->cancel();
@@ -2083,8 +2273,11 @@ void DubbingController::setAdaptiveConfiguration(const QVariantMap &configuratio
     QVariantMap next = configuration;
     next.insert(QStringLiteral("configured"), true);
     m_translationFix->setConfiguration(next);
+    if (m_project.dubbingQuality == QStringLiteral("custom"))
+        m_project.customRewriteConfiguration = m_translationFix->configuration();
     if (m_runner) m_runner->setTranslationFixConfiguration(
         m_translationFix->configuration());
+    persistAfterEdit();
     emit workflowChanged();
 }
 

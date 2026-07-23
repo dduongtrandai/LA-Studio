@@ -9,6 +9,7 @@ Dialog {
 
     property var nodes: []
     property bool workflowReady: false
+    property bool allowIncompleteRun: false
     property string statusText: qsTr("Not prepared")
     property bool busy: false
     property real progress: 0
@@ -328,7 +329,7 @@ Dialog {
             Text { text: qsTr("Topology locked"); color: Theme.textSecondary; font.pixelSize: 10 }
             PrimaryButton { visible: root.reviewWaiting; text: qsTr("Approve review"); iconName: "check"; enabled: !root.busy; onClicked: root.approveRequested() }
             PrimaryButton { visible: root.reviewWaiting; text: qsTr("Reject"); iconName: "close"; quiet: true; enabled: !root.busy; onClicked: root.rejectRequested() }
-            PrimaryButton { visible: !root.reviewWaiting; text: root.busy ? qsTr("Running…") : qsTr("Run workflow"); iconName: root.busy ? "activity" : "play"; enabled: !root.busy && root.workflowReady; onClicked: root.runRequested() }
+            PrimaryButton { visible: !root.reviewWaiting; text: root.busy ? qsTr("Running…") : qsTr("Run workflow"); iconName: root.busy ? "activity" : "play"; enabled: !root.busy && (root.workflowReady || root.allowIncompleteRun); onClicked: root.runRequested() }
             PrimaryButton { visible: !root.busy && !root.reviewWaiting; text: root.actionText; iconName: root.actionIconName; quiet: true; onClicked: root.prepareRequested() }
         }
     }

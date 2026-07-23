@@ -13,6 +13,8 @@ Item {
     id: root
     anchors.fill: parent
 
+    Component.onCompleted: dubbing.resetStandardWorkflowNodeModels()
+
     property var dubbing: AppController.dubbing
     property int selectedSegment: -1
     property bool isVideoSource: dubbing.sourceMediaPath.length > 0 && /\.(mp4|mkv|mov|webm|avi)$/i.test(dubbing.sourceMediaPath)
@@ -48,6 +50,14 @@ Item {
                 root.observedCompletedStep = dubbing.lastCompletedStepId
                 root.reviewStepId = dubbing.lastCompletedStepId
             }
+        }
+        function onWorkflowSetupRequired(nodeId, setupKind, message) {
+            root.reviewStepId = nodeId === "adaptive-llm" ? "translate" : nodeId
+            root.isNodeInspectorOpen = true
+            if (setupKind === "rewrite-model")
+                qualityDialog.openForMode("custom")
+            else
+                nodeModelDialog.openFor(nodeId)
         }
     }
 
@@ -701,6 +711,7 @@ Item {
                 visible: root.isNodeInspectorOpen
                          && node && node.configurable === true
                 onCloseRequested: root.isNodeInspectorOpen = false
+                onRewriteSetupRequested: qualityDialog.openForMode("custom")
             }
 
         }
@@ -710,7 +721,8 @@ Item {
             enabled: !root.dubbing.settingsLocked
             languageCatalog: root.languageCatalog
             currentStepTitle: root.stepTitle(root.dubbing.currentStepId)
-            onAdaptiveSetupRequested: qualityDialog.open()
+            onAdaptiveSetupRequested: qualityDialog.openForMode("adaptive")
+            onCustomSetupRequested: qualityDialog.openForMode("custom")
         }
     }
 
@@ -838,6 +850,7 @@ Item {
     WorkflowPipelineDialog {
         id: workflowDialog
         nodes: dubbing.workflowNodes; workflowReady: dubbing.workflowReady; statusText: dubbing.workflowStatusText
+        allowIncompleteRun: dubbing.dubbingQuality === "custom"
         busy: dubbing.processing; progress: dubbing.progress / 100.0; dialogTitle: qsTr("Dubbing workflow")
         reviewWaiting: dubbing.workflowWaitingForInput
         description: qsTr("Review the media, transcription, translation, voice, timing, and output stages.")

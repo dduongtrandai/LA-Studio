@@ -49,6 +49,10 @@ QJsonObject DubbingProject::toJson() const
     json.insert(QStringLiteral("targetLanguage"), targetLanguage);
     json.insert(QStringLiteral("dubbingQuality"), dubbingQuality);
     json.insert(QStringLiteral("durationControl"), QJsonObject::fromVariantMap(durationControl));
+    json.insert(QStringLiteral("workflowNodeConfigurations"),
+                QJsonObject::fromVariantMap(workflowNodeConfigurations));
+    json.insert(QStringLiteral("customRewriteConfiguration"),
+                QJsonObject::fromVariantMap(customRewriteConfiguration));
     json.insert(QStringLiteral("speakers"), QJsonArray::fromVariantList(speakers));
     json.insert(QStringLiteral("segments"), QJsonArray::fromVariantList(segments));
     return json;
@@ -73,8 +77,9 @@ bool DubbingProject::fromJson(const QJsonObject &json, DubbingProject &project, 
     project.sourceIsVideo = json.value(QStringLiteral("sourceIsVideo")).toBool();
     project.sourceLanguage = json.value(QStringLiteral("sourceLanguage")).toString(QStringLiteral("en"));
     project.targetLanguage = json.value(QStringLiteral("targetLanguage")).toString(QStringLiteral("vi"));
-    project.dubbingQuality = json.value(QStringLiteral("dubbingQuality")).toString(QStringLiteral("fast"));
-    if (project.dubbingQuality != QStringLiteral("adaptive"))
+    project.dubbingQuality = json.value(QStringLiteral("dubbingQuality")).toString(QStringLiteral("adaptive"));
+    if (project.dubbingQuality != QStringLiteral("adaptive")
+        && project.dubbingQuality != QStringLiteral("custom"))
         project.dubbingQuality = QStringLiteral("fast");
     project.durationControl = json.value(QStringLiteral("durationControl")).toObject().toVariantMap();
     if (project.durationControl.isEmpty()) {
@@ -87,6 +92,14 @@ bool DubbingProject::fromJson(const QJsonObject &json, DubbingProject &project, 
         // Schema 4 separates faithful translation from length adaptation. The old
         // opt-in controlled a different single-pass/outside-tolerance workflow.
         project.durationControl.insert(QStringLiteral("autoRewrite"), true);
+    }
+    if (version >= 6) {
+        project.workflowNodeConfigurations =
+            json.value(QStringLiteral("workflowNodeConfigurations")).toObject().toVariantMap();
+    }
+    if (version >= 7) {
+        project.customRewriteConfiguration =
+            json.value(QStringLiteral("customRewriteConfiguration")).toObject().toVariantMap();
     }
     project.speakers = json.value(QStringLiteral("speakers")).toArray().toVariantList();
     project.segments = json.value(QStringLiteral("segments")).toArray().toVariantList();

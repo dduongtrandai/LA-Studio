@@ -15,6 +15,9 @@ private slots:
     void rejectsUnknownAndDuplicateSegmentPatches();
     void importingMediaDoesNotStartProcessing();
     void automaticWorkflowLocksSettingsUntilPaused();
+    void customWorkflowOpensFirstMissingNodeSetup();
+    void qualityModesExposeExpectedDefaultVoiceModel();
+    void standardModesResetNodeModelsOnOpen();
     void sourceSeparationExposesModelSelection();
     void targetLanguageUpdatesVoiceNodeLanguage();
     void rejectsRerunningUnsupportedStep();
@@ -43,6 +46,9 @@ private slots:
     void roundTripsDurationSettings();
     void normalizesLmStudioTranslationFixConfiguration();
     void parsesLmStudioTranslationFixResponses();
+    void buildsConsistentCliInvocations();
+    void classifiesCliDiagnostics();
+    void discoversCliModelsFromLocalConfiguration();
     void fixesOnlyTranslationsOverPhonemeLimit();
     void ranksPartialTranslationFixesByBudgetDistance();
 };

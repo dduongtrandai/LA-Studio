@@ -8,11 +8,59 @@ Dialog {
     id: root
 
     required property var dubbing
+    property string configurationMode: "adaptive"
+    property bool rewriteEnabled: true
     property string selectedProvider: "lmstudio"
     property string selectedCliAgent: "claude"
     property string connectionMessage: ""
     property bool connectionSuccess: false
+    property var availableCliModels: []
     signal localModelRequested()
+
+    function openForMode(mode) {
+        configurationMode = mode === "custom" ? "custom" : "adaptive"
+        open()
+    }
+
+    function cliModelIndex(value) {
+        for (var i = 0; i < availableCliModels.length; ++i) {
+            if (availableCliModels[i].value === value)
+                return i
+        }
+        return -1
+    }
+
+    function refreshCliModels(preferredModel) {
+        var requested = preferredModel || modelField.text.trim() || "default"
+        var options = dubbing.translationFixCliModelOptions(selectedCliAgent) || []
+        var found = false
+        for (var i = 0; i < options.length; ++i) {
+            if (options[i].value === requested) {
+                found = true
+                break
+            }
+        }
+        if (!found && requested !== "") {
+            options = options.concat([{
+                value: requested,
+                text: requested,
+                detail: qsTr("Saved custom model")
+            }])
+        }
+        availableCliModels = options
+        cliModelCombo.currentIndex = cliModelIndex(requested)
+        if (cliModelCombo.currentIndex < 0 && availableCliModels.length > 0)
+            cliModelCombo.currentIndex = 0
+        if (cliModelCombo.currentIndex >= 0)
+            modelField.text = availableCliModels[cliModelCombo.currentIndex].value
+    }
+
+    function selectCliAgent(agent) {
+        selectedCliAgent = agent
+        connectionSuccess = false
+        connectionMessage = ""
+        refreshCliModels("default")
+    }
 
     function loadConfiguration() {
         var config = dubbing.translationFixConfiguration || {}
@@ -21,8 +69,11 @@ Dialog {
         serverUrlField.text = config.serverUrl || "http://127.0.0.1:1234"
         modelField.text = config.model || (selectedProvider === "cli" ? "default" : "qwen3.5-2b")
         apiKeyField.text = config.apiKey || ""
+        refreshCliModels(modelField.text)
         connectionMessage = ""
         connectionSuccess = false
+        rewriteEnabled = configurationMode !== "custom"
+                         || (dubbing.durationControl || {}).autoRewrite !== false
     }
 
     function currentConfiguration() {
@@ -55,9 +106,21 @@ Dialog {
         config.runtimeVersion = runtimeVersion
         config.selectedFiles = selectedFiles || ({})
         dubbing.setAdaptiveConfiguration(config)
-        dubbing.dubbingQuality = "adaptive"
+        dubbing.dubbingQuality = configurationMode
         connectionMessage = qsTr("Local LLM configuration saved. The model is not loaded from Settings.")
         connectionSuccess = true
+    }
+
+    function applyConfiguration() {
+        if (configurationMode === "custom") {
+            var duration = Object.assign({}, dubbing.durationControl || {})
+            duration.autoRewrite = rewriteEnabled
+            dubbing.durationControl = duration
+        }
+        if (configurationMode !== "custom" || rewriteEnabled)
+            dubbing.setAdaptiveConfiguration(currentConfiguration())
+        dubbing.dubbingQuality = configurationMode
+        close()
     }
 
     onOpened: loadConfiguration()
@@ -101,8 +164,18 @@ Dialog {
             }
             ColumnLayout {
                 Layout.fillWidth: true; spacing: 2
-                Text { text: qsTr("Configure Adaptive dubbing"); color: Theme.textPrimary; font.pixelSize: Theme.fontLarge; font.bold: true }
-                Text { Layout.fillWidth: true; text: qsTr("Choose the LLM used for context-aware translation and timing repair."); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall; elide: Text.ElideRight }
+                Text {
+                    text: root.configurationMode === "custom"
+                          ? qsTr("Configure Custom dubbing") : qsTr("Configure Adaptive dubbing")
+                    color: Theme.textPrimary; font.pixelSize: Theme.fontLarge; font.bold: true
+                }
+                Text {
+                    Layout.fillWidth: true
+                    text: root.configurationMode === "custom"
+                          ? qsTr("Control long-translation rewriting and choose its model source.")
+                          : qsTr("Choose the LLM used for context-aware translation and timing repair.")
+                    color: Theme.textSecondary; font.pixelSize: Theme.fontSmall; elide: Text.ElideRight
+                }
             }
             PrimaryButton { iconName: "close"; iconOnly: true; quiet: true; onClicked: root.close() }
         }
@@ -115,9 +188,52 @@ Dialog {
                 width: parent.width
                 spacing: Theme.paddingMedium
 
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: Theme.paddingLarge
+                    Layout.rightMargin: Theme.paddingLarge
+                    Layout.topMargin: Theme.paddingLarge
+                    implicitHeight: rewriteLayout.implicitHeight + Theme.paddingMedium * 2
+                    visible: root.configurationMode === "custom"
+                    radius: Theme.radiusSmall
+                    color: Qt.rgba(1, 1, 1, 0.025)
+                    border.color: Qt.rgba(1, 1, 1, 0.08)
+
+                    RowLayout {
+                        id: rewriteLayout
+                        anchors.fill: parent
+                        anchors.margins: Theme.paddingMedium
+                        spacing: Theme.paddingMedium
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+                            Text {
+                                text: qsTr("Rewrite overlong translations")
+                                color: Theme.textPrimary
+                                font.pixelSize: Theme.fontSmall
+                                font.bold: true
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: qsTr("When disabled, segments outside the duration limit remain available for manual review.")
+                                color: Theme.textSecondary
+                                font.pixelSize: 10
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+                        Switch {
+                            checked: root.rewriteEnabled
+                            onToggled: {
+                                root.rewriteEnabled = checked
+                                root.connectionMessage = ""
+                            }
+                        }
+                    }
+                }
+
                 Text {
                     Layout.fillWidth: true
-                    Layout.leftMargin: Theme.paddingLarge; Layout.rightMargin: Theme.paddingLarge; Layout.topMargin: Theme.paddingLarge
+                    Layout.leftMargin: Theme.paddingLarge; Layout.rightMargin: Theme.paddingLarge
                     text: qsTr("LLM SOURCE")
                     color: Theme.textSecondary; font.pixelSize: Theme.fontSmall; font.bold: true; font.letterSpacing: 1.1
                 }
@@ -126,6 +242,8 @@ Dialog {
                     Layout.fillWidth: true
                     Layout.leftMargin: Theme.paddingLarge; Layout.rightMargin: Theme.paddingLarge
                     spacing: Theme.paddingSmall
+                    enabled: root.configurationMode !== "custom" || root.rewriteEnabled
+                    opacity: enabled ? 1.0 : 0.45
                     ProviderRow {
                         title: qsTr("LLM API")
                         description: qsTr("OpenAI-compatible remote or self-hosted API")
@@ -165,6 +283,7 @@ Dialog {
                     Layout.leftMargin: Theme.paddingLarge; Layout.rightMargin: Theme.paddingLarge
                     spacing: Theme.paddingSmall
                     visible: root.selectedProvider === "api" || root.selectedProvider === "lmstudio"
+                    enabled: root.configurationMode !== "custom" || root.rewriteEnabled
                     Text { text: root.selectedProvider === "api" ? qsTr("API base URL") : qsTr("LM Studio server URL"); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
                     ConfigField { id: serverUrlField; Layout.fillWidth: true; placeholderText: root.selectedProvider === "api" ? "https://api.example.com" : "http://127.0.0.1:1234"; onTextEdited: root.connectionSuccess = false }
                     Text { Layout.topMargin: Theme.paddingSmall; text: qsTr("Model identifier"); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
@@ -178,6 +297,7 @@ Dialog {
                     Layout.leftMargin: Theme.paddingLarge; Layout.rightMargin: Theme.paddingLarge
                     spacing: Theme.paddingSmall
                     visible: root.selectedProvider === "cli"
+                    enabled: root.configurationMode !== "custom" || root.rewriteEnabled
                     Text { text: qsTr("CLI Agent Provider"); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
                     RowLayout {
                         Layout.fillWidth: true
@@ -185,26 +305,57 @@ Dialog {
                         PrimaryButton {
                             text: "Claude Code"
                             quiet: root.selectedCliAgent !== "claude"
-                            onClicked: { root.selectedCliAgent = "claude"; root.connectionSuccess = false }
+                            onClicked: root.selectCliAgent("claude")
                         }
                         PrimaryButton {
                             text: "Codex CLI"
                             quiet: root.selectedCliAgent !== "codex"
-                            onClicked: { root.selectedCliAgent = "codex"; root.connectionSuccess = false }
+                            onClicked: root.selectCliAgent("codex")
                         }
                         PrimaryButton {
                             text: "Antigravity"
                             quiet: root.selectedCliAgent !== "antigravity"
-                            onClicked: { root.selectedCliAgent = "antigravity"; root.connectionSuccess = false }
+                            onClicked: root.selectCliAgent("antigravity")
                         }
                     }
-                    Text { Layout.topMargin: Theme.paddingSmall; text: qsTr("Model override (optional, e.g. 'default', 'sonnet', 'gpt-4o')"); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
-                    ConfigField {
-                        id: cliModelField
+                    Text { Layout.topMargin: Theme.paddingSmall; text: qsTr("CLI model"); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
+                    RowLayout {
                         Layout.fillWidth: true
-                        text: modelField.text
-                        placeholderText: "default"
-                        onTextEdited: { modelField.text = text; root.connectionSuccess = false }
+                        spacing: Theme.paddingSmall
+                        AppComboBox {
+                            id: cliModelCombo
+                            Layout.fillWidth: true
+                            implicitHeight: 36
+                            model: root.availableCliModels
+                            textRole: "text"
+                            secondaryTextRole: "detail"
+                            valueRole: "value"
+                            searchable: root.availableCliModels.length > 6
+                            onActivated: function(index) {
+                                if (index < 0 || index >= root.availableCliModels.length)
+                                    return
+                                modelField.text = root.availableCliModels[index].value
+                                root.connectionSuccess = false
+                                root.connectionMessage = ""
+                            }
+                        }
+                        PrimaryButton {
+                            text: qsTr("Refresh")
+                            iconName: "activity"
+                            quiet: true
+                            onClicked: {
+                                root.refreshCliModels(modelField.text)
+                                root.connectionSuccess = false
+                                root.connectionMessage = qsTr("Model list refreshed from local CLI configuration.")
+                            }
+                        }
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: qsTr("Models are read locally from each CLI's settings and cache. Select another model when the current model has no remaining quota.")
+                        color: Theme.textSecondary
+                        font.pixelSize: 10
+                        wrapMode: Text.WordWrap
                     }
                 }
 
@@ -216,6 +367,7 @@ Dialog {
                     color: Qt.rgba(1, 1, 1, 0.025)
                     border.color: Qt.rgba(1, 1, 1, 0.08)
                     visible: root.selectedProvider === "local"
+                    enabled: root.configurationMode !== "custom" || root.rewriteEnabled
                     RowLayout {
                         id: localLayout
                         anchors.fill: parent; anchors.margins: Theme.paddingMedium; spacing: Theme.paddingMedium
@@ -242,7 +394,9 @@ Dialog {
                         id: statusText
                         anchors.fill: parent; anchors.margins: Theme.paddingMedium
                         text: root.connectionMessage !== "" ? root.connectionMessage
-                              : qsTr("Adaptive mode requires an LLM source before final generation.")
+                              : (root.configurationMode === "custom" && !root.rewriteEnabled
+                                 ? qsTr("Automatic rewriting is disabled; no rewrite model is required.")
+                                 : qsTr("A rewrite model is required before final generation."))
                         color: root.connectionMessage === "" ? Theme.textSecondary
                               : (root.connectionSuccess ? Theme.success : Theme.warning)
                         font.pixelSize: Theme.fontSmall; wrapMode: Text.WordWrap
@@ -257,6 +411,7 @@ Dialog {
             Layout.fillWidth: true; Layout.margins: Theme.paddingMedium; spacing: Theme.paddingSmall
             PrimaryButton {
                 visible: root.selectedProvider !== "local"
+                         && (root.configurationMode !== "custom" || root.rewriteEnabled)
                 text: qsTr("Test connection"); iconName: "activity"; quiet: true
                 enabled: root.selectedProvider === "cli" ? true : (serverUrlField.text.trim() !== "" && modelField.text.trim() !== "")
                 onClicked: { root.connectionMessage = qsTr("Checking provider…"); root.connectionSuccess = false; root.dubbing.testTranslationFixConnection(root.currentConfiguration()) }
@@ -264,9 +419,13 @@ Dialog {
             Item { Layout.fillWidth: true }
             PrimaryButton { text: qsTr("Cancel"); quiet: true; onClicked: root.close() }
             PrimaryButton {
-                text: qsTr("Use Adaptive"); iconName: "spark"
-                enabled: root.selectedProvider === "local" ? root.localModelConfiguredState() : root.connectionSuccess
-                onClicked: { root.dubbing.setAdaptiveConfiguration(root.currentConfiguration()); root.dubbing.dubbingQuality = "adaptive"; root.close() }
+                text: root.configurationMode === "custom" ? qsTr("Use Custom") : qsTr("Use Adaptive")
+                iconName: root.configurationMode === "custom" ? "sliders" : "spark"
+                enabled: root.configurationMode === "custom" && !root.rewriteEnabled
+                         ? true
+                         : (root.selectedProvider === "local"
+                            ? root.localModelConfiguredState() : root.connectionSuccess)
+                onClicked: root.applyConfiguration()
             }
         }
     }

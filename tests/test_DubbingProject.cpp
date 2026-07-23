@@ -111,6 +111,133 @@ void TestDubbingProject::parsesLmStudioTranslationFixResponses()
         QStringLiteral("Bản dịch Antigravity."));
 }
 
+void TestDubbingProject::buildsConsistentCliInvocations()
+{
+    const auto claude = DubbingTranslationFixService::cliInvocation(
+        QStringLiteral("claude"), QStringLiteral("sonnet"),
+        QStringLiteral("test prompt"),
+        QStringLiteral("C:/tools/claude.exe"), {}, 30);
+    QCOMPARE(claude.program, QStringLiteral("C:/tools/claude.exe"));
+    QVERIFY(claude.promptViaStdin);
+    QVERIFY(claude.arguments.contains(QStringLiteral("--no-session-persistence")));
+    QVERIFY(claude.arguments.contains(QStringLiteral("--tools")));
+    QVERIFY(claude.arguments.contains(QStringLiteral("sonnet")));
+
+    const auto codex = DubbingTranslationFixService::cliInvocation(
+        QStringLiteral("codex"), QStringLiteral("gpt-5"),
+        QStringLiteral("test prompt"),
+        QStringLiteral("C:/tools/codex.exe"), {}, 30);
+    QVERIFY(codex.promptViaStdin);
+    QCOMPARE(codex.arguments.constFirst(), QStringLiteral("exec"));
+    QVERIFY(codex.arguments.contains(QStringLiteral("--json")));
+    QVERIFY(codex.arguments.contains(QStringLiteral("read-only")));
+    QVERIFY(codex.arguments.contains(QStringLiteral("gpt-5")));
+
+    const QString logPath = QStringLiteral("C:/Temp/agy-test.log");
+    const QString prompt = QStringLiteral("Reply with exactly: OK");
+    const auto antigravity = DubbingTranslationFixService::cliInvocation(
+        QStringLiteral("antigravity"), QStringLiteral("Gemini 3.1 Pro (High)"),
+        prompt, QStringLiteral("C:/tools/agy.exe"), logPath, 30);
+    QVERIFY(!antigravity.promptViaStdin);
+    QCOMPARE(antigravity.arguments.mid(0, 2),
+             QStringList({QStringLiteral("--log-file"), logPath}));
+    QVERIFY(antigravity.arguments.contains(QStringLiteral("--sandbox")));
+    QVERIFY(antigravity.arguments.contains(
+        QStringLiteral("--dangerously-skip-permissions")));
+    QVERIFY(antigravity.arguments.contains(QStringLiteral("30s")));
+    QCOMPARE(antigravity.arguments.constLast(), prompt);
+    QCOMPARE(antigravity.diagnosticLogPath, logPath);
+}
+
+void TestDubbingProject::classifiesCliDiagnostics()
+{
+    QCOMPARE(
+        DubbingTranslationFixService::cliFailureMessage(
+            QStringLiteral("antigravity"), {}, {},
+            QByteArray("RESOURCE_EXHAUSTED (code 429): Individual quota reached")),
+        QStringLiteral("Antigravity quota is exhausted for the selected model. Choose another model in LA Studio or wait for the quota to reset."));
+    QCOMPARE(
+        DubbingTranslationFixService::cliFailureMessage(
+            QStringLiteral("antigravity"), {},
+            QByteArray("a tool required the \"command\" permission that headless mode cannot prompt for")),
+        QStringLiteral("The CLI requested an interactive tool permission that cannot be approved in headless mode. Update the CLI and retry with the sandboxed non-interactive integration."));
+    QCOMPARE(
+        DubbingTranslationFixService::cliFailureMessage(
+            QStringLiteral("antigravity"),
+            QByteArray("Authentication required. Please visit the URL"), {}),
+        QStringLiteral("Antigravity authentication is required. Open a terminal, run agy once, complete Google sign-in, then retry."));
+
+    const QByteArray agySilentAuthLog(
+        "Failed to poll ListExperiments: You are not logged into Antigravity.\n"
+        "Print mode: not authenticated, trying silent auth\n"
+        "keyringAuth: loaded token, expired=false\n"
+        "ChainedAuth: authenticated via keyring (effective: keyring)\n"
+        "OAuth: authenticated successfully as user@example.com\n"
+        "Print mode: silent auth succeeded\n");
+    QCOMPARE(
+        DubbingTranslationFixService::cliFailureMessage(
+            QStringLiteral("antigravity"), QByteArray("OK\n"), {},
+            agySilentAuthLog),
+        QString());
+}
+
+void TestDubbingProject::discoversCliModelsFromLocalConfiguration()
+{
+    QTemporaryDir home;
+    QVERIFY(home.isValid());
+    QVERIFY(QDir().mkpath(home.filePath(QStringLiteral(".claude"))));
+    QVERIFY(QDir().mkpath(home.filePath(QStringLiteral(".codex"))));
+    QVERIFY(QDir().mkpath(
+        home.filePath(QStringLiteral(".gemini/antigravity-cli"))));
+
+    auto writeFile = [](const QString &path, const QByteArray &content) {
+        QFile file(path);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate))
+            return false;
+        return file.write(content) == content.size();
+    };
+    QVERIFY(writeFile(
+        home.filePath(QStringLiteral(".claude/settings.json")),
+        QByteArray(R"({"model":"opus"})")));
+    QVERIFY(writeFile(
+        home.filePath(QStringLiteral(".claude/stats-cache.json")),
+        QByteArray(R"({"modelUsage":{"claude-opus-4-6":{},"claude-sonnet-4-6":{}}})")));
+    QVERIFY(writeFile(
+        home.filePath(QStringLiteral(".codex/config.toml")),
+        QByteArray("model = \"gpt-5.6-sol\"\n")));
+    QVERIFY(writeFile(
+        home.filePath(QStringLiteral(".codex/models_cache.json")),
+        QByteArray(R"({"models":[{"slug":"gpt-5.6-sol","display_name":"GPT-5.6-Sol","visibility":"list"},{"slug":"internal","display_name":"Internal","visibility":"hidden"}]})")));
+    QVERIFY(writeFile(
+        home.filePath(
+            QStringLiteral(".gemini/antigravity-cli/settings.json")),
+        QByteArray(R"({"model":"gemini-3.6-flash-low"})")));
+
+    const auto valuesFor = [&home](const QString &agent) {
+        QStringList values;
+        const QVariantList options =
+            DubbingTranslationFixService::cliModelOptions(agent, home.path());
+        for (const QVariant &option : options)
+            values.append(
+                option.toMap().value(QStringLiteral("value")).toString());
+        return values;
+    };
+
+    const QStringList claude = valuesFor(QStringLiteral("claude"));
+    QCOMPARE(claude.constFirst(), QStringLiteral("default"));
+    QVERIFY(claude.contains(QStringLiteral("opus")));
+    QVERIFY(claude.contains(QStringLiteral("claude-sonnet-4-6")));
+
+    const QStringList codex = valuesFor(QStringLiteral("codex"));
+    QVERIFY(codex.contains(QStringLiteral("gpt-5.6-sol")));
+    QVERIFY(!codex.contains(QStringLiteral("internal")));
+
+    const QStringList antigravity =
+        valuesFor(QStringLiteral("antigravity"));
+    QVERIFY(antigravity.contains(QStringLiteral("gemini-3.6-flash-low")));
+    QVERIFY(antigravity.contains(QStringLiteral("claude-sonnet-4-6")));
+}
+
 void TestDubbingProject::fixesOnlyTranslationsOverPhonemeLimit()
 {
     const QString text = QStringLiteral("Đây là một câu dịch để kiểm tra.");
@@ -158,7 +285,18 @@ void TestDubbingProject::roundTripsVersionedJson()
     original.sourceMediaPath = QStringLiteral("C:/media/demo.mp4");
     original.sourceLanguage = QStringLiteral("en");
     original.targetLanguage = QStringLiteral("vi");
-    original.dubbingQuality = QStringLiteral("adaptive");
+    original.dubbingQuality = QStringLiteral("custom");
+    original.durationControl.insert(QStringLiteral("autoRewrite"), false);
+    original.workflowNodeConfigurations.insert(
+        QStringLiteral("translate"),
+        QVariantMap{{QStringLiteral("familyId"), QStringLiteral("nllb-200")},
+                    {QStringLiteral("runtimeId"), QStringLiteral("crispasr")}});
+    original.customRewriteConfiguration = {
+        {QStringLiteral("provider"), QStringLiteral("cli")},
+        {QStringLiteral("cliAgent"), QStringLiteral("codex")},
+        {QStringLiteral("model"), QStringLiteral("default")},
+        {QStringLiteral("configured"), true}
+    };
     original.speakers.append(QVariantMap{{QStringLiteral("id"), QStringLiteral("speaker-1")} });
     original.segments.append(QVariantMap{{QStringLiteral("startMs"), 1000},
                                          {QStringLiteral("endMs"), 2400},
@@ -172,7 +310,13 @@ void TestDubbingProject::roundTripsVersionedJson()
     QVERIFY2(DubbingProject::load(original.projectPath, loaded, &error), qPrintable(error));
     QCOMPARE(loaded.sourceMediaPath, original.sourceMediaPath);
     QCOMPARE(loaded.targetLanguage, original.targetLanguage);
-    QCOMPARE(loaded.dubbingQuality, QStringLiteral("adaptive"));
+    QCOMPARE(loaded.dubbingQuality, QStringLiteral("custom"));
+    QVERIFY(!loaded.durationControl.value(QStringLiteral("autoRewrite")).toBool());
+    QCOMPARE(loaded.workflowNodeConfigurations.value(QStringLiteral("translate")).toMap()
+                 .value(QStringLiteral("familyId")).toString(),
+             QStringLiteral("nllb-200"));
+    QCOMPARE(loaded.customRewriteConfiguration.value(QStringLiteral("provider")).toString(),
+             QStringLiteral("cli"));
     QCOMPARE(loaded.segments.size(), 1);
     QCOMPARE(loaded.segments.first().toMap().value(QStringLiteral("startMs")).toLongLong(), qint64(1000));
 }
@@ -189,7 +333,7 @@ void TestDubbingProject::migratesLegacyProjectsToLlmRewritePipeline()
     };
     QVERIFY2(DubbingProject::fromJson(legacy, migrated, &error), qPrintable(error));
     QVERIFY(migrated.durationControl.value(QStringLiteral("autoRewrite")).toBool());
-    QCOMPARE(migrated.dubbingQuality, QStringLiteral("fast"));
+    QCOMPARE(migrated.dubbingQuality, QStringLiteral("adaptive"));
 
     DubbingProject current;
     const QJsonObject explicitOptOut{
@@ -293,6 +437,86 @@ void TestDubbingProject::automaticWorkflowLocksSettingsUntilPaused()
     QVERIFY(!controller.settingsLocked());
     QCOMPARE(controller.workflowMode(), QStringLiteral("paused"));
     QVERIFY(controller.automaticStatusText().contains(QStringLiteral("Paused")));
+}
+
+void TestDubbingProject::customWorkflowOpensFirstMissingNodeSetup()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString mediaPath = dir.filePath(QStringLiteral("source.mp4"));
+    QFile media(mediaPath);
+    QVERIFY(media.open(QIODevice::WriteOnly));
+    QVERIFY(media.write("video-placeholder") > 0);
+    media.close();
+
+    DubbingController controller(nullptr, nullptr);
+    QVERIFY(controller.newProject(dir.filePath(QStringLiteral("project.ladub.json"))));
+    QVERIFY(controller.importMedia(mediaPath));
+    controller.setDubbingQuality(QStringLiteral("custom"));
+
+    QSignalSpy setupSpy(&controller, &DubbingController::workflowSetupRequired);
+    QVERIFY(!controller.startAutomaticWorkflow(
+        dir.filePath(QStringLiteral("dubbed.mp4"))));
+    QCOMPARE(setupSpy.count(), 1);
+    const QList<QVariant> arguments = setupSpy.takeFirst();
+    QCOMPARE(arguments.at(0).toString(), QStringLiteral("source-separate"));
+    QCOMPARE(arguments.at(1).toString(), QStringLiteral("node-model"));
+    QVERIFY(arguments.at(2).toString().contains(QStringLiteral("Custom")));
+    QVERIFY(!controller.processing());
+    QCOMPARE(controller.workflowMode(), QStringLiteral("idle"));
+}
+
+void TestDubbingProject::qualityModesExposeExpectedDefaultVoiceModel()
+{
+    DubbingController controller(nullptr, nullptr);
+    QCOMPARE(controller.defaultWorkflowModelFamily(QStringLiteral("synthesize")),
+             QStringLiteral("omnivoice"));
+
+    controller.setDubbingQuality(QStringLiteral("fast"));
+    QCOMPARE(controller.defaultWorkflowModelFamily(QStringLiteral("synthesize")),
+             QStringLiteral("vieneu-tts-v2-turbo"));
+    for (const QVariant &nodeValue : controller.workflowNodes()) {
+        const QVariantMap node = nodeValue.toMap();
+        if (node.value(QStringLiteral("id")).toString() == QStringLiteral("synthesize"))
+            QCOMPARE(node.value(QStringLiteral("defaultFamilyId")).toString(),
+                     QStringLiteral("vieneu-tts-v2-turbo"));
+    }
+
+    controller.setDubbingQuality(QStringLiteral("adaptive"));
+    QCOMPARE(controller.defaultWorkflowModelFamily(QStringLiteral("synthesize")),
+             QStringLiteral("omnivoice"));
+}
+
+void TestDubbingProject::standardModesResetNodeModelsOnOpen()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QVariantMap savedNode{
+        {QStringLiteral("familyId"), QStringLiteral("manually-selected")},
+        {QStringLiteral("runtimeId"), QStringLiteral("runtime")}
+    };
+
+    DubbingProject adaptive;
+    adaptive.projectPath = dir.filePath(QStringLiteral("adaptive.ladub.json"));
+    adaptive.dubbingQuality = QStringLiteral("adaptive");
+    adaptive.workflowNodeConfigurations.insert(QStringLiteral("synthesize"), savedNode);
+    QString error;
+    QVERIFY2(adaptive.save(&error), qPrintable(error));
+
+    DubbingController controller(nullptr, nullptr);
+    QVERIFY(controller.openProject(adaptive.projectPath));
+    QVERIFY(controller.workflowNodeConfigurations().isEmpty());
+    QVERIFY(!controller.adaptiveReady());
+
+    DubbingProject custom = adaptive;
+    custom.projectPath = dir.filePath(QStringLiteral("custom.ladub.json"));
+    custom.dubbingQuality = QStringLiteral("custom");
+    QVERIFY2(custom.save(&error), qPrintable(error));
+    QVERIFY(controller.openProject(custom.projectPath));
+    QCOMPARE(controller.workflowNodeConfigurations()
+                 .value(QStringLiteral("synthesize")).toMap()
+                 .value(QStringLiteral("familyId")).toString(),
+             QStringLiteral("manually-selected"));
 }
 
 void TestDubbingProject::sourceSeparationExposesModelSelection()

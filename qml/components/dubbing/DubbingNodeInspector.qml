@@ -27,6 +27,7 @@ Rectangle {
                                              && String(node.selectedFamilyId || "").toLowerCase().indexOf("omnivoice") !== -1
 
     signal closeRequested()
+    signal rewriteSetupRequested()
 
     Layout.preferredWidth: 332
     Layout.minimumWidth: 290
@@ -235,6 +236,17 @@ Rectangle {
                         checked: root.dubbing.durationControl.enabled !== false
                         enabled: !root.dubbing.processing
                         onToggled: root.updateDurationControl("enabled", checked)
+                    }
+                    PrimaryButton {
+                        Layout.fillWidth: true
+                        visible: root.dubbing.dubbingQuality === "custom"
+                                 && root.dubbing.durationControl.autoRewrite !== false
+                        text: root.dubbing.adaptiveReady
+                              ? qsTr("Change rewrite model") : qsTr("Choose rewrite model")
+                        iconName: "spark"
+                        quiet: true
+                        enabled: !root.dubbing.processing
+                        onClicked: root.rewriteSetupRequested()
                     }
                     RowLayout {
                         Layout.fillWidth: true

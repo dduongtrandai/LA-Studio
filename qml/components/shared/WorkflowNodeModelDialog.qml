@@ -26,8 +26,12 @@ Dialog {
         modelController.familiesModel.setCapability(root.capabilityId)
 
         var saved = root.nodeConfigurations[root.nodeId] || {}
-        var recommended = modelController.familiesModel.recommendedConfiguration()
-        var familyId = saved.familyId || item.selectedFamilyId || recommended.familyId
+        var preferredFamilyId = saved.familyId || item.selectedFamilyId
+                                || item.defaultFamilyId || ""
+        var recommended = preferredFamilyId !== ""
+                          ? modelController.familiesModel.configurationForFamily(preferredFamilyId)
+                          : modelController.familiesModel.recommendedConfiguration()
+        var familyId = preferredFamilyId || recommended.familyId
             || modelController.familiesModel.firstFamilyId()
 
         modelController.openConfiguration(familyId)
