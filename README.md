@@ -4,7 +4,7 @@
 
 <h1>LA Studio</h1>
 
-<p><strong>Offline AI Audio Studio for Speech-to-Text, Text-to-Speech, Voice Cloning, Voice Design, and Translation</strong></p>
+<p><strong>Offline AI Audio Studio for Speech-to-Text, Text-to-Speech, Voice Cloning, Voice Design, Translation, and Video Dubbing</strong></p>
 
 <p>
 Run private AI audio workflows locally: speech recognition, voice generation, voice cloning, voice design, text and subtitle translation, model downloads, and runtime management in one native C++/Qt desktop app.
@@ -42,6 +42,10 @@ Run private AI audio workflows locally: speech recognition, voice generation, vo
 ---
 
 ## Project Updates
+
+### 2026-07-23 - Version 0.2.0: Video Dubbing
+
+LA Studio version 0.2.0 introduces **Video Dubbing**, an end-to-end local workflow for translating and replacing speech in audio or video. Import media, separate vocals from background audio, transcribe and translate timestamped segments, synthesize the translated dialogue with local voices, review or edit each segment, then mix and export the dubbed result. Automatic and step-by-step workflows keep every stage visible and configurable, while media processing and AI inference remain offline on the user's machine.
 
 ### 2026-07-16 - Version 0.1.10: Translation Studio
 
@@ -83,6 +87,7 @@ The app brings together local speech-to-text, text-to-speech, voice cloning, voi
 | Voice Design | Generate or shape voices from descriptive text prompts when supported by the selected model. | VoxCPM2, Qwen3 voice design, OmniVoice-style workflows |
 | Voice Isolator | Separate vocals and background audio into two stems from local audio or video files. | sherpa-onnx UVR-MDX-NET and Spleeter models |
 | Translation Studio | Translate and edit plain text, SRT, and VTT projects segment by segment, with local history and multiple export formats. | M2M-100, MADLAD-400, Hy-MT2 through CrispASR or llama.cpp |
+| Video Dubbing | Transcribe, translate, synthesize, mix, and export dubbed audio or video through automatic or step-by-step local workflows. | Local STT, translation, TTS, source separation, and media processing |
 | Models Gallery | Browse curated model families, inspect required files, download assets, and manage local model availability. | Integrated catalog and Hugging Face sources |
 | Runtime Management | Install, validate, and select compatible CPU, CUDA, Vulkan, or other runtime packages. | Dynamic runtime loading |
 | Offline Privacy | Keep audio, prompts, generated speech, and model inference on the user's machine. | No cloud API required for inference |
@@ -110,6 +115,7 @@ The app brings together local speech-to-text, text-to-speech, voice cloning, voi
 
 - Run private speech transcription locally for interviews, meetings, research recordings, podcasts, and voice notes.
 - Generate local voiceovers for video, learning content, prototypes, narration, and accessibility workflows.
+- Dub videos locally by translating dialogue, generating replacement speech, preserving background audio, and exporting the finished media.
 - Translate scripts and subtitles locally, review bilingual segments, and export results without sending content to a cloud service.
 - Test multiple open speech and audio models from a single desktop interface.
 - Build and validate model catalogs, runtime packages, and Hugging Face download flows.
