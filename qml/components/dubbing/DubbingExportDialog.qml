@@ -24,7 +24,7 @@ Dialog {
     property string targetLanguageName: ""
 
     signal videoExportRequested()
-    signal audioExportRequested()
+    signal audioExportRequested(string stem)
     signal subtitleExportRequested(string format, bool useTargetText, string languageCode)
     signal packageExportRequested()
 
@@ -250,14 +250,55 @@ Dialog {
                     onActionRequested: root.videoExportRequested()
                 }
 
-                ExportPane {
-                    title: qsTr("Full dubbing mix")
-                    description: qsTr("Export the timed generated voices together with the separated background track.")
-                    detail: qsTr("WAV · lossless · ready for editing or mastering")
-                    iconName: "waves"
-                    actionText: qsTr("Export WAV")
-                    actionEnabled: root.segmentCount > 0 && !root.busy
-                    onActionRequested: root.audioExportRequested()
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    spacing: Theme.paddingMedium
+
+                    ExportPane {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 154
+                        paneHeight: 154
+                        title: qsTr("Full dubbing mix")
+                        description: qsTr("Export the timed generated voices together with the separated background track.")
+                        detail: qsTr("WAV · lossless · ready for editing or mastering")
+                        iconName: "waves"
+                        actionText: qsTr("Export WAV")
+                        actionEnabled: root.segmentCount > 0 && !root.busy
+                        onActionRequested: root.audioExportRequested("mix")
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        spacing: Theme.paddingMedium
+
+                        ExportPane {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            paneHeight: 130
+                            title: qsTr("Dubbed vocal")
+                            description: qsTr("Export only the generated translated voice stem.")
+                            detail: qsTr("WAV · lossless · independent stem")
+                            iconName: "mic"
+                            actionText: qsTr("Export vocal")
+                            actionEnabled: root.segmentCount > 0 && !root.busy
+                            onActionRequested: root.audioExportRequested("vocal")
+                        }
+
+                        ExportPane {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            paneHeight: 130
+                            title: qsTr("Background")
+                            description: qsTr("Export the separated background track without dubbing voices.")
+                            detail: qsTr("WAV · lossless · independent stem")
+                            iconName: "volume"
+                            actionText: qsTr("Export background")
+                            actionEnabled: root.segmentCount > 0 && !root.busy
+                            onActionRequested: root.audioExportRequested("background")
+                        }
+                    }
                 }
 
                 Item {
@@ -539,6 +580,7 @@ Dialog {
         property string detail: ""
         property string iconName: "download"
         property string actionText: ""
+        property int paneHeight: 154
         property string secondaryActionText: ""
         property bool actionEnabled: true
         signal actionRequested()
@@ -548,7 +590,7 @@ Dialog {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            height: 154
+            height: pane.paneHeight
             color: Qt.rgba(1, 1, 1, 0.025)
             radius: Theme.radiusSmall
             border.color: Qt.rgba(1, 1, 1, 0.08)

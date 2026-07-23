@@ -41,6 +41,7 @@ private:
 
     bool m_running = false;
     QString m_renderStagingPath;
+    QString m_renderVocalStagingPath;
     QString m_exportDestination;
     QString m_exportStagingPath;
     QString m_exportAudioPath;

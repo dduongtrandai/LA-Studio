@@ -738,7 +738,10 @@ Item {
         targetLanguageCode: dubbing.targetLanguage
         targetLanguageName: root.languageDisplayName(dubbing.targetLanguage)
         onVideoExportRequested: videoExportFileDialog.open()
-        onAudioExportRequested: audioExportFileDialog.open()
+        onAudioExportRequested: function(stem) {
+            root.pendingAudioExportStem = stem
+            audioExportFileDialog.open()
+        }
         onSubtitleExportRequested: function(format, useTargetText, languageCode) {
             root.pendingSubtitleFormat = format
             root.pendingSubtitleUsesTarget = useTargetText
@@ -771,13 +774,20 @@ Item {
 
     FileDialog {
         id: audioExportFileDialog
-        title: qsTr("Export dubbing mix")
+        title: root.pendingAudioExportStem === "vocal" ? qsTr("Export dubbed vocal stem")
+                                                         : root.pendingAudioExportStem === "background" ? qsTr("Export background stem")
+                                                                                                         : qsTr("Export dubbing mix")
         fileMode: FileDialog.SaveFile
         defaultSuffix: "wav"
         nameFilters: [qsTr("WAV audio (*.wav)")]
-        onAccepted: dubbing.renderPreview(AppController.files.urlToLocalPath(selectedFile.toString()))
+        currentFile: root.pendingAudioExportStem === "vocal" ? "dubbed-vocals.wav"
+                    : root.pendingAudioExportStem === "background" ? "background.wav" : "dubbed-mix.wav"
+        onAccepted: dubbing.exportAudioStem(
+                        root.pendingAudioExportStem,
+                        AppController.files.urlToLocalPath(selectedFile.toString()))
     }
 
+    property string pendingAudioExportStem: "mix"
     property string pendingSubtitleFormat: "srt"
     property bool pendingSubtitleUsesTarget: true
     property string pendingSubtitleLanguageCode: ""

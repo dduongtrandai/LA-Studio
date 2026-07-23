@@ -8,6 +8,7 @@
 #include "dubbing/DubbingSegmentNormalizer.h"
 #include "dubbing/DubbingDuration.h"
 #include "dubbing/DubbingVoiceReferenceSelector.h"
+#include "dubbing/AudioTimelineMixer.h"
 #include "dubbing/media/AtomicMediaCommit.h"
 #include "controllers/app/AppController.h"
 #include "audio/WavIO.h"
@@ -532,6 +533,39 @@ void TestDubbingProject::audioMixRunsAsynchronously()
     QCOMPARE(completedSpy.at(1).at(0).toString(), QStringLiteral("mix"));
     QVERIFY(QFileInfo::exists(previewPath));
     QVERIFY(!runner.processing());
+}
+
+void TestDubbingProject::audioMixCreatesIndependentVocalStem()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    constexpr int sampleRate = 48000;
+    QVector<float> clipSamples(sampleRate, 0.25f);
+    QVector<float> backgroundSamples(sampleRate, 0.5f);
+    const QString clipPath = dir.filePath(QStringLiteral("clip.wav"));
+    const QString backgroundPath = dir.filePath(QStringLiteral("background.wav"));
+    const QString previewPath = dir.filePath(QStringLiteral("preview.wav"));
+    const QString vocalPath = AudioTimelineMixer::vocalStemPath(previewPath);
+    QVERIFY(WavIO::saveFloat(clipPath, clipSamples.constData(), clipSamples.size(), sampleRate));
+    QVERIFY(WavIO::saveFloat(backgroundPath, backgroundSamples.constData(),
+                             backgroundSamples.size(), sampleRate));
+
+    const QVariantList segments{
+        QVariantMap{{QStringLiteral("startMs"), 0},
+                    {QStringLiteral("endMs"), 1000},
+                    {QStringLiteral("clipPath"), clipPath}}
+    };
+    QString error;
+    QVERIFY2(AudioTimelineMixer::mixSegments(segments, previewPath, backgroundPath,
+                                             vocalPath, &error), qPrintable(error));
+
+    const WavIO::WavData vocals = WavIO::loadAsFloat(vocalPath);
+    const WavIO::WavData mixed = WavIO::loadAsFloat(previewPath);
+    QVERIFY(!vocals.samples.isEmpty());
+    QVERIFY(!mixed.samples.isEmpty());
+    QVERIFY(qAbs(vocals.samples.constFirst() - 0.25f) < 0.01f);
+    QVERIFY(qAbs(mixed.samples.constFirst() - 0.425f) < 0.01f);
 }
 
 void TestDubbingProject::commitsMediaExportAtomically()

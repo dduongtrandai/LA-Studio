@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtMultimedia
 import "../base"
+import "../shared/settings"
 import LAStudio
 
 Rectangle {
@@ -11,7 +12,15 @@ Rectangle {
     required property var dubbing
     property int selectedSegment: -1
     readonly property bool isVideoSource: root.dubbing.sourceMediaPath.length > 0 && /\.(mp4|mkv|mov|webm|avi)$/i.test(root.dubbing.sourceMediaPath)
-    readonly property bool showingDubbedMedia: root.dubbing.exportPath.length > 0
+    readonly property bool hasDubbedPreview: root.dubbing.dubbedVocalPath.length > 0
+    property string previewMode: "source"
+    readonly property bool showingDubbedMedia: root.previewMode === "dubbed" && root.hasDubbedPreview
+    property bool previewMuted: false
+    property real vocalLevel: 1.0
+    property real backgroundLevel: 1.0
+    property real pendingPosition: -1
+    property bool pendingPlayback: false
+    property int sourceSwitchAttempts: 0
 
     signal browseRequested()
     signal segmentSelected(int index)
@@ -35,17 +44,91 @@ Rectangle {
         return hr > 0 ? (hr < 10 ? "0" + hr : hr.toString()) + ":" + minStr + ":" + secStr : minStr + ":" + secStr
     }
 
-    function pause() { mediaPlayer.pause() }
+    function localMediaUrl(path) {
+        if (!path) return ""
+        var normalized = path.replace(/\\/g, "/")
+        var encoded = encodeURI(normalized).replace(/#/g, "%23")
+        return Qt.platform.os === "windows" ? "file:///" + encoded : "file://" + encoded
+    }
+
+    function pause() { pauseAll() }
+    function pauseAll() {
+        mediaPlayer.pause()
+        vocalPlayer.pause()
+        backgroundPlayer.pause()
+    }
+    function seekAll(position) {
+        mediaPlayer.position = position
+        if (root.showingDubbedMedia) {
+            if (vocalPlayer.seekable) vocalPlayer.position = position
+            if (backgroundPlayer.seekable) backgroundPlayer.position = position
+        }
+    }
+    function playAll() {
+        if (root.showingDubbedMedia) {
+            if (root.dubbing.dubbedVocalPath.length > 0) {
+                vocalPlayer.position = mediaPlayer.position
+                vocalPlayer.play()
+            }
+            if (root.dubbing.backgroundPath.length > 0) {
+                backgroundPlayer.position = mediaPlayer.position
+                backgroundPlayer.play()
+            }
+        }
+        mediaPlayer.play()
+    }
+    function switchPreviewMode(mode) {
+        if (mode === root.previewMode || (mode === "dubbed" && !root.hasDubbedPreview)) return
+        root.pendingPosition = mediaPlayer.position
+        root.pendingPlayback = mediaPlayer.playbackState === MediaPlayer.PlayingState
+        pauseAll()
+        root.previewMode = mode
+        root.sourceSwitchAttempts = 0
+        sourceSwitchFallback.restart()
+    }
+    function restoreAfterSourceSwitch() {
+        if (root.pendingPosition < 0) return
+        var restorePosition = root.pendingPosition
+        var restorePlayback = root.pendingPlayback
+        root.pendingPosition = -1
+        root.pendingPlayback = false
+        seekAll(restorePosition)
+        if (restorePlayback) playAll()
+    }
     function seekToSegment(index) {
         if (mediaPlayer.seekable && index >= 0 && index < root.dubbing.segments.length)
-            mediaPlayer.position = root.dubbing.segments[index].startMs
+            seekAll(root.dubbing.segments[index].startMs)
     }
 
     MediaPlayer {
         id: mediaPlayer
-        source: root.dubbing.playbackMediaUrl
-        audioOutput: AudioOutput {}
+        source: root.showingDubbedMedia ? root.dubbing.playbackMediaUrl : root.dubbing.sourceMediaUrl
+        audioOutput: AudioOutput {
+            id: sourceAudioOutput
+            volume: root.showingDubbedMedia || root.previewMuted ? 0 : 1
+        }
         videoOutput: videoOutput
+        onMediaStatusChanged: {
+            if (mediaStatus === MediaPlayer.LoadedMedia || mediaStatus === MediaPlayer.BufferedMedia)
+                root.restoreAfterSourceSwitch()
+        }
+    }
+    MediaPlayer {
+        id: vocalPlayer
+        source: root.localMediaUrl(root.dubbing.dubbedVocalPath)
+        audioOutput: AudioOutput {
+            volume: root.showingDubbedMedia && !root.previewMuted ? root.vocalLevel : 0
+        }
+    }
+    MediaPlayer {
+        id: backgroundPlayer
+        source: root.localMediaUrl(root.dubbing.backgroundPath)
+        audioOutput: AudioOutput {
+            // The rendered mix uses 35% background gain. A 100% slider value
+            // therefore reproduces the rendered/exported balance.
+            volume: root.showingDubbedMedia && !root.previewMuted
+                    ? root.backgroundLevel * 0.35 : 0
+        }
     }
 
     Connections {
@@ -68,6 +151,40 @@ Rectangle {
             }
         }
     }
+    onHasDubbedPreviewChanged: {
+        if (root.hasDubbedPreview)
+            root.switchPreviewMode("dubbed")
+        else
+            root.switchPreviewMode("source")
+    }
+    Component.onCompleted: root.previewMode = root.hasDubbedPreview ? "dubbed" : "source"
+    Timer {
+        id: sourceSwitchFallback
+        interval: 120
+        onTriggered: {
+            if (mediaPlayer.duration > 0
+                || mediaPlayer.mediaStatus === MediaPlayer.LoadedMedia
+                || mediaPlayer.mediaStatus === MediaPlayer.BufferedMedia
+                || root.sourceSwitchAttempts >= 20) {
+                root.restoreAfterSourceSwitch()
+                return
+            }
+            root.sourceSwitchAttempts += 1
+            restart()
+        }
+    }
+    Timer {
+        interval: 500
+        repeat: true
+        running: root.showingDubbedMedia
+                 && mediaPlayer.playbackState === MediaPlayer.PlayingState
+        onTriggered: {
+            if (vocalPlayer.seekable && Math.abs(vocalPlayer.position - mediaPlayer.position) > 180)
+                vocalPlayer.position = mediaPlayer.position
+            if (backgroundPlayer.seekable && Math.abs(backgroundPlayer.position - mediaPlayer.position) > 180)
+                backgroundPlayer.position = mediaPlayer.position
+        }
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -75,8 +192,49 @@ Rectangle {
         spacing: Theme.paddingSmall
         RowLayout {
             Layout.fillWidth: true
-            Text { text: root.showingDubbedMedia ? qsTr("DUBBED PREVIEW") : qsTr("SOURCE MEDIA"); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall; font.bold: true; font.letterSpacing: 1.1; Layout.fillWidth: true }
-            Text { text: root.showingDubbedMedia ? qsTr("Voice + background + subtitles") : (root.dubbing.sourceMediaPath.length > 0 ? qsTr("Loaded") : qsTr("No media")); color: root.dubbing.sourceMediaPath.length > 0 ? Theme.success : Theme.textSecondary; font.pixelSize: Theme.fontSmall }
+            Text {
+                text: qsTr("VIDEO PREVIEW")
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSmall
+                font.bold: true
+                font.letterSpacing: 1.1
+            }
+            Item { Layout.fillWidth: true }
+            Rectangle {
+                Layout.preferredWidth: 230
+                Layout.preferredHeight: 32
+                radius: Theme.radiusSmall
+                color: Qt.rgba(0, 0, 0, 0.18)
+                border.color: Qt.rgba(1, 1, 1, 0.08)
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: 3
+                    spacing: 3
+                    PreviewModeButton {
+                        Layout.fillWidth: true
+                        text: qsTr("Original")
+                        iconName: "file"
+                        selected: !root.showingDubbedMedia
+                        enabled: root.dubbing.sourceMediaPath.length > 0
+                        onClicked: root.switchPreviewMode("source")
+                    }
+                    PreviewModeButton {
+                        Layout.fillWidth: true
+                        text: qsTr("Dubbed")
+                        iconName: "mic"
+                        selected: root.showingDubbedMedia
+                        enabled: root.hasDubbedPreview
+                        onClicked: root.switchPreviewMode("dubbed")
+                    }
+                }
+            }
+            Text {
+                text: root.showingDubbedMedia
+                      ? qsTr("Dubbed mix")
+                      : (root.dubbing.sourceMediaPath.length > 0 ? qsTr("Original audio") : qsTr("No media"))
+                color: root.dubbing.sourceMediaPath.length > 0 ? Theme.success : Theme.textSecondary
+                font.pixelSize: Theme.fontSmall
+            }
         }
         Rectangle { Layout.fillWidth: true; height: 1; color: Qt.rgba(1, 1, 1, 0.07) }
 
@@ -152,10 +310,10 @@ Rectangle {
                         id: seekArea
                         anchors.fill: parent
                         property bool wasPlaying: false
-                        function updatePosition(x) { if (mediaPlayer.duration > 0) mediaPlayer.position = Math.max(0, Math.min(1, x / width)) * mediaPlayer.duration }
+                        function updatePosition(x) { if (mediaPlayer.duration > 0) root.seekAll(Math.max(0, Math.min(1, x / width)) * mediaPlayer.duration) }
                         onPressed: { wasPlaying = mediaPlayer.playbackState === MediaPlayer.PlayingState; if (wasPlaying) mediaPlayer.pause(); updatePosition(mouseX) }
                         onPositionChanged: if (pressed) updatePosition(mouseX)
-                        onReleased: if (wasPlaying) mediaPlayer.play()
+                        onReleased: if (wasPlaying) root.playAll()
                     }
                 }
                 RowLayout {
@@ -167,16 +325,58 @@ Rectangle {
                         implicitWidth: 28; implicitHeight: 28
                         flat: true
                         contentItem: LineIcon { anchors.centerIn: parent; name: mediaPlayer.playbackState === MediaPlayer.PlayingState ? "pause" : "play"; color: Theme.textPrimary; width: 14; height: 14 }
-                        onClicked: mediaPlayer.playbackState === MediaPlayer.PlayingState ? mediaPlayer.pause() : mediaPlayer.play()
+                        onClicked: mediaPlayer.playbackState === MediaPlayer.PlayingState ? root.pauseAll() : root.playAll()
                     }
                     Button {
                         implicitWidth: 28; implicitHeight: 28
                         flat: true
-                        contentItem: LineIcon { anchors.centerIn: parent; name: "volume"; color: mediaPlayer.audioOutput.muted ? Theme.textSecondary : Theme.textPrimary; width: 14; height: 14 }
-                        onClicked: mediaPlayer.audioOutput.muted = !mediaPlayer.audioOutput.muted
+                        contentItem: LineIcon { anchors.centerIn: parent; name: "volume"; color: root.previewMuted ? Theme.textSecondary : Theme.textPrimary; width: 14; height: 14 }
+                        onClicked: root.previewMuted = !root.previewMuted
                     }
                     Item { Layout.fillWidth: true }
                     Text { text: "%1 / %2".arg(root.formatTime(mediaPlayer.position)).arg(root.formatTime(mediaPlayer.duration)); color: Theme.textSecondary; font.pixelSize: 11; font.family: "Monospace" }
+                }
+            }
+        }
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 58
+            visible: root.showingDubbedMedia
+            radius: Theme.radiusSmall
+            color: Qt.rgba(1, 1, 1, 0.025)
+            border.color: Qt.rgba(1, 1, 1, 0.07)
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: Theme.paddingMedium
+                anchors.rightMargin: Theme.paddingMedium
+                spacing: Theme.paddingMedium
+                LineIcon {
+                    name: "volume"
+                    color: Theme.accentLight
+                    Layout.preferredWidth: 18
+                    Layout.preferredHeight: 18
+                }
+                Text {
+                    text: qsTr("MIX")
+                    color: Theme.textSecondary
+                    font.pixelSize: 10
+                    font.bold: true
+                    font.letterSpacing: 1
+                }
+                MixerControl {
+                    Layout.fillWidth: true
+                    label: qsTr("Vocal")
+                    value: root.vocalLevel
+                    onMoved: root.vocalLevel = value
+                }
+                Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 30; color: Qt.rgba(1, 1, 1, 0.08) }
+                MixerControl {
+                    Layout.fillWidth: true
+                    label: qsTr("Background")
+                    value: root.backgroundLevel
+                    enabled: root.dubbing.backgroundPath.length > 0
+                    onMoved: root.backgroundLevel = value
                 }
             }
         }
@@ -196,5 +396,75 @@ Rectangle {
         leftPadding: Theme.paddingMedium
         rightPadding: Theme.paddingMedium
         background: Rectangle { radius: Theme.radiusSmall; color: Qt.rgba(1, 1, 1, 0.035); border.color: parent.activeFocus ? Theme.accent : Qt.rgba(1, 1, 1, 0.09); border.width: parent.activeFocus ? 2 : 1 }
+    }
+
+    component PreviewModeButton: Button {
+        id: modeButton
+        property bool selected: false
+        property string iconName: ""
+        implicitHeight: 26
+        padding: 0
+        contentItem: Row {
+            anchors.centerIn: parent
+            spacing: 5
+            LineIcon {
+                name: modeButton.iconName
+                color: modeButton.enabled
+                       ? (modeButton.selected ? Theme.textPrimary : Theme.textSecondary)
+                       : Qt.rgba(0.56, 0.56, 0.69, 0.42)
+                width: 13
+                height: 13
+                anchors.verticalCenter: parent.verticalCenter
+            }
+            Text {
+                text: modeButton.text
+                color: modeButton.enabled
+                       ? (modeButton.selected ? Theme.textPrimary : Theme.textSecondary)
+                       : Qt.rgba(0.56, 0.56, 0.69, 0.42)
+                font.pixelSize: 11
+                font.bold: modeButton.selected
+                anchors.verticalCenter: parent.verticalCenter
+            }
+        }
+        background: Rectangle {
+            radius: 6
+            color: modeButton.selected ? Theme.surfaceAlt
+                                       : (modeButton.hovered ? Qt.rgba(1, 1, 1, 0.04) : "transparent")
+            border.color: modeButton.selected ? Qt.rgba(0.64, 0.49, 1, 0.5) : "transparent"
+        }
+        HoverHandler { cursorShape: modeButton.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor }
+    }
+
+    component MixerControl: RowLayout {
+        id: mixerControl
+        property string label: ""
+        property alias value: levelSlider.value
+        signal moved()
+        spacing: Theme.paddingSmall
+        Text {
+            text: mixerControl.label
+            color: mixerControl.enabled ? Theme.textPrimary : Theme.textSecondary
+            font.pixelSize: 11
+            Layout.preferredWidth: 66
+        }
+        ParameterSlider {
+            id: levelSlider
+            Layout.fillWidth: true
+            Layout.minimumWidth: 72
+            from: 0
+            to: 1
+            value: 1
+            stepSize: 0.01
+            enabled: mixerControl.enabled
+            onMoved: mixerControl.moved()
+        }
+        Text {
+            text: Math.round(levelSlider.value * 100) + "%"
+            color: mixerControl.enabled ? Theme.textSecondary : Qt.rgba(0.56, 0.56, 0.69, 0.5)
+            font.pixelSize: 10
+            font.family: "Monospace"
+            horizontalAlignment: Text.AlignRight
+            Layout.preferredWidth: 34
+        }
     }
 }

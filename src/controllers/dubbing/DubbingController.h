@@ -48,6 +48,7 @@ class DubbingController : public QObject
     Q_PROPERTY(int progress READ progress NOTIFY processingChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY errorChanged)
     Q_PROPERTY(QString previewPath READ previewPath NOTIFY previewChanged)
+    Q_PROPERTY(QString dubbedVocalPath READ dubbedVocalPath NOTIFY previewChanged)
     Q_PROPERTY(QString exportPath READ exportPath NOTIFY exportChanged)
     Q_PROPERTY(QVariantList workflowNodes READ workflowNodes NOTIFY workflowChanged)
     Q_PROPERTY(QVariantMap workflowNodeConfigurations READ workflowNodeConfigurations NOTIFY workflowChanged)
@@ -110,6 +111,7 @@ public:
     int progress() const;
     QString lastError() const;
     QString previewPath() const;
+    QString dubbedVocalPath() const;
     QString exportPath() const;
     QVariantList workflowNodes() const;
     QVariantMap workflowNodeConfigurations() const { return m_workflowNodeConfigurations; }
@@ -159,6 +161,7 @@ public:
     Q_INVOKABLE void cancelProcessing();
     Q_INVOKABLE bool renderPreview(const QString &path = QString());
     Q_INVOKABLE bool exportMedia(const QString &path);
+    Q_INVOKABLE bool exportAudioStem(const QString &stem, const QString &path);
     Q_INVOKABLE bool exportSubtitles(const QString &path, bool useTargetText = true);
     Q_INVOKABLE bool exportPackage(const QString &directoryPath);
     Q_INVOKABLE void addSegment(qint64 startMs, qint64 endMs, const QString &sourceText = QString());

@@ -1,4 +1,5 @@
 #include "controllers/dubbing/DubbingJobRunner.h"
+#include "dubbing/AudioTimelineMixer.h"
 #include "controllers/dubbing/SourceSeparationConfigurationResolver.h"
 #include "controllers/dubbing/DubbingTranscriptionJob.h"
 #include "controllers/dubbing/DubbingSynthesisJob.h"
@@ -110,8 +111,11 @@ DubbingJobRunner::DubbingJobRunner(SttSessionController *sttSession, TtsEngine *
             this, &DubbingJobRunner::setError);
     connect(m_exportJob, &DubbingExportJob::previewReady, this, [this](const QString &path) {
         m_previewPath = path;
+        m_dubbedVocalPath = AudioTimelineMixer::vocalStemPath(path);
         setProcessing(false, QStringLiteral("mixed"), 100);
-        emit stageCompleted(QStringLiteral("mix"), {{QStringLiteral("audio"), path}});
+        emit stageCompleted(QStringLiteral("mix"),
+                            {{QStringLiteral("audio"), path},
+                             {QStringLiteral("vocals"), m_dubbedVocalPath}});
     });
     connect(m_exportJob, &DubbingExportJob::exported, this, [this](const QString &path) {
         m_exportPath = path;
@@ -465,6 +469,8 @@ bool DubbingJobRunner::startExport(const QString &sourceMediaPath,
 void DubbingJobRunner::setPreviewPath(const QString &path)
 {
     m_previewPath = path;
+    const QString vocalPath = AudioTimelineMixer::vocalStemPath(path);
+    m_dubbedVocalPath = QFileInfo::exists(vocalPath) ? vocalPath : QString();
     emit stateChanged();
 }
 

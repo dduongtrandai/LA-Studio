@@ -45,6 +45,7 @@ public:
     int progress() const { return m_run.progress(); }
     QString lastError() const { return m_run.lastError(); }
     QString previewPath() const { return m_previewPath; }
+    QString dubbedVocalPath() const { return m_dubbedVocalPath; }
     QString exportPath() const { return m_exportPath; }
     QString runId() const { return m_run.runId(); }
     QString nodeRunId() const { return m_run.nodeRunId(); }
@@ -101,6 +102,7 @@ private:
 
     DubbingRunCoordinator m_run;
     QString m_previewPath;
+    QString m_dubbedVocalPath;
     QString m_exportPath;
 
     QVariantList m_activeSegments;

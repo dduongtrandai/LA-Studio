@@ -22,6 +22,13 @@ QVector<float> AudioTimelineMixer::resampleToCount(const QVector<float> &source,
     return result;
 }
 
+QString AudioTimelineMixer::vocalStemPath(const QString &outputPath)
+{
+    if (outputPath.isEmpty()) return QString();
+    const QFileInfo info(outputPath);
+    return info.dir().filePath(info.completeBaseName() + QStringLiteral("-vocals.wav"));
+}
+
 bool AudioTimelineMixer::mixSegments(const QVariantList &segments, const QString &outputPath, QString *error)
 {
     return mixSegments(segments, outputPath, QString(), error, nullptr);
@@ -30,6 +37,13 @@ bool AudioTimelineMixer::mixSegments(const QVariantList &segments, const QString
 bool AudioTimelineMixer::mixSegments(const QVariantList &segments, const QString &outputPath,
                                      const QString &backgroundPath, QString *error,
                                      QAtomicInteger<bool> *cancel)
+{
+    return mixSegments(segments, outputPath, backgroundPath, QString(), error, cancel);
+}
+
+bool AudioTimelineMixer::mixSegments(const QVariantList &segments, const QString &outputPath,
+                                     const QString &backgroundPath, const QString &vocalOutputPath,
+                                     QString *error, QAtomicInteger<bool> *cancel)
 {
     auto isCancelled = [cancel]() { return cancel && cancel->loadAcquire(); };
     if (isCancelled()) {
@@ -62,20 +76,6 @@ bool AudioTimelineMixer::mixSegments(const QVariantList &segments, const QString
     }
 
     QVector<float> mix(static_cast<int>(outputSamples), 0.0f);
-    if (!backgroundPath.isEmpty() && QFileInfo::exists(backgroundPath)) {
-        const WavIO::WavData background = WavIO::loadAsFloat(backgroundPath);
-        if (!background.samples.isEmpty() && background.sampleRate > 0) {
-            for (int i = 0; i < mix.size(); ++i) {
-                if ((i & 0x3fff) == 0 && isCancelled()) {
-                    if (error) *error = QStringLiteral("Audio mix cancelled.");
-                    return false;
-                }
-                const int source = qMin(background.samples.size() - 1,
-                                        static_cast<int>(static_cast<double>(i) * background.sampleRate / outputRate));
-                mix[i] = background.samples.at(source) * 0.35f;
-            }
-        }
-    }
     for (const QVariant &entry : segments) {
         if (isCancelled()) {
             if (error) *error = QStringLiteral("Audio mix cancelled.");
@@ -91,6 +91,27 @@ bool AudioTimelineMixer::mixSegments(const QVariantList &segments, const QString
             const qint64 destination = startSample + static_cast<qint64>(i) * outputRate / clip.sampleRate;
             if (destination >= 0 && destination < mix.size()) {
                 mix[static_cast<int>(destination)] = qBound(-1.0f, mix[static_cast<int>(destination)] + clip.samples.at(i), 1.0f);
+            }
+        }
+    }
+
+    if (!vocalOutputPath.isEmpty()
+        && !WavIO::saveFloat(vocalOutputPath, mix.constData(), mix.size(), outputRate)) {
+        if (error) *error = QStringLiteral("Failed to render vocal preview WAV: %1").arg(vocalOutputPath);
+        return false;
+    }
+
+    if (!backgroundPath.isEmpty() && QFileInfo::exists(backgroundPath)) {
+        const WavIO::WavData background = WavIO::loadAsFloat(backgroundPath);
+        if (!background.samples.isEmpty() && background.sampleRate > 0) {
+            for (int i = 0; i < mix.size(); ++i) {
+                if ((i & 0x3fff) == 0 && isCancelled()) {
+                    if (error) *error = QStringLiteral("Audio mix cancelled.");
+                    return false;
+                }
+                const int source = qMin(background.samples.size() - 1,
+                                        static_cast<int>(static_cast<double>(i) * background.sampleRate / outputRate));
+                mix[i] = qBound(-1.0f, mix.at(i) + background.samples.at(source) * 0.35f, 1.0f);
             }
         }
     }

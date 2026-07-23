@@ -82,20 +82,28 @@ bool DubbingExportJob::renderPreview(const QVariantList &segments, const QString
     m_running = true;
     m_renderStagingPath = outputPath + QStringLiteral(".workflow-")
         + QUuid::createUuid().toString(QUuid::WithoutBraces) + QStringLiteral(".staging");
+    const QString vocalOutputPath = AudioTimelineMixer::vocalStemPath(outputPath);
+    m_renderVocalStagingPath = vocalOutputPath + QStringLiteral(".workflow-")
+        + QUuid::createUuid().toString(QUuid::WithoutBraces) + QStringLiteral(".staging");
     m_renderCancel = std::make_shared<QAtomicInteger<bool>>(false);
     const auto cancel = m_renderCancel;
     const QString stagingPath = m_renderStagingPath;
+    const QString vocalStagingPath = m_renderVocalStagingPath;
     emit progressChanged(QStringLiteral("mix"), 0);
     m_renderWatcher->setFuture(QtConcurrent::run(
-        [segments, outputPath, stagingPath, backgroundPath, cancel]() {
+        [segments, outputPath, stagingPath, backgroundPath, vocalOutputPath, vocalStagingPath, cancel]() {
         QString error;
         const bool mixed = AudioTimelineMixer::mixSegments(
-            segments, stagingPath, backgroundPath, &error, cancel.get());
-        const bool committed = mixed && !cancel->loadAcquire()
+            segments, stagingPath, backgroundPath, vocalStagingPath, &error, cancel.get());
+        const bool vocalCommitted = mixed && !cancel->loadAcquire()
+            && AtomicMediaCommit::commit(vocalStagingPath, vocalOutputPath, &error);
+        const bool committed = vocalCommitted && !cancel->loadAcquire()
             && AtomicMediaCommit::commit(stagingPath, outputPath, &error);
         QFile::remove(stagingPath);
+        QFile::remove(vocalStagingPath);
         return QVariantMap{{QStringLiteral("success"), committed},
                            {QStringLiteral("outputPath"), outputPath},
+                           {QStringLiteral("vocalOutputPath"), vocalOutputPath},
                            {QStringLiteral("error"), error}};
     }));
     return true;
@@ -156,6 +164,7 @@ void DubbingExportJob::cancel()
     if (m_renderCancel) m_renderCancel->storeRelease(true);
     if (m_mediaTools) m_mediaTools->cancel();
     QFile::remove(m_renderStagingPath);
+    QFile::remove(m_renderVocalStagingPath);
     QFile::remove(m_exportStagingPath);
     QFile::remove(m_exportSubtitlePath);
     m_running = false;
@@ -166,7 +175,9 @@ void DubbingExportJob::onRenderFinished()
 {
     const QVariantMap result = m_renderWatcher->result();
     QFile::remove(m_renderStagingPath);
+    QFile::remove(m_renderVocalStagingPath);
     m_renderStagingPath.clear();
+    m_renderVocalStagingPath.clear();
     m_renderCancel.reset();
     m_running = false;
     if (!result.value(QStringLiteral("success")).toBool()) {

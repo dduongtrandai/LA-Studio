@@ -25,6 +25,7 @@ private slots:
     void selectsBestAutomaticVoiceReference();
     void audioGenerationUsesAutomaticVoiceReference();
     void audioMixRunsAsynchronously();
+    void audioMixCreatesIndependentVocalStem();
     void commitsMediaExportAtomically();
     void sourceTextEditInvalidatesWordTiming();
     void unchangedTextEditPreservesTranslationMetadata();

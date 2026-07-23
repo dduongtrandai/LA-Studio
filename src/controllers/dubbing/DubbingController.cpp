@@ -540,6 +540,11 @@ QString DubbingController::previewPath() const
     return m_runner->previewPath();
 }
 
+QString DubbingController::dubbedVocalPath() const
+{
+    return m_runner->dubbedVocalPath();
+}
+
 QUrl DubbingController::playbackMediaUrl() const
 {
     const QString exported = m_runner ? m_runner->exportPath() : QString();
@@ -2090,6 +2095,35 @@ bool DubbingController::exportMedia(const QString &path)
                                  m_project.segments);
 }
 
+bool DubbingController::exportAudioStem(const QString &stem, const QString &path)
+{
+    const QString outputPath = QFileInfo(PathUtils::urlToLocalPath(path)).absoluteFilePath();
+    if (outputPath.isEmpty()) {
+        setError(QStringLiteral("Choose an audio output path."));
+        return false;
+    }
+
+    QString sourcePath;
+    if (stem == QStringLiteral("mix")) sourcePath = previewPath();
+    else if (stem == QStringLiteral("vocal")) sourcePath = dubbedVocalPath();
+    else if (stem == QStringLiteral("background")) sourcePath = m_project.backgroundAudioPath;
+    else {
+        setError(QStringLiteral("Unknown audio stem: %1").arg(stem));
+        return false;
+    }
+    if (sourcePath.isEmpty() || !QFileInfo::exists(sourcePath)) {
+        setError(QStringLiteral("The %1 audio stem is not available yet.").arg(stem));
+        return false;
+    }
+    QString error;
+    if (!replaceCopy(sourcePath, outputPath, &error)) {
+        setError(error);
+        return false;
+    }
+    clearError();
+    return true;
+}
+
 bool DubbingController::exportSubtitles(const QString &path, bool useTargetText)
 {
     const QString outputPath = QFileInfo(PathUtils::urlToLocalPath(path)).absoluteFilePath();
@@ -2128,6 +2162,7 @@ bool DubbingController::exportPackage(const QString &directoryPath)
     if (!m_project.save(&error)
         || !replaceCopy(m_project.projectPath, directory.filePath(QStringLiteral("project.ladub.json")), &error)
         || !replaceCopy(previewPath(), directory.filePath(QStringLiteral("dubbed-mix.wav")), &error)
+        || !replaceCopy(dubbedVocalPath(), directory.filePath(QStringLiteral("dubbed-vocals.wav")), &error)
         || !replaceCopy(m_project.analysisAudioPath, directory.filePath(QStringLiteral("source-vocals.wav")), &error)
         || !replaceCopy(m_project.backgroundAudioPath, directory.filePath(QStringLiteral("background.wav")), &error)) {
         setError(error);
