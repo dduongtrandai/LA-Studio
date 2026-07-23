@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.21)
 
 # This is the single source of truth for the application version. Release
 # automation may override it with -DLASTUDIO_VERSION=<major.minor.patch>.
-set(LASTUDIO_VERSION "0.1.11" CACHE STRING "LA Studio application version")
+set(LASTUDIO_VERSION "0.2.0" CACHE STRING "LA Studio application version")
 if(NOT LASTUDIO_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
     message(FATAL_ERROR "LASTUDIO_VERSION must use MAJOR.MINOR.PATCH format; got '${LASTUDIO_VERSION}'")
 endif()
