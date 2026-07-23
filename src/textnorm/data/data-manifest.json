@@ -1,0 +1,10 @@
+{
+  "source": "vietnormalizer",
+  "version": "0.2.3",
+  "upstreamCommit": "dd38778731d6ca4e9e670a19abb2df1c901a1852",
+  "status": "full-upstream-dictionary",
+  "acronymsSha256": "3A6FBBF1D998B89353F068D3E73CFE3264A483EEC1885265B201BCD7B81E5345",
+  "foreignWordsSha256": "3680E26A064B8AD55566556F19F10C58DBBBE31BF448CC9D8C2E62C5C163013",
+  "acronymEntries": 8,
+  "foreignWordEntries": 17718
+}

@@ -76,6 +76,10 @@ endif()
 
 include(cmake/Dependencies.cmake)
 
+# Vietnamese text normalization is kept as an isolated target so it can be
+# extracted into a standalone repository/package later.
+add_subdirectory(src/textnorm)
+
 # Require per-directory qmldir handling for Qt QML module sources.
 qt_policy(SET QTP0004 NEW)
 
@@ -129,6 +133,8 @@ set(LASTUDIO_SOURCES
     src/tts/TtsEngine.cpp
     src/tts/TtsEngineInstance.cpp
     src/tts/TtsWorker.cpp
+    src/tts/TextNormalizationPolicy.cpp
+    src/tts/TtsTextPreprocessor.cpp
     src/tts/TtsRequestValidator.cpp
     src/tts/backends/TtsBackendFactory.cpp
     src/tts/backends/KokoroBackend.cpp
@@ -280,6 +286,8 @@ set(LASTUDIO_HEADERS
     src/tts/TtsEngine.h
     src/tts/TtsEngineInstance.h
     src/tts/TtsWorker.h
+    src/tts/TextNormalizationPolicy.h
+    src/tts/TtsTextPreprocessor.h
     src/tts/TtsRequestValidator.h
     src/tts/backends/TtsBackend.h
     src/tts/backends/TtsBackendFactory.h
@@ -573,6 +581,7 @@ if(ENABLE_OMNIVOICE)
 endif()
 
 target_link_libraries(LAStudio PRIVATE
+    vietnorm::vietnorm
     Qt6::Quick
     Qt6::QuickControls2
     Qt6::Multimedia

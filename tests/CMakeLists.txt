@@ -11,6 +11,7 @@ set(TEST_SOURCES
     test_ModelsAndRuntimes.cpp
     test_SttSession.cpp
     test_SubtitleVoice.cpp
+    test_TtsTextPreprocessor.cpp
     test_StudioCapabilities.cpp
     test_AlignmentTranscriptMatcher.cpp
     test_AlignmentWorkflow.cpp
@@ -76,6 +77,8 @@ set(TEST_SOURCES
     ../src/controllers/tts/SubtitleVoiceController.cpp
     ../src/subtitles/SrtTimelineParser.cpp
     ../src/tts/SubtitleSmartFitPlanner.cpp
+    ../src/tts/TextNormalizationPolicy.cpp
+    ../src/tts/TtsTextPreprocessor.cpp
     ../src/tts/TimedSpeechPipeline.cpp
     ../src/audio/AudioTimelineRenderer.cpp
     ../src/controllers/stt/SttAudioDecoder.cpp
@@ -250,6 +253,7 @@ target_include_directories(LAStudioUnitTests PRIVATE
 )
 
 target_link_libraries(LAStudioUnitTests PRIVATE
+    vietnorm::vietnorm
     Qt6::Core
     Qt6::Test
     Qt6::Concurrent

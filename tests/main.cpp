@@ -18,6 +18,7 @@
 #include "test_SourceSeparation.h"
 #include "test_RuntimeHostProtocol.h"
 #include "test_SubtitleVoice.h"
+#include "test_TtsTextPreprocessor.h"
 
 #include <QFile>
 #include <QTextStream>
@@ -142,6 +143,11 @@ int main(int argc, char *argv[])
     {
         LAStudio::TestRuntimeHostProtocol suite;
         runSuite(&suite, "TestRuntimeHostProtocol");
+    }
+
+    {
+        LAStudio::TestTtsTextPreprocessor suite;
+        runSuite(&suite, "TestTtsTextPreprocessor");
     }
 
     std::cout << "\n==================================================\n";

@@ -1,4 +1,5 @@
 #include "TtsEngineInstance.h"
+#include "TtsTextPreprocessor.h"
 #include "TtsWorker.h"
 #include "TtsRequestValidator.h"
 #include "core/Logger.h"
@@ -10,6 +11,7 @@
 #include <QTimer>
 #include <QFileInfo>
 #include <QDir>
+#include <QRegularExpression>
 #include <QStringList>
 #include <cstdint>
 #include <algorithm>
@@ -472,11 +474,30 @@ void TtsEngineInstance::synthesize(const QString &text, int speakerId, float spe
                  QStringLiteral("Normalized TTS request: family=\"%1\", runtime=\"%2\", settings={%3}")
                      .arg(familyId, m_lastRuntimePath, settingParts.join(QStringLiteral(", "))));
 
+    QString normalizationProfile;
+    const QString preparedText = TtsTextPreprocessor::prepare(text, studioConfig, normalizedSettings,
+                                                                &normalizationProfile);
+    // A number-only utterance cannot be language-detected by the UI and is
+    // otherwise sent to multilingual backends with their English default.
+    // The vietnorm profile is explicitly Vietnamese, so keep numeric TTS in
+    // Vietnamese while leaving explicit language choices for real sentences.
+    const QRegularExpression numericOnly(QStringLiteral("^[\\s\\d.,%/+\\-]+$"));
+    if (normalizationProfile.compare(QStringLiteral("safe-vi-tts-v1"), Qt::CaseInsensitive) == 0
+        && numericOnly.match(text).hasMatch()
+        && normalizedSettings.value(QStringLiteral("lang")).toString().compare(QStringLiteral("en"), Qt::CaseInsensitive) == 0) {
+        normalizedSettings.insert(QStringLiteral("lang"), QStringLiteral("vi"));
+        Logger::info("TtsEngineInstance", QStringLiteral("Selected lang=vi for numeric Vietnamese normalization input"));
+    }
+    if (preparedText != text) {
+        Logger::info("TtsEngineInstance", QStringLiteral("Applied text normalization profile=\"%1\" chars=%2->%3")
+                     .arg(normalizationProfile).arg(text.size()).arg(preparedText.size()));
+    }
+
     m_isCloneAction = false;
     m_lastGenerationMode = QStringLiteral("tts");
     emit lastGenerationModeChanged();
 
-    dispatch(EventSynthesize{text, speakerId, speed, normalizedSettings});
+    dispatch(EventSynthesize{preparedText, speakerId, speed, normalizedSettings});
 }
 
 void TtsEngineInstance::cloneVoice(const QString &text, const QString &referencePath, const QVariantMap &settings)
@@ -487,11 +508,21 @@ void TtsEngineInstance::cloneVoice(const QString &text, const QString &reference
     else if (cleanPath.startsWith(QStringLiteral("file://")))
         cleanPath = cleanPath.mid(7);
 
+    const QVariantMap studioConfig = studioConfigForCapability(QStringLiteral("voice-cloning"));
+    QString normalizationProfile;
+    const QString preparedText = TtsTextPreprocessor::prepare(text, studioConfig, settings,
+                                                               &normalizationProfile);
+    if (preparedText != text) {
+        Logger::info("TtsEngineInstance",
+                     QStringLiteral("Applied voice-cloning text normalization profile=\"%1\" chars=%2->%3")
+                         .arg(normalizationProfile).arg(text.size()).arg(preparedText.size()));
+    }
+
     m_isCloneAction = true;
     m_lastGenerationMode = QStringLiteral("voice-cloning");
     emit lastGenerationModeChanged();
 
-    dispatch(EventCloneVoice{text, cleanPath, settings});
+    dispatch(EventCloneVoice{preparedText, cleanPath, settings});
 }
 
 void TtsEngineInstance::designVoice(const QString &text, const QVariantMap &settings)

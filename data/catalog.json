@@ -1574,6 +1574,11 @@
         "tts": {
           "layout": "tts",
           "action": "synthesize",
+          "textNormalization": {
+            "policy": "vietnorm",
+            "profile": "safe-vi-tts-v1",
+            "transliteration": false
+          },
           "inputs": [
             "text"
           ],
@@ -2670,6 +2675,11 @@
         "tts": {
           "layout": "tts",
           "action": "synthesize",
+          "textNormalization": {
+            "policy": "vietnorm",
+            "profile": "safe-vi-tts-v1",
+            "transliteration": false
+          },
           "inputs": [
             "text",
             "language"
@@ -2756,6 +2766,11 @@
         "voice-cloning": {
           "layout": "voice-cloning",
           "action": "clone",
+          "textNormalization": {
+            "policy": "vietnorm",
+            "profile": "safe-vi-tts-v1",
+            "transliteration": false
+          },
           "inputs": [
             "text",
             "language",
