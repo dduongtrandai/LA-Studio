@@ -8,11 +8,15 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QFileInfo>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QProcess>
 #include <QRegularExpression>
 #include <QSettings>
+#include <QStandardPaths>
+#include <QTimer>
 #include <QUrl>
 
 namespace LAStudio {
@@ -91,6 +95,9 @@ DubbingTranslationFixService::DubbingTranslationFixService(QObject *parent)
          settings.value(QStringLiteral("dubbing/adaptiveProvider"),
                         settings.value(QStringLiteral("dubbing/cinematicProvider"),
                                        QStringLiteral("lmstudio"))).toString()},
+        {QStringLiteral("cliAgent"),
+         settings.value(QStringLiteral("dubbing/adaptiveCliAgent"),
+                        QStringLiteral("claude")).toString()},
         {QStringLiteral("configured"),
          settings.value(QStringLiteral("dubbing/adaptiveConfigured"),
                         settings.value(QStringLiteral("dubbing/cinematicConfigured"), false)).toBool()},
@@ -120,9 +127,16 @@ QVariantMap DubbingTranslationFixService::normalizedConfiguration(
     QString provider = configuration.value(QStringLiteral("provider"),
                                            QStringLiteral("lmstudio"))
                            .toString().trimmed().toLower();
-    if (provider != QStringLiteral("api") && provider != QStringLiteral("local"))
+    if (provider != QStringLiteral("api") && provider != QStringLiteral("local") && provider != QStringLiteral("cli"))
         provider = QStringLiteral("lmstudio");
     result.insert(QStringLiteral("provider"), provider);
+
+    QString cliAgent = configuration.value(QStringLiteral("cliAgent"),
+                                            QStringLiteral("claude"))
+                           .toString().trimmed().toLower();
+    if (cliAgent != QStringLiteral("codex") && cliAgent != QStringLiteral("antigravity"))
+        cliAgent = QStringLiteral("claude");
+    result.insert(QStringLiteral("cliAgent"), cliAgent);
     result.insert(QStringLiteral("configured"),
                   configuration.value(QStringLiteral("configured"), false).toBool());
     result.insert(QStringLiteral("serverUrl"),
@@ -146,6 +160,44 @@ QVariantMap DubbingTranslationFixService::normalizedConfiguration(
     result.insert(QStringLiteral("temperature"),
                   qBound(0.0, configuration.value(QStringLiteral("temperature"), 0.35).toDouble(), 1.5));
     return result;
+}
+
+QString DubbingTranslationFixService::cliExecutablePath(const QString &cliAgent)
+{
+    const QString normalized = cliAgent.trimmed().toLower();
+    QString program = QStringLiteral("claude");
+    if (normalized == QStringLiteral("codex"))
+        program = QStringLiteral("codex");
+    else if (normalized == QStringLiteral("antigravity"))
+        program = QStringLiteral("agy");
+
+    const QString fromPath = QStandardPaths::findExecutable(program);
+    if (!fromPath.isEmpty()) return fromPath;
+
+#ifdef Q_OS_WIN
+    QStringList candidates;
+    const QString localAppData = qEnvironmentVariable("LOCALAPPDATA");
+    const QString appData = qEnvironmentVariable("APPDATA");
+    const QString userProfile = qEnvironmentVariable("USERPROFILE");
+    if (normalized == QStringLiteral("antigravity") && !localAppData.isEmpty()) {
+        candidates << localAppData + QStringLiteral("/agy/bin/agy.exe");
+    } else if (normalized == QStringLiteral("codex")) {
+        if (!appData.isEmpty())
+            candidates << appData + QStringLiteral("/npm/codex.cmd");
+        if (!localAppData.isEmpty())
+            candidates << localAppData + QStringLiteral("/Programs/codex/codex.exe");
+    } else if (normalized == QStringLiteral("claude")) {
+        if (!userProfile.isEmpty())
+            candidates << userProfile + QStringLiteral("/.local/bin/claude.exe");
+        if (!localAppData.isEmpty())
+            candidates << localAppData + QStringLiteral("/Programs/claude/claude.exe");
+    }
+    for (const QString &candidate : std::as_const(candidates)) {
+        const QFileInfo info(candidate);
+        if (info.isFile()) return info.absoluteFilePath();
+    }
+#endif
+    return {};
 }
 
 void DubbingTranslationFixService::setConfiguration(const QVariantMap &configuration)
@@ -211,6 +263,8 @@ void DubbingTranslationFixService::saveConfiguration()
     QSettings settings(settingsPath(), QSettings::IniFormat);
     settings.setValue(QStringLiteral("dubbing/adaptiveProvider"),
                       m_configuration.value(QStringLiteral("provider")));
+    settings.setValue(QStringLiteral("dubbing/adaptiveCliAgent"),
+                      m_configuration.value(QStringLiteral("cliAgent")));
     settings.setValue(QStringLiteral("dubbing/adaptiveConfigured"),
                       m_configuration.value(QStringLiteral("configured")));
     settings.setValue(QStringLiteral("dubbing/translationFixServerUrl"),
@@ -245,22 +299,33 @@ bool DubbingTranslationFixService::start(
         setError(QStringLiteral("Local translation models do not use the remote rewrite service."));
         return false;
     }
-    const QString base = normalizedServerBase(
-        m_configuration.value(QStringLiteral("serverUrl")).toString());
-    const QUrl endpoint(provider == QStringLiteral("api")
-                            ? base + QStringLiteral("/v1/chat/completions")
-                            : base + QStringLiteral("/api/v1/chat"));
-    if (!endpoint.isValid() || endpoint.host().isEmpty()) {
-        setError(provider == QStringLiteral("api")
-                     ? QStringLiteral("LLM API URL is invalid.")
-                     : QStringLiteral("LM Studio server URL is invalid."));
-        return false;
-    }
-    if (m_configuration.value(QStringLiteral("model")).toString().isEmpty()) {
-        setError(provider == QStringLiteral("api")
-                     ? QStringLiteral("LLM API model identifier is required.")
-                     : QStringLiteral("LM Studio model identifier is required."));
-        return false;
+    if (provider == QStringLiteral("cli")) {
+        const QString cliAgent = m_configuration.value(QStringLiteral("cliAgent"), QStringLiteral("claude")).toString();
+        QString binName = QStringLiteral("claude");
+        if (cliAgent == QStringLiteral("codex")) binName = QStringLiteral("codex");
+        else if (cliAgent == QStringLiteral("antigravity")) binName = QStringLiteral("agy");
+        if (cliExecutablePath(cliAgent).isEmpty()) {
+            setError(QStringLiteral("Local CLI Agent binary '%1' is not found on system PATH.").arg(binName));
+            return false;
+        }
+    } else {
+        const QString base = normalizedServerBase(
+            m_configuration.value(QStringLiteral("serverUrl")).toString());
+        const QUrl endpoint(provider == QStringLiteral("api")
+                                ? base + QStringLiteral("/v1/chat/completions")
+                                : base + QStringLiteral("/api/v1/chat"));
+        if (!endpoint.isValid() || endpoint.host().isEmpty()) {
+            setError(provider == QStringLiteral("api")
+                         ? QStringLiteral("LLM API URL is invalid.")
+                         : QStringLiteral("LM Studio server URL is invalid."));
+            return false;
+        }
+        if (m_configuration.value(QStringLiteral("model")).toString().isEmpty()) {
+            setError(provider == QStringLiteral("api")
+                         ? QStringLiteral("LLM API model identifier is required.")
+                         : QStringLiteral("LM Studio model identifier is required."));
+            return false;
+        }
     }
 
     m_segments = segments;
@@ -295,8 +360,8 @@ bool DubbingTranslationFixService::start(
     setBusy(true);
     Logger::info(
         QStringLiteral("DubbingTranslationFix"),
-        QStringLiteral("Starting %1 rewrite endpoint=%2 model=%3 segments=%4 selectedIndex=%5 maxAttempts=%6 targetLanguage=%7")
-            .arg(provider, endpoint.toString(),
+        QStringLiteral("Starting %1 rewrite model=%2 segments=%3 selectedIndex=%4 maxAttempts=%5 targetLanguage=%6")
+            .arg(provider,
                  m_configuration.value(QStringLiteral("model")).toString())
             .arg(m_eligibleIndices.size()).arg(segmentIndex).arg(m_maxAttempts)
             .arg(targetLanguage));
@@ -314,6 +379,29 @@ void DubbingTranslationFixService::testConnection(
     if (provider == QStringLiteral("local")) {
         saveConfiguration();
         emit connectionTested(true, QStringLiteral("Local LA Studio model selected."));
+        emit stateChanged();
+        return;
+    }
+    if (provider == QStringLiteral("cli")) {
+        const QString cliAgent = m_configuration.value(QStringLiteral("cliAgent"), QStringLiteral("claude")).toString();
+        QString binName = QStringLiteral("claude");
+        QString displayName = QStringLiteral("Claude Code");
+        if (cliAgent == QStringLiteral("codex")) {
+            binName = QStringLiteral("codex");
+            displayName = QStringLiteral("Codex CLI");
+        } else if (cliAgent == QStringLiteral("antigravity")) {
+            binName = QStringLiteral("agy");
+            displayName = QStringLiteral("Google Antigravity");
+        }
+        saveConfiguration();
+        const QString exePath = cliExecutablePath(cliAgent);
+        if (!exePath.isEmpty()) {
+            emit connectionTested(true, QStringLiteral("Local CLI Agent \"%1\" is available on system PATH (%2).")
+                                            .arg(displayName, exePath));
+        } else {
+            emit connectionTested(false, QStringLiteral("CLI binary \"%1\" was not found on system PATH.")
+                                             .arg(binName));
+        }
         emit stateChanged();
         return;
     }
@@ -407,6 +495,11 @@ void DubbingTranslationFixService::cancel()
     if (!m_busy && !m_testing) return;
     QNetworkReply *reply = m_reply;
     m_reply = nullptr;
+    if (m_cliProcess) {
+        m_cliProcess->kill();
+        m_cliProcess->deleteLater();
+        m_cliProcess = nullptr;
+    }
     m_testing = false;
     if (m_busy) {
         setStatus(QStringLiteral("Translation fix cancelled."));
@@ -454,9 +547,14 @@ void DubbingTranslationFixService::beginSegment()
 void DubbingTranslationFixService::requestAttempt()
 {
     if (!m_busy) return;
+    const QString provider = m_configuration.value(QStringLiteral("provider")).toString();
+    if (provider == QStringLiteral("cli")) {
+        executeCliAttempt();
+        return;
+    }
+
     const QVariantMap segment =
         m_segments.at(m_eligibleIndices.at(m_segmentPosition)).toMap();
-    const QString provider = m_configuration.value(QStringLiteral("provider")).toString();
     QJsonObject payload;
     payload.insert(QStringLiteral("model"),
                    m_configuration.value(QStringLiteral("model")).toString());
@@ -518,6 +616,186 @@ void DubbingTranslationFixService::requestAttempt()
     });
 }
 
+void DubbingTranslationFixService::executeCliAttempt()
+{
+    if (!m_busy) return;
+    const QVariantMap segment =
+        m_segments.at(m_eligibleIndices.at(m_segmentPosition)).toMap();
+    const QString cliAgent = m_configuration.value(QStringLiteral("cliAgent"), QStringLiteral("claude")).toString();
+    const QString model = m_configuration.value(QStringLiteral("model")).toString();
+
+    QString program;
+    QStringList args;
+
+    if (cliAgent == QStringLiteral("codex")) {
+        program = QStringLiteral("codex");
+        args << QStringLiteral("exec") << QStringLiteral("--json")
+             << QStringLiteral("--ephemeral")
+             << QStringLiteral("--sandbox") << QStringLiteral("read-only")
+             << QStringLiteral("--skip-git-repo-check");
+        if (!model.isEmpty() && model != QStringLiteral("default")) {
+            args << QStringLiteral("--model") << model;
+        }
+    } else if (cliAgent == QStringLiteral("antigravity")) {
+        program = QStringLiteral("agy");
+        // Antigravity's -p option takes the prompt as its value.  Passing '-'
+        // and then writing stdin leaves the agent with a literal one-character
+        // prompt on current releases.
+        if (!model.isEmpty() && model != QStringLiteral("default"))
+            args << QStringLiteral("--model") << model;
+        args << QStringLiteral("-p");
+    } else {
+        // Claude Code
+        program = QStringLiteral("claude");
+        args << QStringLiteral("-p") << QStringLiteral("--input-format") << QStringLiteral("text")
+             << QStringLiteral("--output-format") << QStringLiteral("json")
+             << QStringLiteral("--no-session-persistence")
+             // This task only needs a text response. Prevent the coding agent
+             // from reading or modifying the project while reviewing subtitles.
+             << QStringLiteral("--tools") << QString();
+        if (!model.isEmpty() && model != QStringLiteral("default")) {
+            args << QStringLiteral("--model") << model;
+        }
+    }
+
+    const QString exePath = cliExecutablePath(cliAgent);
+    if (exePath.isEmpty()) {
+        setError(QStringLiteral("CLI Agent binary '%1' is not found on system PATH.").arg(program));
+        return;
+    }
+
+    const QString systemPrompt = QStringLiteral(
+        "You repair translations for timed dubbing. Preserve the complete source "
+        "meaning and the meaning of the current translation: facts, names, numbers, "
+        "rank/order, time, comparison, causality, and negation. Rewrite naturally in "
+        "the requested target language while meeting the supplied eSpeak NG phoneme "
+        "maximum. Never invent or omit information. Return only the rewritten "
+        "translation, without analysis, labels, quotes, or a phoneme count.");
+
+    const QString fullPrompt = systemPrompt + QStringLiteral("\n\n") + buildPrompt(segment);
+    if (cliAgent == QStringLiteral("antigravity"))
+        args << fullPrompt;
+
+    Logger::info(
+        QStringLiteral("DubbingTranslationFix"),
+        QStringLiteral("CLI Request agent=%1 program=%2 segment=%3 attempt=%4/%5 currentPhonemes=%6")
+            .arg(cliAgent, program, segment.value(QStringLiteral("id")).toString())
+            .arg(m_attempt + 1).arg(m_maxAttempts).arg(m_lastCandidatePhonemes));
+
+    QProcess *process = new QProcess(this);
+    m_cliProcess = process;
+
+    connect(process, &QProcess::finished, this, [this, process](int exitCode, QProcess::ExitStatus status) {
+        if (m_cliProcess == process) m_cliProcess = nullptr;
+        if (!m_busy) {
+            process->deleteLater();
+            return;
+        }
+        if (exitCode != 0 || status != QProcess::NormalExit) {
+            const QString errStr = QString::fromUtf8(process->readAllStandardError()).trimmed();
+            process->deleteLater();
+            setError(QStringLiteral("CLI Agent process failed (exit code %1): %2")
+                         .arg(exitCode).arg(errStr.isEmpty() ? QStringLiteral("Unknown CLI error") : errStr));
+            return;
+        }
+
+        const QByteArray stdoutData = process->readAllStandardOutput();
+        process->deleteLater();
+
+        const QString candidate = parseCliResponse(stdoutData);
+        if (candidate.isEmpty()) {
+            setError(QStringLiteral("CLI Agent returned an empty translation."));
+            return;
+        }
+
+        processCandidate(candidate);
+    });
+
+    QString launchProgram = exePath;
+    QStringList launchArgs = args;
+#ifdef Q_OS_WIN
+    // npm-installed CLIs are commonly exposed as .cmd shims. QProcess cannot
+    // reliably CreateProcess a command script directly, so invoke it through
+    // the native command interpreter.
+    const QString lowerExe = exePath.toLower();
+    if (lowerExe.endsWith(QStringLiteral(".cmd"))
+        || lowerExe.endsWith(QStringLiteral(".bat"))) {
+        launchProgram = QStringLiteral("cmd.exe");
+        launchArgs.prepend(exePath);
+        launchArgs.prepend(QStringLiteral("/c"));
+    }
+#endif
+    process->start(launchProgram, launchArgs);
+    if (!process->waitForStarted(5000)) {
+        process->deleteLater();
+        m_cliProcess = nullptr;
+        setError(QStringLiteral("Failed to launch CLI Agent binary '%1'.").arg(program));
+        return;
+    }
+
+    if (cliAgent != QStringLiteral("antigravity")) {
+        process->write(fullPrompt.toUtf8());
+        process->closeWriteChannel();
+    }
+
+    QTimer::singleShot(180000, process, [this, process]() {
+        if (m_cliProcess != process || !m_busy || !process->state()) return;
+        process->kill();
+        setError(QStringLiteral("CLI Agent timed out while rewriting the translation."));
+    });
+}
+
+QString DubbingTranslationFixService::parseCliResponse(const QByteArray &body)
+{
+    const QString raw = QString::fromUtf8(body).trimmed();
+    if (raw.isEmpty()) return {};
+
+    const QStringList lines = raw.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+    QString lastMessage;
+    QString accumulatedText;
+
+    for (const QString &line : lines) {
+        const QJsonDocument doc = QJsonDocument::fromJson(line.trimmed().toUtf8());
+        if (!doc.isObject()) continue;
+        const QJsonObject obj = doc.object();
+
+        if (obj.contains(QStringLiteral("result")) && obj.value(QStringLiteral("result")).isString()) {
+            return cleanAssistantText(obj.value(QStringLiteral("result")).toString());
+        }
+        // Codex exec --json emits JSONL events such as:
+        // {"type":"item.completed","item":{"type":"agent_message","text":"..."}}
+        const QJsonObject item = obj.value(QStringLiteral("item")).toObject();
+        if (item.value(QStringLiteral("type")).toString() == QStringLiteral("agent_message")) {
+            const QString text = item.value(QStringLiteral("text")).toString();
+            if (!text.isEmpty()) lastMessage = text;
+            continue;
+        }
+        if (obj.value(QStringLiteral("type")).toString() == QStringLiteral("assistant")) {
+            const QJsonObject message = obj.value(QStringLiteral("message")).toObject();
+            const QJsonArray contentArr = message.value(QStringLiteral("content")).toArray();
+            for (const QJsonValue &val : contentArr) {
+                if (val.isObject() && val.toObject().value(QStringLiteral("type")).toString() == QStringLiteral("text")) {
+                    accumulatedText += val.toObject().value(QStringLiteral("text")).toString();
+                }
+            }
+        }
+        if (obj.value(QStringLiteral("type")).toString() == QStringLiteral("agent_message") ||
+            obj.contains(QStringLiteral("content"))) {
+            if (obj.value(QStringLiteral("content")).isString()) {
+                accumulatedText += obj.value(QStringLiteral("content")).toString();
+            }
+        }
+    }
+
+    if (!lastMessage.isEmpty())
+        return cleanAssistantText(lastMessage);
+    if (!accumulatedText.isEmpty()) {
+        return cleanAssistantText(accumulatedText);
+    }
+
+    return cleanAssistantText(raw);
+}
+
 void DubbingTranslationFixService::handleAttemptResponse(QNetworkReply *reply)
 {
     const QByteArray body = reply->readAll();
@@ -567,6 +845,11 @@ void DubbingTranslationFixService::handleAttemptResponse(QNetworkReply *reply)
         return;
     }
 
+    processCandidate(candidate);
+}
+
+void DubbingTranslationFixService::processCandidate(const QString &candidate)
+{
     const QString candidateKey = candidate.simplified().toCaseFolded();
     if (m_seenCandidates.contains(candidateKey)) {
         ++m_attempt;
@@ -770,7 +1053,8 @@ void DubbingTranslationFixService::applyCandidate(
     segment.insert(QStringLiteral("candidateSelectionMetric"), withinBudget
                        ? QStringLiteral("lm-studio-qwen-rewrite-v1")
                        : QStringLiteral("lm-studio-closest-safe-rewrite-v1"));
-    segment.insert(QStringLiteral("rewriteProvider"), QStringLiteral("lm-studio"));
+    segment.insert(QStringLiteral("rewriteProvider"),
+                   m_configuration.value(QStringLiteral("provider")));
     segment.insert(QStringLiteral("rewriteModel"),
                    m_configuration.value(QStringLiteral("model")));
     segment.insert(QStringLiteral("rewriteAttempts"), m_attempt);
@@ -812,6 +1096,11 @@ void DubbingTranslationFixService::setError(const QString &message)
     Logger::error(QStringLiteral("DubbingTranslationFix"), message);
     QNetworkReply *reply = m_reply;
     m_reply = nullptr;
+    if (m_cliProcess) {
+        m_cliProcess->kill();
+        m_cliProcess->deleteLater();
+        m_cliProcess = nullptr;
+    }
     setBusy(false);
     if (reply) {
         reply->abort();

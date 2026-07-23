@@ -9,6 +9,7 @@ Dialog {
 
     required property var dubbing
     property string selectedProvider: "lmstudio"
+    property string selectedCliAgent: "claude"
     property string connectionMessage: ""
     property bool connectionSuccess: false
     signal localModelRequested()
@@ -16,8 +17,9 @@ Dialog {
     function loadConfiguration() {
         var config = dubbing.translationFixConfiguration || {}
         selectedProvider = config.provider || "lmstudio"
+        selectedCliAgent = config.cliAgent || "claude"
         serverUrlField.text = config.serverUrl || "http://127.0.0.1:1234"
-        modelField.text = config.model || "qwen3.5-2b"
+        modelField.text = config.model || (selectedProvider === "cli" ? "default" : "qwen3.5-2b")
         apiKeyField.text = config.apiKey || ""
         connectionMessage = ""
         connectionSuccess = false
@@ -27,6 +29,7 @@ Dialog {
         var saved = dubbing.translationFixConfiguration || {}
         return {
             provider: selectedProvider,
+            cliAgent: selectedCliAgent,
             serverUrl: serverUrlField.text.trim(),
             model: modelField.text.trim(),
             runtimeId: selectedProvider === "local" ? (saved.runtimeId || "") : "",
@@ -147,19 +150,62 @@ Dialog {
                         privacyText: root.localModelConfiguredState() ? qsTr("Configured") : qsTr("Local")
                         onClicked: { root.selectedProvider = "local"; root.connectionSuccess = false }
                     }
+                    ProviderRow {
+                        title: qsTr("Local CLI Agent")
+                        description: qsTr("Use installed Claude Code, Codex, or Antigravity CLI")
+                        iconName: "spark"
+                        selected: root.selectedProvider === "cli"
+                        privacyText: qsTr("CLI")
+                        onClicked: { root.selectedProvider = "cli"; root.connectionSuccess = false; if (modelField.text === "qwen3.5-2b" || modelField.text === "") modelField.text = "default" }
+                    }
                 }
 
                 ColumnLayout {
                     Layout.fillWidth: true
                     Layout.leftMargin: Theme.paddingLarge; Layout.rightMargin: Theme.paddingLarge
                     spacing: Theme.paddingSmall
-                    visible: root.selectedProvider !== "local"
+                    visible: root.selectedProvider === "api" || root.selectedProvider === "lmstudio"
                     Text { text: root.selectedProvider === "api" ? qsTr("API base URL") : qsTr("LM Studio server URL"); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
                     ConfigField { id: serverUrlField; Layout.fillWidth: true; placeholderText: root.selectedProvider === "api" ? "https://api.example.com" : "http://127.0.0.1:1234"; onTextEdited: root.connectionSuccess = false }
                     Text { Layout.topMargin: Theme.paddingSmall; text: qsTr("Model identifier"); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
                     ConfigField { id: modelField; Layout.fillWidth: true; placeholderText: root.selectedProvider === "api" ? "model-id" : "qwen3.5-2b"; onTextEdited: root.connectionSuccess = false }
                     Text { Layout.topMargin: Theme.paddingSmall; text: qsTr("API key (optional for local servers)"); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
                     ConfigField { id: apiKeyField; Layout.fillWidth: true; echoMode: TextInput.Password; placeholderText: qsTr("Stored locally in LA Studio settings"); onTextEdited: root.connectionSuccess = false }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: Theme.paddingLarge; Layout.rightMargin: Theme.paddingLarge
+                    spacing: Theme.paddingSmall
+                    visible: root.selectedProvider === "cli"
+                    Text { text: qsTr("CLI Agent Provider"); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.paddingSmall
+                        PrimaryButton {
+                            text: "Claude Code"
+                            quiet: root.selectedCliAgent !== "claude"
+                            onClicked: { root.selectedCliAgent = "claude"; root.connectionSuccess = false }
+                        }
+                        PrimaryButton {
+                            text: "Codex CLI"
+                            quiet: root.selectedCliAgent !== "codex"
+                            onClicked: { root.selectedCliAgent = "codex"; root.connectionSuccess = false }
+                        }
+                        PrimaryButton {
+                            text: "Antigravity"
+                            quiet: root.selectedCliAgent !== "antigravity"
+                            onClicked: { root.selectedCliAgent = "antigravity"; root.connectionSuccess = false }
+                        }
+                    }
+                    Text { Layout.topMargin: Theme.paddingSmall; text: qsTr("Model override (optional, e.g. 'default', 'sonnet', 'gpt-4o')"); color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
+                    ConfigField {
+                        id: cliModelField
+                        Layout.fillWidth: true
+                        text: modelField.text
+                        placeholderText: "default"
+                        onTextEdited: { modelField.text = text; root.connectionSuccess = false }
+                    }
                 }
 
                 Rectangle {
@@ -212,7 +258,7 @@ Dialog {
             PrimaryButton {
                 visible: root.selectedProvider !== "local"
                 text: qsTr("Test connection"); iconName: "activity"; quiet: true
-                enabled: serverUrlField.text.trim() !== "" && modelField.text.trim() !== ""
+                enabled: root.selectedProvider === "cli" ? true : (serverUrlField.text.trim() !== "" && modelField.text.trim() !== "")
                 onClicked: { root.connectionMessage = qsTr("Checking provider…"); root.connectionSuccess = false; root.dubbing.testTranslationFixConnection(root.currentConfiguration()) }
             }
             Item { Layout.fillWidth: true }

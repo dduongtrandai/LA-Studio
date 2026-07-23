@@ -70,6 +70,18 @@ void TestDubbingProject::normalizesLmStudioTranslationFixConfiguration()
     QCOMPARE(invalidProvider.value(QStringLiteral("provider")).toString(),
              QStringLiteral("lmstudio"));
     QVERIFY(!invalidProvider.value(QStringLiteral("configured")).toBool());
+
+    const QVariantMap cliConfig =
+        DubbingTranslationFixService::normalizedConfiguration({
+            {QStringLiteral("provider"), QStringLiteral("cli")},
+            {QStringLiteral("cliAgent"), QStringLiteral("codex")},
+            {QStringLiteral("model"), QStringLiteral("gpt-4o")},
+            {QStringLiteral("configured"), true}
+        });
+    QCOMPARE(cliConfig.value(QStringLiteral("provider")).toString(), QStringLiteral("cli"));
+    QCOMPARE(cliConfig.value(QStringLiteral("cliAgent")).toString(), QStringLiteral("codex"));
+    QCOMPARE(cliConfig.value(QStringLiteral("model")).toString(), QStringLiteral("gpt-4o"));
+    QVERIFY(cliConfig.value(QStringLiteral("configured")).toBool());
 }
 
 void TestDubbingProject::parsesLmStudioTranslationFixResponses()
@@ -83,6 +95,20 @@ void TestDubbingProject::parsesLmStudioTranslationFixResponses()
         DubbingTranslationFixService::cleanAssistantText(
             QStringLiteral("```text\nMột câu khác.\n```")),
         QStringLiteral("Một câu khác."));
+    QCOMPARE(
+        DubbingTranslationFixService::parseCliResponse(
+            QByteArray("{\"type\":\"thread.started\"}\n"
+                       "{\"type\":\"item.completed\",\"item\":{\"type\":\"agent_message\",\"text\":\"Bản dịch Codex.\"}}\n"
+                       "{\"type\":\"turn.completed\"}\n")),
+        QStringLiteral("Bản dịch Codex."));
+    QCOMPARE(
+        DubbingTranslationFixService::parseCliResponse(
+            QByteArray("{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"text\",\"text\":\"Bản dịch Claude.\"}]}}\n")),
+        QStringLiteral("Bản dịch Claude."));
+    QCOMPARE(
+        DubbingTranslationFixService::parseCliResponse(
+            QByteArray("Bản dịch Antigravity.\n")),
+        QStringLiteral("Bản dịch Antigravity."));
 }
 
 void TestDubbingProject::fixesOnlyTranslationsOverPhonemeLimit()

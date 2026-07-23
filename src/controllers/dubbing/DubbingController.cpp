@@ -509,7 +509,8 @@ bool DubbingController::adaptiveReady() const
 {
     const QVariantMap config = translationFixConfiguration();
     if (!config.value(QStringLiteral("configured")).toBool()) return false;
-    if (adaptiveProvider() == QStringLiteral("local")) {
+    const QString provider = adaptiveProvider();
+    if (provider == QStringLiteral("local")) {
         StudioConfiguration selection;
         selection.capabilityId = QStringLiteral("llm-chat");
         selection.familyId = config.value(QStringLiteral("model")).toString();
@@ -518,6 +519,10 @@ bool DubbingController::adaptiveReady() const
         selection.selectedFiles = config.value(QStringLiteral("selectedFiles")).toMap();
         return StudioConfigurationResolver::resolve(selection).isValid;
     }
+    if (provider == QStringLiteral("cli")) {
+        const QString cliAgent = config.value(QStringLiteral("cliAgent"), QStringLiteral("claude")).toString();
+        return !DubbingTranslationFixService::cliExecutablePath(cliAgent).isEmpty();
+    }
     return !config.value(QStringLiteral("serverUrl")).toString().trimmed().isEmpty()
         && !config.value(QStringLiteral("model")).toString().trimmed().isEmpty();
 }
@@ -525,12 +530,23 @@ bool DubbingController::adaptiveReady() const
 QString DubbingController::adaptiveStatusText() const
 {
     if (!adaptiveReady()) return QStringLiteral("LLM setup required");
-    if (adaptiveProvider() == QStringLiteral("local")) {
+    const QString provider = adaptiveProvider();
+    if (provider == QStringLiteral("local")) {
         return translationFixConfiguration()
             .value(QStringLiteral("model"), QStringLiteral("Local LLM ready")).toString();
     }
+    if (provider == QStringLiteral("cli")) {
+        const QString cliAgent = translationFixConfiguration().value(QStringLiteral("cliAgent"), QStringLiteral("claude")).toString();
+        const QString model = translationFixConfiguration().value(QStringLiteral("model")).toString();
+        QString label = QStringLiteral("Claude Code");
+        if (cliAgent == QStringLiteral("codex")) label = QStringLiteral("Codex CLI");
+        else if (cliAgent == QStringLiteral("antigravity")) label = QStringLiteral("Antigravity");
+        return (model.isEmpty() || model == QStringLiteral("default"))
+            ? QStringLiteral("%1 (CLI)").arg(label)
+            : QStringLiteral("%1 · %2").arg(label, model);
+    }
     const QString model = translationFixConfiguration().value(QStringLiteral("model")).toString();
-    return adaptiveProvider() == QStringLiteral("api")
+    return provider == QStringLiteral("api")
         ? QStringLiteral("LLM API · %1").arg(model)
         : QStringLiteral("LM Studio · %1").arg(model);
 }

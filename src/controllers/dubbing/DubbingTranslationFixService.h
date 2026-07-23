@@ -9,6 +9,7 @@
 class QNetworkAccessManager;
 class QNetworkReply;
 class QUrl;
+class QProcess;
 
 namespace LAStudio {
 
@@ -38,6 +39,8 @@ public:
     static QUrl chatUrl(const QString &serverUrl);
     static QUrl modelsUrl(const QString &serverUrl);
     static QString cleanAssistantText(const QString &content);
+    static QString parseCliResponse(const QByteArray &body);
+    static QString cliExecutablePath(const QString &cliAgent);
     static bool isCloserToBudget(int currentPhonemes, int candidatePhonemes,
                                  int minimum, int maximum);
 
@@ -56,6 +59,8 @@ private:
     void beginSegment();
     void requestAttempt();
     void handleAttemptResponse(QNetworkReply *reply);
+    void executeCliAttempt();
+    void processCandidate(const QString &candidate);
     void finishSegment(bool fixed, bool improved = false);
     void finishRun();
     QString buildPrompt(const QVariantMap &segment) const;
@@ -67,6 +72,7 @@ private:
 
     QNetworkAccessManager *m_network = nullptr;
     QPointer<QNetworkReply> m_reply;
+    QPointer<QProcess> m_cliProcess;
     QVariantMap m_configuration;
     QVariantList m_segments;
     QList<int> m_eligibleIndices;
