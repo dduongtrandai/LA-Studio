@@ -17,7 +17,7 @@ Qwen3-TTS CustomVoice 1.7B is a text-to-speech model from the Alibaba Qwen team 
 ## LA Studio Notes
 
 Qwen3-TTS CustomVoice 1.7B in LA Studio is a preset speaker TTS workflow. It downloads GGUF models from conversion repository `cstr/qwen3-tts-1.7b-customvoice-GGUF`. It needs:
-- Backbone: `qwen3-tts-12hz-1.7b-customvoice-q8_0.gguf`
+- Backbone: `qwen3-tts-12hz-1.7b-customvoice-q8_0.gguf` (recommended) or `qwen3-tts-12hz-1.7b-customvoice-f16.gguf`
 - Tokenizer: `qwen3-tts-tokenizer-12hz.gguf`
 
 It comes with 9 default preset speakers: aiden, dylan, eric, ono_anna, ryan, serena, sohee, uncle_fu, and vivian. You can also supply text instructions to control the style of the generated speech.
