@@ -6553,18 +6553,19 @@
           "file": "qwen3-tts-12hz-1.7b-customvoice-q8_0.gguf",
           "candidates": [
             "qwen3-tts-12hz-1.7b-customvoice-q8_0.gguf",
-            "qwen3-tts-12hz-1.7b-customvoice.gguf"
+            "qwen3-tts-12hz-1.7b-customvoice-f16.gguf"
           ],
           "modelKey": "cstr/qwen3-tts-1.7b-customvoice-gguf",
           "modelId": "cstr/qwen3-tts-1.7b-customvoice-GGUF",
-          "size": "1.8 GB",
+          "size": "2.04 GB",
           "variants": [
             {
               "name": "qwen3-tts-12hz-1.7b-customvoice-q8_0.gguf",
-              "size": "1.8 GB"
+              "size": "2.04 GB"
             },
             {
-              "name": "qwen3-tts-12hz-1.7b-customvoice.gguf"
+              "name": "qwen3-tts-12hz-1.7b-customvoice-f16.gguf",
+              "size": "3.84 GB"
             }
           ],
           "sources": [
@@ -6575,10 +6576,11 @@
               "files": [
                 {
                   "name": "qwen3-tts-12hz-1.7b-customvoice-q8_0.gguf",
-                  "size": "1.8 GB"
+                  "size": "2.04 GB"
                 },
                 {
-                  "name": "qwen3-tts-12hz-1.7b-customvoice.gguf"
+                  "name": "qwen3-tts-12hz-1.7b-customvoice-f16.gguf",
+                  "size": "3.84 GB"
                 }
               ]
             }
@@ -6649,10 +6651,11 @@
                 "files": [
                   {
                     "name": "qwen3-tts-12hz-1.7b-customvoice-q8_0.gguf",
-                    "size": "1.8 GB"
+                    "size": "2.04 GB"
                   },
                   {
-                    "name": "qwen3-tts-12hz-1.7b-customvoice.gguf"
+                    "name": "qwen3-tts-12hz-1.7b-customvoice-f16.gguf",
+                    "size": "3.84 GB"
                   }
                 ]
               }
@@ -6725,7 +6728,7 @@
         },
         "readme": {
           "filename": "README.md",
-          "content": "# Qwen3-TTS CustomVoice 1.7B\n\nQwen3-TTS CustomVoice 1.7B is a text-to-speech model from the Alibaba Qwen team specialized for preset speakers and style instructions, published under the `Qwen` organization on Hugging Face.\n\n## Links\n\n- Upstream model card: https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice\n- Upstream GitHub: https://github.com/QwenLM/Qwen2.5-TTS\n\n## Model Facts\n\n- **Task:** Text-to-Speech\n- **Parameters:** 1.7B\n- **License:** Apache-2.0\n- **Architecture:** Qwen2.5-TTS GGUF\n\n## LA Studio Notes\n\nQwen3-TTS CustomVoice 1.7B in LA Studio is a preset speaker TTS workflow. It downloads GGUF models from conversion repository `cstr/qwen3-tts-1.7b-customvoice-GGUF`. It needs:\n- Backbone: `qwen3-tts-12hz-1.7b-customvoice-q8_0.gguf`\n- Tokenizer: `qwen3-tts-tokenizer-12hz.gguf`\n\nIt comes with 9 default preset speakers: aiden, dylan, eric, ono_anna, ryan, serena, sohee, uncle_fu, and vivian. You can also supply text instructions to control the style of the generated speech.\n"
+          "content": "# Qwen3-TTS CustomVoice 1.7B\n\nQwen3-TTS CustomVoice 1.7B is a text-to-speech model from the Alibaba Qwen team specialized for preset speakers and style instructions, published under the `Qwen` organization on Hugging Face.\n\n## Links\n\n- Upstream model card: https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice\n- Upstream GitHub: https://github.com/QwenLM/Qwen2.5-TTS\n\n## Model Facts\n\n- **Task:** Text-to-Speech\n- **Parameters:** 1.7B\n- **License:** Apache-2.0\n- **Architecture:** Qwen2.5-TTS GGUF\n\n## LA Studio Notes\n\nQwen3-TTS CustomVoice 1.7B in LA Studio is a preset speaker TTS workflow. It downloads GGUF models from conversion repository `cstr/qwen3-tts-1.7b-customvoice-GGUF`. It needs:\n- Backbone: `qwen3-tts-12hz-1.7b-customvoice-q8_0.gguf` (recommended) or `qwen3-tts-12hz-1.7b-customvoice-f16.gguf`\n- Tokenizer: `qwen3-tts-tokenizer-12hz.gguf`\n\nIt comes with 9 default preset speakers: aiden, dylan, eric, ono_anna, ryan, serena, sohee, uncle_fu, and vivian. You can also supply text instructions to control the style of the generated speech.\n"
         },
         "thumbnail": {
           "filename": "thumbnail.webp",

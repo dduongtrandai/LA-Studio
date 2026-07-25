@@ -11,8 +11,9 @@ base:
         repo: qwen3-tts-1.7b-customvoice-GGUF
         files:
           - name: qwen3-tts-12hz-1.7b-customvoice-q8_0.gguf
-            size: 1.8 GB
-          - name: qwen3-tts-12hz-1.7b-customvoice.gguf
+            size: 2.04 GB
+          - name: qwen3-tts-12hz-1.7b-customvoice-f16.gguf
+            size: 3.84 GB
   - key: cstr/qwen3-tts-tokenizer-12hz-gguf
     role: tokenizer
     name: Audio Codec
