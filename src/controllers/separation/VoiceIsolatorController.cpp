@@ -4,7 +4,7 @@
 #include "controllers/app/AppController.h"
 #include "core/ModelManager.h"
 #include "core/RuntimeManager.h"
-#include "audio/WavIO.h"
+#include "audio/AudioFileDecoder.h"
 
 #include <QDir>
 #include <QFile>
@@ -356,7 +356,7 @@ void VoiceIsolatorController::loadVocalsSamples(const QString &path)
 
     QPointer<VoiceIsolatorController> weakThis(this);
     QThreadPool::globalInstance()->start([weakThis, cleanPath]() {
-        WavIO::WavData data = WavIO::loadAsFloat(cleanPath);
+        WavIO::WavData data = AudioFileDecoder::decode(cleanPath);
         QVariantList list;
         if (!data.samples.isEmpty()) {
             int step = std::max<int>(1, data.samples.size() / 1000);
@@ -392,7 +392,7 @@ void VoiceIsolatorController::loadBackgroundSamples(const QString &path)
 
     QPointer<VoiceIsolatorController> weakThis(this);
     QThreadPool::globalInstance()->start([weakThis, cleanPath]() {
-        WavIO::WavData data = WavIO::loadAsFloat(cleanPath);
+        WavIO::WavData data = AudioFileDecoder::decode(cleanPath);
         QVariantList list;
         if (!data.samples.isEmpty()) {
             int step = std::max<int>(1, data.samples.size() / 1000);

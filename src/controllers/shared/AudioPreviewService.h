@@ -3,8 +3,6 @@
 #include <QObject>
 #include <QString>
 #include <QVariantList>
-#include <QAudioDecoder>
-#include <QVector>
 #include <QtQml/qqml.h>
 
 namespace LAStudio {
@@ -41,14 +39,6 @@ signals:
     void errorOccurred(const QString &msg);
 
 private:
-    void publishDecodedSamples(const QString &sourcePath, quint64 requestId);
-
-private slots:
-    void handleDecoderBufferReady();
-    void handleDecoderFinished();
-    void handleDecoderError(QAudioDecoder::Error error);
-
-private:
     TtsEngine* m_tts = nullptr;
     AudioPlayer* m_player = nullptr;
     WaveformProvider* m_waveformProvider = nullptr;
@@ -57,10 +47,6 @@ private:
     QString m_wavSamplesSourcePath;
     bool m_wavSamplesLoading = false;
     quint64 m_wavSamplesRequestId = 0;
-    QAudioDecoder m_decoder;
-    QVector<float> m_decodedSamples;
-    QString m_decoderSourcePath;
-    quint64 m_decoderRequestId = 0;
 };
 
 } // namespace LAStudio

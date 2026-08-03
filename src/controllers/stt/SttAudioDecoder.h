@@ -2,11 +2,13 @@
 #include <QObject>
 #include <QString>
 #include <QVector>
-#include <QAudioDecoder>
-#include <QAudioBuffer>
 
 namespace LAStudio {
 
+// Asynchronous adapter for the shared audio input decoder.  Kept under the
+// STT controller namespace for source compatibility with existing callers;
+// the actual container decoding and normalization lives in AudioFileDecoder
+// so Alignment and API transcription receive the exact same input policy.
 class SttAudioDecoder : public QObject {
     Q_OBJECT
 public:
@@ -19,15 +21,8 @@ signals:
     void finished(const QVector<float> &samples);
     void errorOccurred(const QString &error);
 
-private slots:
-    void handleBufferReady();
-    void handleFinished();
-    void handleError(QAudioDecoder::Error error);
-
 private:
-    QAudioDecoder m_decoder;
-    QVector<float> m_decodedSamples;
-    QString m_filePath;
+    quint64 m_decodeRequestId = 0;
 };
 
 } // namespace LAStudio

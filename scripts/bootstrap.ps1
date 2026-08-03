@@ -178,6 +178,12 @@ if ([string]::IsNullOrWhiteSpace($resolvedVcpkgRoot)) {
     throw "vcpkg root was not detected. Pass -VcpkgRoot <path-to-vcpkg>."
 }
 
+# A fresh clone does not populate nested dependencies. Initialize them only
+# after local prerequisites have been validated, before CMake configures.
+Write-Host ">> Initializing Git submodules" -ForegroundColor Cyan
+& git submodule update --init --recursive
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 Write-Host ">> Qt root: $resolvedQtRoot" -ForegroundColor DarkGray
 Write-Host ">> vcpkg root: $resolvedVcpkgRoot" -ForegroundColor DarkGray
 Write-Host ">> Preset: $effectivePreset" -ForegroundColor DarkGray
