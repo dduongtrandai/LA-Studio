@@ -9,29 +9,12 @@ endif()
 
 project(LAStudio VERSION ${LASTUDIO_VERSION} LANGUAGES CXX)
 
-set(LLAMA_CPP_SOURCE_DIR "" CACHE PATH
-    "llama.cpp checkout used only for public C API headers at build time")
-if(NOT LLAMA_CPP_SOURCE_DIR)
-    set(_llama_cpp_candidates
-        "$ENV{LLAMA_CPP_SOURCE_DIR}"
-        "${CMAKE_SOURCE_DIR}/.deps/llama.cpp"
-        "${CMAKE_SOURCE_DIR}/../llama.cpp"
-    )
-    foreach(_candidate IN LISTS _llama_cpp_candidates)
-        if(EXISTS "${_candidate}/include/llama.h" AND EXISTS "${_candidate}/ggml/include/ggml.h")
-            set(LLAMA_CPP_SOURCE_DIR "${_candidate}" CACHE PATH
-                "llama.cpp checkout used only for public C API headers at build time" FORCE)
-            break()
-        endif()
-    endforeach()
-    unset(_llama_cpp_candidates)
-    unset(_candidate)
-endif()
-if(NOT EXISTS "${LLAMA_CPP_SOURCE_DIR}/include/llama.h" OR
-   NOT EXISTS "${LLAMA_CPP_SOURCE_DIR}/ggml/include/ggml.h")
+set(LASTUDIO_LLAMA_CPP_DIR "${CMAKE_SOURCE_DIR}/third_party/llama.cpp")
+if(NOT EXISTS "${LASTUDIO_LLAMA_CPP_DIR}/include/llama.h" OR
+   NOT EXISTS "${LASTUDIO_LLAMA_CPP_DIR}/ggml/include/ggml.h")
     message(FATAL_ERROR
-        "LLAMA_CPP_SOURCE_DIR must point to a llama.cpp b10036 checkout compatible with the packaged runtime. "
-        "Pass -DLLAMA_CPP_SOURCE_DIR=<path> or set the LLAMA_CPP_SOURCE_DIR environment variable.")
+        "The llama.cpp submodule is missing or incomplete. "
+        "Run: git submodule update --init --recursive")
 endif()
 
 set(LASTUDIO_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
@@ -566,8 +549,8 @@ target_include_directories(LAStudio PRIVATE
     ${CMAKE_SOURCE_DIR}/src/separation
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/third_party/whisper/include
-    ${LLAMA_CPP_SOURCE_DIR}/include
-    ${LLAMA_CPP_SOURCE_DIR}/ggml/include
+    ${LASTUDIO_LLAMA_CPP_DIR}/include
+    ${LASTUDIO_LLAMA_CPP_DIR}/ggml/include
 )
 
 target_compile_definitions(LAStudio PRIVATE
@@ -637,8 +620,8 @@ target_include_directories(LAStudioRuntimeHost PRIVATE
     ${CMAKE_SOURCE_DIR}/src/translation
     ${CMAKE_SOURCE_DIR}/src/translation/backends
     ${CMAKE_SOURCE_DIR}/include
-    ${LLAMA_CPP_SOURCE_DIR}/include
-    ${LLAMA_CPP_SOURCE_DIR}/ggml/include
+    ${LASTUDIO_LLAMA_CPP_DIR}/include
+    ${LASTUDIO_LLAMA_CPP_DIR}/ggml/include
 )
 if(ENABLE_OMNIVOICE)
     target_include_directories(LAStudioRuntimeHost PRIVATE

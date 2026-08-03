@@ -10,10 +10,21 @@ This project is standardized around a single primary build flow on Windows:
 ## Quick Start
 
 ```powershell
-git clone https://github.com/dduongtrandai/LA-Studio.git
+git clone --recurse-submodules https://github.com/dduongtrandai/LA-Studio.git
 cd LA-Studio
 .\scripts\bootstrap.bat
 ```
+
+The repository pins the `llama.cpp` revision used for the public ABI headers as a
+Git submodule under `third_party/llama.cpp`. If the repository was cloned without
+submodules, initialize it before configuring CMake:
+
+```powershell
+git submodule update --init --recursive
+```
+
+LA Studio does not build or link `llama.cpp`; the headers are used at compile time
+while the selected `llama.dll` and `ggml.dll` are loaded at runtime.
 
 After a successful build, executable output is:
 

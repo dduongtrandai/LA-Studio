@@ -248,8 +248,8 @@ target_include_directories(LAStudioUnitTests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/separation
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/mocks
-    ${LLAMA_CPP_SOURCE_DIR}/include
-    ${LLAMA_CPP_SOURCE_DIR}/ggml/include
+    ${LASTUDIO_LLAMA_CPP_DIR}/include
+    ${LASTUDIO_LLAMA_CPP_DIR}/ggml/include
 )
 
 target_link_libraries(LAStudioUnitTests PRIVATE

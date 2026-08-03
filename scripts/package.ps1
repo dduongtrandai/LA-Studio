@@ -13,7 +13,6 @@ param(
     [string] $Preset = "windows-msvc-release",
     [string] $QtRoot,
     [string] $VcpkgRoot,
-    [string] $LlamaCppSourceDir,
     [string] $Version,
     [switch] $SkipInstaller
 )
@@ -146,26 +145,6 @@ function Resolve-VcpkgRoot {
     )
     foreach ($root in $knownRoots) {
         if (Test-Path (Join-Path $root "scripts\buildsystems\vcpkg.cmake")) { return $root }
-    }
-    return $null
-}
-
-function Resolve-LlamaCppSourceDir {
-    param([string] $Candidate)
-
-    $candidates = @(
-        $Candidate,
-        $env:LLAMA_CPP_SOURCE_DIR,
-        (Join-Path $RepoRoot ".deps\llama.cpp"),
-        (Join-Path (Split-Path -Parent $RepoRoot) "llama.cpp")
-    ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
-
-    foreach ($root in $candidates) {
-        $normalizedRoot = $root.Trim('"')
-        if ((Test-Path -LiteralPath (Join-Path $normalizedRoot "include\llama.h")) -and
-            (Test-Path -LiteralPath (Join-Path $normalizedRoot "ggml\include\ggml.h"))) {
-            return $normalizedRoot
-        }
     }
     return $null
 }
@@ -311,7 +290,6 @@ if ($Preset -like "*mingw*") {
 # 1. Resolve build dependencies
 $QtRoot = Resolve-QtRoot -Candidate $QtRoot
 $VcpkgRoot = Resolve-VcpkgRoot -Candidate $VcpkgRoot
-$LlamaCppSourceDir = Resolve-LlamaCppSourceDir -Candidate $LlamaCppSourceDir
 $Version = Normalize-AppVersion -Value $Version
 $kitName = if ($Preset -like "*mingw*") { "mingw_64" } else { "msvc2022_64" }
 
@@ -321,10 +299,6 @@ if ([string]::IsNullOrWhiteSpace($QtRoot)) {
 if ([string]::IsNullOrWhiteSpace($VcpkgRoot)) {
     throw "vcpkg root not found. Pass -VcpkgRoot or set VCPKG_ROOT environment variable."
 }
-if ([string]::IsNullOrWhiteSpace($LlamaCppSourceDir)) {
-    throw "llama.cpp b10036 headers not found. Pass -LlamaCppSourceDir, set LLAMA_CPP_SOURCE_DIR, or check out llama.cpp at '.deps\llama.cpp'."
-}
-
 $qtPrefixPath = Join-Path $QtRoot $kitName
 $windeployqt = Join-Path $qtPrefixPath "bin\windeployqt.exe"
 if (-not (Test-Path $windeployqt)) {
@@ -350,8 +324,7 @@ $cmakeArgs = @(
     "-DCMAKE_INSTALL_PREFIX=$($stageDir.Replace('\', '/'))",
     "-DCMAKE_PREFIX_PATH=$($qtPrefixPath.Replace('\', '/'))",
     "-DCMAKE_TOOLCHAIN_FILE=$($toolchainFile.Replace('\', '/'))",
-    "-DVCPKG_ROOT=$($VcpkgRoot.Replace('\', '/'))",
-    "-DLLAMA_CPP_SOURCE_DIR=$($LlamaCppSourceDir.Replace('\', '/'))"
+    "-DVCPKG_ROOT=$($VcpkgRoot.Replace('\', '/'))"
 )
 if ($Preset -like "*mingw*") {
     $vcpkgTriplet = "x64-mingw-dynamic"

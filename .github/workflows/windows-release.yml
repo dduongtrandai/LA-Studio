@@ -19,15 +19,6 @@ jobs:
         with:
           submodules: recursive
 
-      # Keep build-time C API headers on the same revision as the runtime
-      # downloaded by the Hy-MT2 catalog entry.
-      - name: Checkout llama.cpp headers
-        uses: actions/checkout@v4
-        with:
-          repository: ggml-org/llama.cpp
-          ref: b10036
-          path: .deps/llama.cpp
-
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
 
@@ -62,7 +53,7 @@ jobs:
           }
           $qtRoot = Split-Path -Parent $env:QT_ROOT_DIR
           $version = $env:GITHUB_REF_NAME -replace '^v', ''
-          .\scripts\package.ps1 -Preset windows-msvc-release -QtRoot $qtRoot -VcpkgRoot $env:VCPKG_ROOT -LlamaCppSourceDir "$env:GITHUB_WORKSPACE\.deps\llama.cpp" -Version $version
+          .\scripts\package.ps1 -Preset windows-msvc-release -QtRoot $qtRoot -VcpkgRoot $env:VCPKG_ROOT -Version $version
 
       - name: Rename installer
         id: package
