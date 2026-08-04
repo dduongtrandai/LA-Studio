@@ -508,13 +508,13 @@ StudioShell {
                 }
 
                 // Audio Output Player
-                GeneratedAudioOutput {
+                AudioPreviewPlayer {
                     family: root.family
-                    outputReady: root.outputReady
+                    previewReady: root.outputReady
                     samples: AppController.tts.lastSamplePreview
                     durationText: root.outputDurationText()
                     sampleRate: AppController.tts.sampleRate
-                    sampleCountText: root.sampleCountText()
+                    statusText: root.sampleCountText()
                     isPlaying: root.playingType === "voice-design" && AppController.player.playing
                     isPaused: root.playingType === "voice-design" && AppController.player.paused
                     playbackPositionMs: root.playingType === "voice-design" ? AppController.player.playbackPositionMs : 0
@@ -522,9 +522,10 @@ StudioShell {
                     audioDurationMs: AppController.tts.sampleRate > 0
                                      ? Math.round(AppController.tts.lastSampleCount * 1000 / AppController.tts.sampleRate) : 0
                     processing: AppController.tts.processing
-                    generationProgress: AppController.tts.generationProgress
+                    processingProgress: AppController.tts.generationProgress
                     progressEstimated: AppController.tts.generationProgressEstimated
-                    progressLabel: AppController.tts.generationProgressLabel
+                    processingLabel: AppController.tts.generationProgressLabel
+                    showSaveAction: true
                     onPlayClicked: {
                         root.playingType = "voice-design"
                         AppController.preview.playLastTts()

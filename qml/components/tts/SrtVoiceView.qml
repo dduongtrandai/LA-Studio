@@ -350,21 +350,22 @@ ColumnLayout {
                 }
             }
 
-            GeneratedAudioOutput {
+            AudioPreviewPlayer {
                 Layout.fillWidth: true
-                outputReady: root.voiceController && root.voiceController.outputPath !== ""
+                previewReady: root.voiceController && root.voiceController.outputPath !== ""
                 samples: root.voiceController
                          ? (root.voiceController.summary.waveformSamples || []) : []
                 durationText: root.voiceController
                               ? root.formatTime(root.voiceController.summary.durationMs || 0) : "--"
                 sampleRate: root.voiceController
                             ? (root.voiceController.summary.sampleRate || 0) : 0
-                sampleCountText: root.voiceController
+                statusText: root.voiceController
                                  ? qsTr("%1 samples · complete subtitle track")
                                        .arg(root.voiceController.summary.sampleCount || 0) : ""
                 audioDurationMs: root.voiceController
                                  ? (root.voiceController.summary.durationMs || 0) : 0
                 family: root.family
+                showSaveAction: true
                 isPlaying: root.activePlaybackIndex === -2 && AppController.player.playing
                 isPaused: root.activePlaybackIndex === -2 && AppController.player.paused
                 playbackPositionMs: root.activePlaybackIndex === -2

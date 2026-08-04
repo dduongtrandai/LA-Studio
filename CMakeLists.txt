@@ -470,6 +470,7 @@ qt_add_qml_module(LAStudio
         qml/components/voicecloning/ModelSelectorPopup.qml
         qml/components/voicecloning/VoiceCloningSetupPanel.qml
         qml/components/shared/StudioHeaderBar.qml
+        qml/components/shared/AudioPreviewPlayer.qml
         qml/components/shared/GeneratedAudioOutput.qml
         qml/components/shared/VoiceSeparationOutput.qml
         qml/components/shared/LoadedModelDialog.qml

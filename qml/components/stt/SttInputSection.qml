@@ -9,7 +9,7 @@ Rectangle {
     id: root
 
     Layout.fillWidth: true
-    Layout.preferredHeight: 285
+    Layout.preferredHeight: root.sttSession && root.sttSession.inputPath !== "" ? 350 : 285
     color: Theme.surface
     radius: Theme.radiusMedium
     border.color: Qt.rgba(1, 1, 1, 0.08)
@@ -31,7 +31,7 @@ Rectangle {
 
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 160
+            Layout.preferredHeight: root.sttSession && root.sttSession.inputPath !== "" ? 230 : 160
             color: Qt.rgba(1, 1, 1, 0.02)
             radius: Theme.radiusSmall
             border.color: Qt.rgba(1, 1, 1, 0.08)
@@ -65,52 +65,37 @@ Rectangle {
                 }
             }
 
-            ColumnLayout {
+            AudioPreviewPlayer {
+                id: inputPreview
                 anchors.fill: parent
                 anchors.margins: Theme.paddingMedium
                 visible: root.sttSession ? root.sttSession.inputPath !== "" : false
-                spacing: Theme.paddingMedium
-
-                Text {
-                    text: qsTr("Loaded: %1").arg(root.sttSession ? root.sttSession.inputPath.split(/[/\\]/).pop() : "")
-                    color: Theme.textPrimary
-                    font.pixelSize: Theme.fontSmall
-                    elide: Text.ElideMiddle
-                    Layout.fillWidth: true
-                    horizontalAlignment: Text.AlignHCenter
+                previewReady: root.sttSession ? root.sttSession.inputPath !== "" : false
+                title: qsTr("Loaded: %1").arg(root.sttSession ? root.sttSession.inputPath.split(/[/\\]/).pop() : "")
+                samples: root.sttSession ? root.sttSession.waveformSamples : []
+                durationText: formatTime(audioPlayer.duration)
+                statusText: root.sttSession && root.sttSession.inputLoading ? qsTr("Decoding file...") : qsTr("Audio ready")
+                isPlaying: audioPlayer.playbackState === MediaPlayer.PlayingState
+                isPaused: audioPlayer.playbackState === MediaPlayer.PausedState
+                playbackPositionMs: audioPlayer.position
+                playbackDurationMs: audioPlayer.duration
+                audioDurationMs: audioPlayer.duration
+                processing: root.sttSession ? root.sttSession.processing : false
+                processingProgress: root.sttSession ? root.sttSession.progress : 0
+                processingLabel: qsTr("Transcribing audio")
+                showReplaceAction: true
+                replaceActionText: qsTr("Change / Record")
+                onReplaceClicked: {
+                    audioPlayer.stop()
+                    sourcePicker.activeTab = "file"
+                    if (root.sttSession) root.sttSession.clearInput()
                 }
-
-                WaveformView {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    samples: root.sttSession ? root.sttSession.waveformSamples : []
-                }
-
-                RowLayout {
-                    Layout.alignment: Qt.AlignHCenter
-                    spacing: Theme.paddingMedium
-
-                    PrimaryButton {
-                        text: qsTr("Change / Record")
-                        quiet: true
-                        implicitHeight: 32
-                        enabled: root.sttSession ? !root.sttSession.processing : false
-                        onClicked: {
-                            audioPlayer.stop()
-                            sourcePicker.activeTab = "file"
-                            if (root.sttSession) root.sttSession.clearInput()
-                        }
-                    }
-
-                    PrimaryButton {
-                        text: audioPlayer.playbackState === MediaPlayer.PlayingState ? qsTr("Pause") : qsTr("Play")
-                        buttonColor: audioPlayer.playbackState === MediaPlayer.PlayingState ? Theme.danger : Theme.success
-                        implicitHeight: 32
-                        onClicked: {
-                            if (audioPlayer.playbackState === MediaPlayer.PlayingState) audioPlayer.pause()
-                            else audioPlayer.play()
-                        }
-                    }
+                onPlayClicked: audioPlayer.play()
+                onResumeClicked: audioPlayer.play()
+                onPauseClicked: audioPlayer.pause()
+                onStopClicked: audioPlayer.stop()
+                onSeekRequested: function(positionMs) {
+                    audioPlayer.position = positionMs
                 }
             }
         }

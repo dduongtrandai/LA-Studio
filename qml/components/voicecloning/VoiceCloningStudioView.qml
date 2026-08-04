@@ -502,13 +502,13 @@ StudioShell {
                                             }
                                         }
 
-                                        GeneratedAudioOutput {
+                                        AudioPreviewPlayer {
                                             Layout.fillWidth: true
-                                            outputReady: root.outputReady
+                                            previewReady: root.outputReady
                                             samples: AppController.tts.lastSamplePreview
                                             durationText: root.outputDurationText()
                                             sampleRate: AppController.tts.sampleRate
-                                            sampleCountText: root.sampleCountText()
+                                            statusText: root.sampleCountText()
                                             isPlaying: root.playingType === "tts" && AppController.player.playing
                                             isPaused: root.playingType === "tts" && AppController.player.paused
                                             playbackPositionMs: root.playingType === "tts" ? AppController.player.playbackPositionMs : 0
@@ -516,9 +516,10 @@ StudioShell {
                                             audioDurationMs: AppController.tts.sampleRate > 0
                                                              ? Math.round(AppController.tts.lastSampleCount * 1000 / AppController.tts.sampleRate) : 0
                                             processing: AppController.tts.processing
-                                            generationProgress: AppController.tts.generationProgress
+                                            processingProgress: AppController.tts.generationProgress
                                             progressEstimated: AppController.tts.generationProgressEstimated
-                                            progressLabel: AppController.tts.generationProgressLabel
+                                            processingLabel: AppController.tts.generationProgressLabel
+                                            showSaveAction: true
                                             onPlayClicked: {
                                                 root.playingType = "tts"
                                                 AppController.preview.playLastTts()
