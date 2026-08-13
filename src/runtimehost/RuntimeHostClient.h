@@ -55,7 +55,8 @@ private:
     bool readResponse(QLocalSocket *socket,
                       quint64 requestId,
                       RuntimeHostFrame *response,
-                      QString *error);
+                      QString *error,
+                      int timeoutMs = 10000);
     QString protocolError(const RuntimeHostFrame &frame) const;
 
     QProcess m_process;

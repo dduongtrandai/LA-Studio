@@ -44,6 +44,7 @@ public:
     Q_INVOKABLE void saveLastRecordingToCacheAsync(int targetSampleRate = 24000);
 
     QByteArray lastRecording() const { return m_buffer; }
+    int lastRecordingSampleRate() const { return m_bufferSampleRate; }
 
 signals:
     void recordingChanged();

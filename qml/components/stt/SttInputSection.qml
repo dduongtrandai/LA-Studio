@@ -108,7 +108,13 @@ Rectangle {
                 text: {
                     if (!root.sttSession) return qsTr("No file selected")
                     if (root.sttSession.recording) return qsTr("Recording audio...")
-                    if (root.sttSession.processing) return qsTr("Processing... %1%").arg(root.sttSession.progress)
+                    if (root.sttSession.processing) {
+                        var stage = root.sttSession.processingStage || qsTr("Processing")
+                        var chunks = root.sttSession.totalChunks > 0
+                            ? qsTr(" (%1/%2 chunks)").arg(root.sttSession.completedChunks).arg(root.sttSession.totalChunks) : ""
+                        return qsTr("%1... %2%%").arg(stage).arg(root.sttSession.progress) + chunks
+                    }
+                    if (root.sttSession.resumable) return qsTr("A resumable transcription is available")
                     if (root.sttSession.inputLoading) return qsTr("Decoding file...")
                     if (root.sttSession.inputError !== "") return root.sttSession.inputError
                     return root.sttSession.inputPath !== "" ? qsTr("Ready to transcribe") : qsTr("Choose a file or capture audio")
@@ -123,6 +129,12 @@ Rectangle {
                 enabled: root.sttSession ? (root.sttSession.inputPath !== "" && !root.sttSession.processing && !root.sttSession.inputLoading && root.sttSession.inputError === "") : false
                 buttonColor: Theme.accent
                 onClicked: if (root.sttSession) root.sttSession.transcribeInput()
+            }
+
+            PrimaryButton {
+                text: qsTr("Resume")
+                visible: root.sttSession ? root.sttSession.resumable && !root.sttSession.processing : false
+                onClicked: if (root.sttSession) root.sttSession.resumeProcessing()
             }
 
             PrimaryButton {

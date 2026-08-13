@@ -14,6 +14,8 @@ private slots:
     void testSttSessionUrlPreview();
     void testSttSessionQmlNotifications();
     void testSttRecordingSourceSelection();
+    void testSttSubtitleExport();
+    void testLongFormRangeCacheReader();
 };
 
 } // namespace LAStudio

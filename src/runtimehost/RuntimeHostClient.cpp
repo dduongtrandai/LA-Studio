@@ -191,7 +191,15 @@ bool RuntimeHostClient::request(RuntimeHostMessage message,
         m_currentRequestId.store(0, std::memory_order_release);
         return false;
     }
-    const bool received = readResponse(&m_socket, requestId, response, error);
+    // Loading a model and running inference can legitimately produce no socket
+    // traffic for much longer than the control-message timeout.  In particular,
+    // Whisper only sends its response after the complete audio buffer has been
+    // transcribed.  The host process and local socket already provide failure
+    // notification, so wait for those operations without an arbitrary deadline.
+    const bool longRunning = message == RuntimeHostMessage::Load
+                          || message == RuntimeHostMessage::Infer;
+    const bool received = readResponse(&m_socket, requestId, response, error,
+                                       longRunning ? -1 : 10000);
     m_currentRequestId.store(0, std::memory_order_release);
     return received;
 }
@@ -269,7 +277,8 @@ bool RuntimeHostClient::sendFrame(QLocalSocket *socket,
 bool RuntimeHostClient::readResponse(QLocalSocket *socket,
                                      quint64 requestId,
                                      RuntimeHostFrame *response,
-                                     QString *error)
+                                     QString *error,
+                                     int timeoutMs)
 {
     RuntimeHostFrameParser parser;
     while (true) {
@@ -299,13 +308,17 @@ bool RuntimeHostClient::readResponse(QLocalSocket *socket,
             if (error) *error = parseError;
             return false;
         }
-        if (!socket->waitForReadyRead(10000)) {
+        if (!socket->waitForReadyRead(timeoutMs)) {
             if (error) {
                 if (m_process.state() == QProcess::NotRunning) {
                     *error = QStringLiteral("RuntimeHost exited unexpectedly (code %1). Reload the model to restart its isolated runtime.")
                                   .arg(m_process.exitCode());
-                } else {
+                } else if (socket->state() != QLocalSocket::ConnectedState) {
+                    *error = QStringLiteral("RuntimeHost connection failed: %1").arg(socket->errorString());
+                } else if (timeoutMs >= 0) {
                     *error = QStringLiteral("RuntimeHost response timed out: %1").arg(socket->errorString());
+                } else {
+                    *error = QStringLiteral("RuntimeHost response failed: %1").arg(socket->errorString());
                 }
             }
             return false;

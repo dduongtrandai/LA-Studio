@@ -82,6 +82,8 @@ set(TEST_SOURCES
     ../src/tts/TimedSpeechPipeline.cpp
     ../src/audio/AudioTimelineRenderer.cpp
     ../src/controllers/stt/SttAudioDecoder.cpp
+    ../src/audio/LongFormAudioSource.cpp
+    ../src/stt/SttSubtitleService.cpp
     ../src/dubbing/DubbingProject.cpp
     ../src/dubbing/EspeakNgPhonemizer.cpp
     ../src/dubbing/DubbingDuration.cpp
