@@ -264,11 +264,10 @@ target_link_libraries(LAStudioUnitTests PRIVATE
     Qt6::Multimedia
     Qt6::Quick
     CURL::libcurl
-    dxgi
 )
 
 if(WIN32)
-    target_link_libraries(LAStudioUnitTests PRIVATE shell32)
+    target_link_libraries(LAStudioUnitTests PRIVATE shell32 dxgi)
 endif()
 
 add_test(NAME LAStudioUnitTests COMMAND LAStudioUnitTests)

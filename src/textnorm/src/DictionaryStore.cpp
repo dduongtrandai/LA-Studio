@@ -3,6 +3,12 @@
 #include <QFile>
 #include <QTextStream>
 
+// rcc generates this initializer in the global namespace. It must be
+// declared and called with explicit :: qualification (not via
+// Q_INIT_RESOURCE, whose function-local extern would otherwise bind to a
+// vietnorm::detail-scoped declaration that never gets defined).
+extern int qInitResources_vietnorm_data();
+
 namespace vietnorm::detail {
 namespace {
 
@@ -36,7 +42,7 @@ QStringList parseCsvLine(const QString &line)
 DictionaryStore DictionaryStore::builtIn()
 {
     DictionaryStore result;
-    Q_INIT_RESOURCE(vietnorm_data);
+    ::qInitResources_vietnorm_data();
     QString error;
     if (!loadCsv(QStringLiteral(":/vietnorm/data/acronyms.csv"), true, result, &error)
         || !loadCsv(QStringLiteral(":/vietnorm/data/non-vietnamese-words.csv"), false, result, &error)) {
